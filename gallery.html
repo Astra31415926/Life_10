@@ -185,12 +185,24 @@ function renderBytecode(cv,rec){
       const r=fillChannel(words[i]||'',n,mode,markBit);
       grid[k]=r.g;dmask[k]=r.dm;});
   }
-  const pad=frameW,tw=W+pad*2,th=H+pad*2;
-  const cell=Math.max(1,Math.floor(cv.width/Math.max(tw,th)));
-  const ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;
-  const ox=Math.floor((cv.width-tw*cell)/2),oy=Math.floor((cv.height-th*cell)/2);
-  ctx.fillStyle='#0a0806';ctx.fillRect(0,0,cv.width,cv.height);
-  if(pad>0){ctx.fillStyle='#8f8f8f';ctx.fillRect(ox,oy,tw*cell,th*cell);}
+  const FRAME_A='#0a0806', FRAME_B='#f4efe6';
+const pad=3,tw=W+pad*2,th=H+pad*2;  /* всі коди галереї — нова рамка з лінійкою */
+const cell=Math.max(1,Math.floor(cv.width/Math.max(tw,th)));
+const ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;
+const ox=Math.floor((cv.width-tw*cell)/2),oy=Math.floor((cv.height-th*cell)/2);
+ctx.fillStyle='#0a0806';ctx.fillRect(0,0,cv.width,cv.height);
+if(pad>=3){
+  const CW=tw, CHc=th;
+  const cellAt=(cx,cy,col)=>{ctx.fillStyle=col;ctx.fillRect(ox+cx*cell,oy+cy*cell,cell,cell);};
+  ctx.fillStyle=colZero;ctx.fillRect(ox,oy,tw*cell,th*cell);
+  for(let cx=0;cx<CW;cx++){cellAt(cx,0,FRAME_A);cellAt(cx,CHc-1,FRAME_A);}
+  for(let cy=1;cy<CHc-1;cy++){cellAt(0,cy,FRAME_A);cellAt(CW-1,cy,FRAME_A);}
+  for(let cx=1;cx<CW-1;cx++){cellAt(cx,1,FRAME_B);cellAt(cx,CHc-2,FRAME_B);}
+  for(let cy=2;cy<CHc-2;cy++){cellAt(1,cy,FRAME_B);cellAt(CW-2,cy,FRAME_B);}
+  for(let cx=2;cx<CW-2;cx++){cellAt(cx,2,((cx+2)%2===0)?FRAME_A:FRAME_B);cellAt(cx,CHc-3,((cx+CHc-3)%2===0)?FRAME_A:FRAME_B);}
+  for(let cy=3;cy<CHc-3;cy++){cellAt(2,cy,((2+cy)%2===0)?FRAME_A:FRAME_B);cellAt(CW-3,cy,((CW-3+cy)%2===0)?FRAME_A:FRAME_B);}
+}else if(pad>0){ctx.fillStyle='#8f8f8f';ctx.fillRect(ox,oy,tw*cell,th*cell);}
+ctx.fillStyle=colZero;ctx.fillRect(ox+pad*cell,oy+pad*cell,W*cell,H*cell);
   ctx.fillStyle=colZero;ctx.fillRect(ox+pad*cell,oy+pad*cell,W*cell,H*cell);
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
     const i=y*W+x;
