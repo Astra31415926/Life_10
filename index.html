@@ -2116,7 +2116,7 @@ autoGrow();
   .action{display:none!important;}
   .side.right .grp:last-child{display:none!important;}
   #shape,#frame{display:none!important;}
-  #pal-panel{position:static!important;box-shadow:none!important;border:0!important;padding:6px 0 0!important;background:transparent!important;}
+  #pal-panel, #pal-panel.hide{display:block!important;position:static!important;box-shadow:none!important;border:0!important;padding:6px 0 0!important;background:transparent!important;}
   #pal-btn{display:none!important;}
   #mobabar{display:flex!important;}
 }
@@ -2146,18 +2146,37 @@ body.light-mode #mobabar{background:rgba(240,232,218,.96);}
 </style>
 <script>
 (function(){
-  const mq=window.matchMedia('(max-width:768px)');
   const $ID=id=>document.getElementById(id);
-  const bar=document.createElement('div');bar.id='mobabar';
+  
+  let bar = $ID('mobabar');
+  if(!bar){
+    bar=document.createElement('div');
+    bar.id='mobabar';
+    document.body.appendChild(bar);
+  }
   bar.innerHTML='<button id="mb-save">⤓ Зберегти</button><button id="mb-scan">⌖ Сканувати</button>';
-  document.body.appendChild(bar);
-  function syncMobSave(){
-    const b=$ID('mb-save');
-    if(b){
-      b.disabled=false;
-      b.removeAttribute('disabled');
-      b.style.display='block';
-    }
+
+  let sheet = $ID('sheet');
+  if(!sheet){
+    sheet=document.createElement('div');
+    sheet.id='sheet';
+    sheet.innerHTML='<div class="veil2"></div><div class="card"><div class="sh-t">Сканувати код</div><button class="sh-b" id="sh-cam">📷 Камера</button><button class="sh-b" id="sh-file">🖼 Завантажити з галереї</button><button class="sh-b sh-cancel" id="sh-x">Скасувати</button></div>';
+    document.body.appendChild(sheet);
+  }
+
+  function openSheet(){sheet.classList.add('on');}
+  function closeSheet(){sheet.classList.remove('on');}
+
+  sheet.querySelector('.veil2').onclick=closeSheet;
+  $ID('sh-x').onclick=closeSheet;
+  $ID('mb-scan').onclick=openSheet;
+
+  $ID('mb-save').onclick=()=>{
+    const n = (typeof defaultName === 'function' ? defaultName() : 'taina');
+    if (typeof savePNG === 'function') savePNG(n);
+  };
+})();
+</script>
   }
   if(typeof syncMain==='function'){const _sm=syncMain;window.syncMain=function(){_sm.apply(this,arguments);syncMobSave();};}
   setInterval(syncMobSave,300);
