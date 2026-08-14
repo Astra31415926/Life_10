@@ -1743,20 +1743,13 @@ $('mainbtn').onclick=e=>{e.stopPropagation();if(busy)return;menuOpen?closeMenu()
 document.addEventListener('click',e=>{
   if(menuOpen&&!e.target.closest('.action'))closeMenu();
   if(palOpen&&!e.target.closest('.palette-pop')){palOpen=false;$('pal-panel').classList.add('hide')}});
+
 function savePNG(name){
   const scale=Math.max(1,Math.round(1200/Math.max(OFF.width,1)));
   const ex=document.createElement('canvas');
   ex.width=OFF.width*scale;ex.height=OFF.height*scale;
   const c=ex.getContext('2d');c.imageSmoothingEnabled=false;
   c.drawImage(OFF,0,0,OFF.width,OFF.height,0,0,ex.width,ex.height);
-  try {
-    const a = document.createElement('a');
-    a.href = ex.toDataURL('image/png');
-    a.download = name + '.png';
-    a.click();
-  } catch(e) {}
-  if(typeof tone==='function') tone(660,.09,.07);
-}
   
   try {
     const dataUrl = ex.toDataURL('image/png');
@@ -2116,7 +2109,7 @@ autoGrow();
   .action{display:none!important;}
   .side.right .grp:last-child{display:none!important;}
   #shape,#frame{display:none!important;}
-  #pal-panel, #pal-panel.hide{display:block!important;position:static!important;box-shadow:none!important;border:0!important;padding:6px 0 0!important;background:transparent!important;}
+  #pal-panel{position:static!important;box-shadow:none!important;border:0!important;padding:6px 0 0!important;background:transparent!important;}
   #pal-btn{display:none!important;}
   #mobabar{display:flex!important;}
 }
@@ -2146,37 +2139,18 @@ body.light-mode #mobabar{background:rgba(240,232,218,.96);}
 </style>
 <script>
 (function(){
+  const mq=window.matchMedia('(max-width:768px)');
   const $ID=id=>document.getElementById(id);
-  
-  let bar = $ID('mobabar');
-  if(!bar){
-    bar=document.createElement('div');
-    bar.id='mobabar';
-    document.body.appendChild(bar);
-  }
+  const bar=document.createElement('div');bar.id='mobabar';
   bar.innerHTML='<button id="mb-save">⤓ Зберегти</button><button id="mb-scan">⌖ Сканувати</button>';
-
-  let sheet = $ID('sheet');
-  if(!sheet){
-    sheet=document.createElement('div');
-    sheet.id='sheet';
-    sheet.innerHTML='<div class="veil2"></div><div class="card"><div class="sh-t">Сканувати код</div><button class="sh-b" id="sh-cam">📷 Камера</button><button class="sh-b" id="sh-file">🖼 Завантажити з галереї</button><button class="sh-b sh-cancel" id="sh-x">Скасувати</button></div>';
-    document.body.appendChild(sheet);
-  }
-
-  function openSheet(){sheet.classList.add('on');}
-  function closeSheet(){sheet.classList.remove('on');}
-
-  sheet.querySelector('.veil2').onclick=closeSheet;
-  $ID('sh-x').onclick=closeSheet;
-  $ID('mb-scan').onclick=openSheet;
-
-  $ID('mb-save').onclick=()=>{
-    const n = (typeof defaultName === 'function' ? defaultName() : 'taina');
-    if (typeof savePNG === 'function') savePNG(n);
-  };
-})();
-</script>
+  document.body.appendChild(bar);
+  function syncMobSave(){
+    const b=$ID('mb-save');
+    if(b){
+      b.disabled=false;
+      b.removeAttribute('disabled');
+      b.style.display='block';
+    }
   }
   if(typeof syncMain==='function'){const _sm=syncMain;window.syncMain=function(){_sm.apply(this,arguments);syncMobSave();};}
   setInterval(syncMobSave,300);
