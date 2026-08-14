@@ -1884,19 +1884,7 @@ function refreshInputs(){
                 '<button id="mb-scan">⌖ Сканувати</button>';
   document.body.appendChild(bar);
 
-  /* Зберегти — активна лише коли є код */
-  function syncMobSave(){const b=document.getElementById('mb-save');
-    if(b)b.disabled=!(typeof hasImage!=='undefined'&&hasImage);}
-  /* стежимо за появою коду (легкий поллінг + хук на syncMain) */
-  if(typeof syncMain==='function'){const _sm=syncMain;window.syncMain=function(){_sm.apply(this,arguments);syncMobSave();};}
-  setInterval(syncMobSave,500);
-
-  document.getElementById('mb-save').onclick=()=>{
-    if(typeof hasImage==='undefined'||!hasImage)return;
-    const n=(typeof defaultName==='function'?defaultName():'taina');
-    if(typeof savePNG==='function')savePNG(n);
-  };
-  document.getElementById('mb-scan').onclick=()=>openSheet();
+  
 
   /* ── action sheet: Камера / Завантажити ── */
   const sheet=document.createElement('div');sheet.id='sheet';
