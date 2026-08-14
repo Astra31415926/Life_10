@@ -242,6 +242,71 @@ input.inp.r,input.inp.g,input.inp.b{font-size:16px;padding:15px 18px;line-height
   .center{order:1}
   .stage{max-width:min(72vw,360px)}
 }
+  .stage video.cam-live{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:5;border-radius:14px}
+.vf{position:absolute;inset:8%;z-index:8;pointer-events:none}
+.vf span{position:absolute;width:26px;height:26px;border:3px solid var(--acc-hot);opacity:.9}
+.vf span:nth-child(1){top:0;left:0;border-right:0;border-bottom:0}
+.vf span:nth-child(2){top:0;right:0;border-left:0;border-bottom:0}
+.vf span:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}
+.vf span:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
+
+/* ═══════════════════════════════════════════════════════════════
+   МОБІЛЬНА АДАПТАЦІЯ (тільки екрани ≤768px; десктоп не змінюється)
+   ═══════════════════════════════════════════════════════════════ */
+@media(max-width:768px){
+  /* одна колонка, порядок: код → ввід → налаштування */
+  .app{grid-template-columns:1fr!important;max-width:100%!important;
+    padding-bottom:76px!important;}          /* місце під нижню панель */
+  .center{order:1!important;padding:12px 14px 8px!important;gap:10px!important;}
+  .side.left{order:2!important;}
+  .side.right{order:3!important;}
+  .side{border:0!important;border-top:1px solid var(--line)!important;
+    padding:16px 16px!important;gap:12px!important;}
+
+  /* код зверху, стискається коли фокус у полі (клавіатура) */
+  .stage{max-width:min(88vw,340px)!important;transition:max-width .25s,max-height .25s;}
+  body.kbd .stage{max-width:min(46vw,180px)!important;}   /* стиск при клавіатурі */
+
+  /* ввід і статус одразу під кодом */
+  .txtzone{height:auto!important;max-width:100%!important;}
+
+  /* приховати статичний таб-заголовок, лишити лого + одну кнопку */
+  .roomtab.on{display:none!important;}
+  #introBtn{display:none!important;}
+  .nav{gap:10px!important;padding:0 14px!important;}
+
+  /* верхні дублюючі кнопки дій ховаємо — все йде в нижню панель */
+  .action{display:none!important;}
+
+  /* нижня фіксована панель дій */
+  #mobabar{display:flex!important;}
+
+  /* акордеон: тап по заголовку секції згортає її вміст */
+  .side .grp > .sec-t{cursor:pointer;justify-content:space-between;}
+  .side .grp > .sec-t::after{content:'▾';margin-left:auto;transition:transform .2s;font-size:10px;}
+  .side .grp.mclosed > .sec-t::after{transform:rotate(-90deg);}
+  .side .grp.mclosed > *:not(.sec-t){display:none!important;}
+}
+/* десктоп: нижня панель і акордеон-заголовки приховані */
+#mobabar{display:none;}
+
+/* нижня панель дій (мобільна) */
+#mobabar{position:fixed;left:0;right:0;bottom:0;z-index:80;
+  gap:10px;padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+  background:rgba(13,10,8,.94);backdrop-filter:blur(10px);
+  border-top:1px solid var(--line);}
+body.light-mode #mobabar{background:rgba(240,232,218,.94);}
+#mobabar button{flex:1;font-family:var(--mono);font-size:14px;font-weight:700;
+  letter-spacing:.05em;padding:15px 12px;border-radius:12px;cursor:pointer;
+  text-transform:uppercase;border:1px solid color-mix(in srgb,var(--acc) 55%,transparent);
+  background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 26%,transparent),color-mix(in srgb,var(--acc) 10%,transparent));
+  color:var(--acc-hot);display:flex;align-items:center;justify-content:center;gap:8px;}
+#mobabar button:disabled{opacity:.4;cursor:default;
+  border-color:var(--line);background:transparent;color:var(--muted);}
+
+
+
+  
 </style>
 </head>
 <body class="room-mono">
@@ -334,6 +399,10 @@ input.inp.r,input.inp.g,input.inp.b{font-size:16px;padding:15px 18px;line-height
 
     <div class="stage" id="stage">
       <canvas id="cv" width="512" height="512"></canvas>
+
+      <video id="cam-video" playsinline muted class="cam-live hide"></video>
+      <div class="vf hide" id="vf"><span></span><span></span><span></span><span></span></div>
+      
       <div class="grid-ov"></div>
       <div class="scanline"></div>
       <div class="veil">
@@ -343,6 +412,12 @@ input.inp.r,input.inp.g,input.inp.b{font-size:16px;padding:15px 18px;line-height
     </div>
 
     <div class="action">
+
+
+      <button id="cam-btn" class="mainbtn" style="margin-top:8px">📷 Камера</button>
+<video id="cam-video" playsinline style="display:none"></video>
+
+      
       <div class="menu hide" id="menu"></div>
       <button class="mainbtn" id="mainbtn"></button>
     </div>
@@ -622,17 +697,21 @@ const FRAME_A='#0a0806';     /* чорна клітина лінійки */
 const FRAME_B='#f4efe6';     /* біла клітина лінійки */
 function paint(ctx,cell,pad){
   const TW=(W+pad*2)*cell,TH=(H+pad*2)*cell;
-  if(pad>=2){
-    /* рамка-лінійка: по периметру чергуються чорні/білі клітини завтовшки 1 клітину.
-       дає декодеру точні мітки розміру клітини — сітка не пливе за будь-якого розміру */
+if(pad>=3){
+    /* НОВА рамка (3 шари, D4-симетрична): суцільний тёмний / світлий / зебра.
+       Суцільна зовнішня лінія дає точні 4 кути для локалізації. */
     ctx.fillStyle=colZero;ctx.fillRect(0,0,TW,TH);
-    const CW=W+pad*2, CH=H+pad*2;  /* всього клітин зі рамкою */
-    const cellAt=(cx,cy)=>{ctx.fillStyle=((cx+cy)%2===0)?FRAME_A:FRAME_B;
-      ctx.fillRect(cx*cell,cy*cell,cell,cell)};
-    for(let cx=0;cx<CW;cx++){cellAt(cx,0);cellAt(cx,CH-1);}          /* верх, низ */
-    for(let cy=1;cy<CH-1;cy++){cellAt(0,cy);cellAt(CW-1,cy);}        /* ліво, право */
-    /* друга рамка (біле повітря) між лінійкою та візерунком */
-    ctx.fillStyle=FRAME_B;ctx.fillRect(cell,cell,TW-2*cell,TH-2*cell);
+    const CW=W+pad*2, CH=H+pad*2;
+    const cellAt=(cx,cy,col)=>{ctx.fillStyle=col;ctx.fillRect(cx*cell,cy*cell,cell,cell)};
+    /* шар 1 — суцільний тёмний периметр */
+    for(let cx=0;cx<CW;cx++){cellAt(cx,0,FRAME_A);cellAt(cx,CH-1,FRAME_A);}
+    for(let cy=1;cy<CH-1;cy++){cellAt(0,cy,FRAME_A);cellAt(CW-1,cy,FRAME_A);}
+    /* шар 2 — суцільний світлий роздільник */
+    for(let cx=1;cx<CW-1;cx++){cellAt(cx,1,FRAME_B);cellAt(cx,CH-2,FRAME_B);}
+    for(let cy=2;cy<CH-2;cy++){cellAt(1,cy,FRAME_B);cellAt(CW-2,cy,FRAME_B);}
+    /* шар 3 — зебра (даёт число клітин T) */
+    for(let cx=2;cx<CW-2;cx++){cellAt(cx,2,((cx+2)%2===0)?FRAME_A:FRAME_B);cellAt(cx,CH-3,((cx+CH-3)%2===0)?FRAME_A:FRAME_B);}
+    for(let cy=3;cy<CH-3;cy++){cellAt(2,cy,((2+cy)%2===0)?FRAME_A:FRAME_B);cellAt(CW-3,cy,((CW-3+cy)%2===0)?FRAME_A:FRAME_B);}
   }else if(pad>0){
     ctx.fillStyle=FRAME_COL;ctx.fillRect(0,0,TW,TH);
   }
@@ -657,7 +736,7 @@ function paint(ctx,cell,pad){
       if(!grid.r[i])continue;   /* нуль = фон */
       put(x,y,colOne);}}}
 function render(){
-  const pad=frameW,tw=W+pad*2,th=H+pad*2;
+  const pad=(frameW>=2?3:frameW),tw=W+pad*2,th=H+pad*2;
   const cell=Math.max(2,Math.floor(760/Math.max(tw,th)));
   OFF.width=tw*cell;OFF.height=th*cell;
   OCTX.imageSmoothingEnabled=false;
@@ -813,7 +892,7 @@ function findRuler(px,IW,IH){if(IW!==IH)return null;
   let T=null,fb=0;for(const [k,v] of freq)if(v>fb){fb=v;T=k;}
   return {T,cell:ruler_median(edges.filter(e=>e.T===T).map(e=>e.cell)),edges:edges.length};}
 
-const VOTE_MARGIN=0.5, VOTE_AGREE=0.90;
+
 function decodeVoted(g,n,m,offset){
   const bc=baseCells(m,n),by=[],margins=[];const start=offset||0;
   for(let i=start;i+7<bc.length;i+=8){let v=0;
@@ -831,7 +910,6 @@ function recoverVoted(g,n,m,offset,markBit){
   if(!tot||match/tot<VOTE_AGREE)return null;
   const s=decodeSector(g,n,m,offset);if(s!==null&&s!==v.text)return null;
   return {text:v.text,agree:match/tot};}
-
 function decodeByRuler(px,IW,IH,ruler){
   if(IW!==IH)return [];
   const lum=p=>(px[p]+px[p+1]+px[p+2])/3;
@@ -853,12 +931,18 @@ function decodeByRuler(px,IW,IH,ruler){
          for(let z=0;z<n*n&&same;z++)if((chk.g[z]?1:0)!==cl[z])same=false;
          if(same)results.push({kind:'one',mode:m,n,pad,res:[t,null,null]});}}
       if(!sameRGB){
+        const agree=(g,chk)=>{let ok=0;for(let z=0;z<n*n;z++)if((chk[z]?1:0)===g[z])ok++;return ok/(n*n);};
+        const SOFT=0.93;
         if(markCell(cr,n,m)===1){const rR=decodeSector(cr,n,m,1),rG=decodeSector(cg,n,m,0),rB=decodeSector(cb,n,m,0);
-          if(rR!==null)results.push({kind:'mono',mode:m,n,pad,res:[(rR||'')+(rG||'')+(rB||''),null,null]});}
+          if(rR!==null){const kR=fillChannel(rR,n,m,1),kG=fillChannel(rG||'',n,m,null),kB=fillChannel(rB||'',n,m,null);
+            if(agree(cr,kR.g)>=SOFT&&agree(cg,kG.g)>=SOFT&&agree(cb,kB.g)>=SOFT)
+              results.push({kind:'mono',mode:m,n,pad,res:[(rR||'')+(rG||'')+(rB||''),null,null]});}}
         const tr=decodeSector(cr,n,m,0),tg=decodeSector(cg,n,m,0),tb=decodeSector(cb,n,m,0);
         const cnt=[tr,tg,tb].filter(x=>x!==null).length;
         if(cnt>=2){const ne=[tr,tg,tb].filter(x=>x!==null);
-          if(!ne.every(x=>x===ne[0]))results.push({kind:'three',mode:m,n,pad,res:[tr,tg,tb]});}}}}
+          const kR=fillChannel(tr||'',n,m,null),kG=fillChannel(tg||'',n,m,null),kB=fillChannel(tb||'',n,m,null);
+          if(!ne.every(x=>x===ne[0])&&agree(cr,kR.g)>=SOFT&&agree(cg,kG.g)>=SOFT&&agree(cb,kB.g)>=SOFT)
+            results.push({kind:'three',mode:m,n,pad,res:[tr,tg,tb]});}}}}
   if(!results.length){
     for(let pad=2;pad<=8;pad++){const n=T-2*pad; if(n<MINN||n%2===0)continue;
       const cl=sampleChan(n,pad,-1);
@@ -869,7 +953,6 @@ function decodeByRuler(px,IW,IH,ruler){
   uniq.sort((a,b)=>{const al=a.res.filter(x=>x).join('').length,bl=b.res.filter(x=>x).join('').length;
     return bl-al||a.n-b.n;});
   return uniq;}
-
 function findOrnament(px,IW,IH){
   const lum=p=>(px[p]+px[p+1]+px[p+2])/3;
   const rowAct=new Array(IH).fill(0),colAct=new Array(IW).fill(0);
@@ -963,6 +1046,521 @@ function runDecodeAttempts(img){
   return uniq;}
   
   
+/* ═══════════════════════════════════════════════════════════════════
+   ОНОВЛЕННЯ СКАНЕРА · v3 (лінійка + випрямлення + відновлення по симетрії)
+   Додано з пісочниці scanner-test. Використовує наявні функції:
+   scanImage, decodeSector, fillChannel, mirrors, baseCells, markCell,
+   MINN, RGBTHR. Нічого зі старого не ламає — старий scanImage лишається
+   як запасний шлях.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── читання лінійки: точна сітка без гадання (крок може бути дробовим) ── */
+function ruler_runs(get,len){let prev=-1,l=0,runs=[];
+  for(let i=0;i<len;i++){const c=get(i)>127?1:0;
+    if(c===prev)l++;else{if(prev>=0)runs.push(l);prev=c;l=1;}}
+  runs.push(l);return runs;}
+function ruler_median(a){const b=[...a].sort((x,y)=>x-y);return b[Math.floor(b.length/2)];}
+function ruler_score(runs){if(runs.length<5)return null;
+  const m=ruler_median(runs);if(m<3)return null;
+  let reg=0;for(const r of runs)if(r>=m*0.55&&r<=m*1.45)reg++;
+  return {m,frac:reg/runs.length,count:runs.length};}
+function ruler_edge(lumFn,W,depth){const rows=[];
+  for(let y=1;y<depth;y++){const s=ruler_score(ruler_runs(x=>lumFn(x,y),W));
+    if(s&&s.frac>=0.85&&s.count>=7&&s.count<=200&&s.m>=4)rows.push(s);}
+  if(rows.length<2)return null;
+  const freq=new Map();for(const r of rows)freq.set(r.count,(freq.get(r.count)||0)+1);
+  let T=null,fb=0;for(const [k,v] of freq)if(v>fb){fb=v;T=k;}
+  return {T,cell:ruler_median(rows.filter(r=>r.count===T).map(r=>r.m)),votes:fb};}
+function findRuler(px,IW,IH){if(IW!==IH)return null;
+  const lum=(x,y)=>{const p=(y*IW+x)*4;return (px[p]+px[p+1]+px[p+2])/3;};
+  const depth=Math.max(20,Math.floor(IW*0.09));
+  const edges=[
+    ruler_edge((x,y)=>lum(x,y),IW,depth),
+    ruler_edge((x,y)=>lum(x,IH-1-y),IW,depth),
+    ruler_edge((x,y)=>lum(y,x),IW,depth),
+    ruler_edge((x,y)=>lum(IW-1-y,x),IW,depth),
+  ].filter(Boolean);
+  if(!edges.length)return null;
+  const freq=new Map();for(const e of edges)freq.set(e.T,(freq.get(e.T)||0)+e.votes);
+  let T=null,fb=0;for(const [k,v] of freq)if(v>fb){fb=v;T=k;}
+  return {T,cell:ruler_median(edges.filter(e=>e.T===T).map(e=>e.cell)),edges:edges.length};}
+
+/* ── відновлення по симетрії: голосування по дзеркальних копіях ──
+   Три бар'єри проти хибного читання: впевненість голосу, згода ≥90%,
+   крос-звірка з одиночним. Викликається ЛИШЕ коли точне читання не вдалося. */
+const VOTE_MARGIN=0.5, VOTE_AGREE=0.90;
+function decodeVoted(g,n,m,offset){
+  const bc=baseCells(m,n),by=[],margins=[];const start=offset||0;
+  for(let i=start;i+7<bc.length;i+=8){let v=0;
+    for(let b=0;b<8;b++){const [x,y]=bc[i+b];const cells=mirrors(m,n,x,y);
+      let ones=0;for(const [X,Y] of cells)ones+=g[Y*n+X]?1:0;const cnt=cells.length;let bit;
+      if(ones*2>cnt)bit=1;else if(ones*2<cnt)bit=0;else bit=g[y*n+x]?1:0;
+      margins.push(Math.abs(2*ones-cnt)/cnt);v=(v<<1)|bit;}
+    by.push(v);}
+  return {text:bytesToText(by),minMargin:margins.length?Math.min(...margins):0};}
+function recoverVoted(g,n,m,offset,markBit){
+  const v=decodeVoted(g,n,m,offset);
+  if(v.text===null||v.minMargin<VOTE_MARGIN)return null;
+  const chk=fillChannel(v.text,n,m,markBit);let tot=0,match=0;
+  for(let i=0;i<n*n;i++)if(chk.dm[i]){tot++;if((chk.g[i]?1:0)===g[i])match++;}
+  if(!tot||match/tot<VOTE_AGREE)return null;
+  const s=decodeSector(g,n,m,offset);if(s!==null&&s!==v.text)return null;
+  return {text:v.text,agree:match/tot};}
+
+/* ── декод по лінійці: точний прохід, потім (як запас) голосування ── */
+function decodeByRuler(px,IW,IH,ruler){
+  if(IW!==IH)return [];
+  const lum=p=>(px[p]+px[p+1]+px[p+2])/3;
+  const T=ruler.T, cell=IW/T;const results=[];
+  const sampleChan=(n,pad,ci)=>{const g=new Uint8Array(n*n);
+    for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+      const X=Math.min(IW-1,Math.floor((x+pad+.5)*cell));
+      const Y=Math.min(IH-1,Math.floor((y+pad+.5)*cell));
+      const p=(Y*IW+X)*4;const v=ci<0?lum(p):px[p+ci];
+      g[y*n+x]=v>(ci<0?110:RGBTHR)?1:0;}
+    return g;};
+  for(let pad=2;pad<=8;pad++){
+    const n=T-2*pad; if(n<MINN||n%2===0)continue;
+    const cl=sampleChan(n,pad,-1),cr=sampleChan(n,pad,0),cg=sampleChan(n,pad,1),cb=sampleChan(n,pad,2);
+    let sameRGB=true;for(let z=0;z<cr.length;z++){if(cr[z]!==cg[z]||cr[z]!==cb[z]){sameRGB=false;break}}
+    for(const m of ['oct','quad','half']){
+      {const t=decodeSector(cl,n,m,0);
+       if(t!==null){const chk=fillChannel(t,n,m,null);let same=true;
+         for(let z=0;z<n*n&&same;z++)if((chk.g[z]?1:0)!==cl[z])same=false;
+         if(same)results.push({kind:'one',mode:m,n,pad,res:[t,null,null]});}}
+      if(!sameRGB){
+        if(markCell(cr,n,m)===1){const rR=decodeSector(cr,n,m,1),rG=decodeSector(cg,n,m,0),rB=decodeSector(cb,n,m,0);
+          if(rR!==null)results.push({kind:'mono',mode:m,n,pad,res:[(rR||'')+(rG||'')+(rB||''),null,null]});}
+        const tr=decodeSector(cr,n,m,0),tg=decodeSector(cg,n,m,0),tb=decodeSector(cb,n,m,0);
+        const cnt=[tr,tg,tb].filter(x=>x!==null).length;
+        if(cnt>=2){const ne=[tr,tg,tb].filter(x=>x!==null);
+          if(!ne.every(x=>x===ne[0]))results.push({kind:'three',mode:m,n,pad,res:[tr,tg,tb]});}}}}
+  if(!results.length){
+    for(let pad=2;pad<=8;pad++){const n=T-2*pad; if(n<MINN||n%2===0)continue;
+      const cl=sampleChan(n,pad,-1);
+      for(const m of ['oct','quad','half']){const rv=recoverVoted(cl,n,m,0,null);
+        if(rv)results.push({kind:'recovered',mode:m,n,pad,res:[rv.text,null,null],agree:rv.agree});}}}
+  const seen=new Set(),uniq=[];
+  for(const r of results){const key=r.kind+'|'+r.res.join('\u0001');if(!seen.has(key)){seen.add(key);uniq.push(r)}}
+  uniq.sort((a,b)=>{const al=a.res.filter(x=>x).join('').length,bl=b.res.filter(x=>x).join('').length;
+    return bl-al||a.n-b.n;});
+  return uniq;}
+
+/* ── ШЛЯХ А: вирізати орнамент серед підпису/полів ── */
+function findOrnament(px,IW,IH){
+  const lum=p=>(px[p]+px[p+1]+px[p+2])/3;
+  const rowAct=new Array(IH).fill(0),colAct=new Array(IW).fill(0);
+  for(let y=0;y<IH;y++){let prev=-1,tr=0;
+    for(let x=0;x<IW;x+=2){const cc=lum((y*IW+x)*4)>127?1:0;if(cc!==prev){tr++;prev=cc}}rowAct[y]=tr;}
+  for(let x=0;x<IW;x++){let prev=-1,tr=0;
+    for(let y=0;y<IH;y+=2){const cc=lum((y*IW+x)*4)>127?1:0;if(cc!==prev){tr++;prev=cc}}colAct[x]=tr;}
+  const maxRow=Math.max(...rowAct),maxCol=Math.max(...colAct);
+  const rowThr=Math.max(4,maxRow*0.25),colThr=Math.max(4,maxCol*0.25);
+  function longestBlock(act,thr){let bestS=0,bestE=-1,curS=-1,gap=0;const maxGap=Math.max(8,act.length*0.03);
+    for(let i=0;i<act.length;i++){if(act[i]>=thr){if(curS<0)curS=i;gap=0;
+        if(i-curS>bestE-bestS){bestS=curS;bestE=i;}}else{if(curS>=0){gap++;if(gap>maxGap){curS=-1;gap=0;}}}}
+    return [bestS,bestE];}
+  let [y0,y1]=longestBlock(rowAct,rowThr),[x0,x1]=longestBlock(colAct,colThr);
+  if(y1<=y0||x1<=x0)return null;
+  const side=Math.max(x1-x0,y1-y0),cx=(x0+x1)/2,cy=(y0+y1)/2;
+  let nx0=Math.max(0,Math.round(cx-side/2)),ny0=Math.max(0,Math.round(cy-side/2));
+  let nx1=Math.min(IW,nx0+side),ny1=Math.min(IH,ny0+side);
+  const cropW=nx1-nx0,cropH=ny1-ny0;
+  if(cropW<20||cropH<20)return null;
+  return {x0:nx0,y0:ny0,w:cropW,h:cropH};}
+function cropPx(px,IW,IH,box){const {x0,y0,w,h}=box;const out=new Uint8ClampedArray(w*h*4);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const src=((y0+y)*IW+(x0+x))*4,dst=(y*w+x)*4;
+    out[dst]=px[src];out[dst+1]=px[src+1];out[dst+2]=px[src+2];out[dst+3]=255;}
+  return out;}
+
+/* ── ШЛЯХ Б: випрямлення за 4 кутами (проєктивно: тримає нахил і перспективу) ── */
+function findCorners(px,IW,IH){
+  const corners4=[[0,0],[IW-1,0],[0,IH-1],[IW-1,IH-1]];
+  const bgSamples=corners4.map(([x,y])=>{const p=(y*IW+x)*4;return [px[p],px[p+1],px[p+2]];});
+  const bg=[0,1,2].map(c=>Math.round(bgSamples.reduce((s,v)=>s+v[c],0)/bgSamples.length));
+  const isPat=(x,y)=>{const p=(y*IW+x)*4;const dr=px[p]-bg[0],dg=px[p+1]-bg[1],db=px[p+2]-bg[2];
+    return Math.sqrt(dr*dr+dg*dg+db*db)>60;};
+  let top=null,bot=null,left=null,right=null;const step=Math.max(1,Math.floor(IW/500));
+  for(let y=0;y<IH;y+=step)for(let x=0;x<IW;x+=step){if(!isPat(x,y))continue;
+    if(!top||y<top[1])top=[x,y];if(!bot||y>bot[1])bot=[x,y];
+    if(!left||x<left[0])left=[x,y];if(!right||x>right[0])right=[x,y];}
+  if(!top||!bot||!left||!right)return null;
+  const d=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  const s=[d(top,right),d(right,bot),d(bot,left),d(left,top)];
+  const avg=(s[0]+s[1]+s[2]+s[3])/4;if(avg<30)return null;
+  if((Math.max(...s)-Math.min(...s))/avg>0.35)return null;
+  return {TL:top,TR:right,BR:bot,BL:left,side:avg};}
+function deskew(px,IW,IH,corners,N){
+  const {TL,TR,BR,BL}=corners;
+  const x0=TL[0],y0=TL[1],x1=TR[0],y1=TR[1],x2=BR[0],y2=BR[1],x3=BL[0],y3=BL[1];
+  const dx1=x1-x2,dx2=x3-x2,dx3=x0-x1+x2-x3,dy1=y1-y2,dy2=y3-y2,dy3=y0-y1+y2-y3;
+  let a,b,c,d,e,f,g,h;
+  if(Math.abs(dx3)<1e-9&&Math.abs(dy3)<1e-9){a=x1-x0;b=x3-x0;c=x0;d=y1-y0;e=y3-y0;f=y0;g=0;h=0;}
+  else{const den=dx1*dy2-dx2*dy1;g=(dx3*dy2-dx2*dy3)/den;h=(dx1*dy3-dx3*dy1)/den;
+    a=x1-x0+g*x1;b=x3-x0+h*x3;c=x0;d=y1-y0+g*y1;e=y3-y0+h*y3;f=y0;}
+  const samp=(x,y,ch)=>{const xi=Math.max(0,Math.min(IW-1,Math.floor(x))),yi=Math.max(0,Math.min(IH-1,Math.floor(y)));
+    const xf=Math.max(0,Math.min(1,x-xi)),yf=Math.max(0,Math.min(1,y-yi));
+    const x1_=Math.min(IW-1,xi+1),y1_=Math.min(IH-1,yi+1);
+    const A=px[(yi*IW+xi)*4+ch],B=px[(yi*IW+x1_)*4+ch],D=px[(y1_*IW+xi)*4+ch],E=px[(y1_*IW+x1_)*4+ch];
+    return A*(1-xf)*(1-yf)+B*xf*(1-yf)+D*(1-xf)*yf+E*xf*yf;};
+  const out=new Uint8ClampedArray(N*N*4);
+  for(let j=0;j<N;j++)for(let i=0;i<N;i++){const u=i/(N-1),v=j/(N-1);const den=g*u+h*v+1;
+    const x=(a*u+b*v+c)/den,y=(d*u+e*v+f)/den;const dst=(j*N+i)*4;
+    out[dst]=samp(x,y,0);out[dst+1]=samp(x,y,1);out[dst+2]=samp(x,y,2);out[dst+3]=255;}
+  return out;}
+
+/* ── аналітичний буфер: квадрат ≤1500px, фон = колір кутового пікселя ── */
+function buildBuffer(img){
+  const AS=Math.max(512,Math.min(1500,Math.max(img.width,img.height)));
+  const cc=document.createElement('canvas');cc.width=AS;cc.height=AS;
+  const g=cc.getContext('2d',{willReadFrequently:true});
+  const tmp=document.createElement('canvas');tmp.width=img.width;tmp.height=img.height;
+  const tg=tmp.getContext('2d',{willReadFrequently:true});tg.drawImage(img,0,0);
+  const cp=tg.getImageData(0,0,1,1).data;
+  g.fillStyle='rgb('+cp[0]+','+cp[1]+','+cp[2]+')';g.fillRect(0,0,AS,AS);
+  const scale=Math.min(AS/img.width,AS/img.height),w=img.width*scale,h=img.height*scale;
+  g.imageSmoothingEnabled=true;g.drawImage(img,(AS-w)/2,(AS-h)/2,w,h);
+  return {px:g.getImageData(0,0,AS,AS).data,IW:AS,IH:AS};}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ЛОКАЛІЗАЦІЯ КОДУ В СЦЕНІ (скріншот / кадр камери) — головний фікс.
+   Знаходить код як найбільший «не-фоновий» квадрат, тоді читає лінійкою.
+   ═══════════════════════════════════════════════════════════════════ */
+function findCodeBox(px,IW,IH){
+  const GX=120, GY=Math.max(20,Math.round(120*IH/IW));
+  const cw=IW/GX, ch=IH/GY;
+  const avg=new Float64Array(GX*GY*3);
+  for(let gy=0;gy<GY;gy++)for(let gx=0;gx<GX;gx++){
+    let r=0,g=0,b=0,cnt=0;const x0=Math.floor(gx*cw),x1=Math.floor((gx+1)*cw),y0=Math.floor(gy*ch),y1=Math.floor((gy+1)*ch);
+    for(let y=y0;y<y1;y+=2)for(let x=x0;x<x1;x+=2){const p=(y*IW+x)*4;r+=px[p];g+=px[p+1];b+=px[p+2];cnt++;}
+    const i=(gy*GX+gx)*3;avg[i]=r/cnt;avg[i+1]=g/cnt;avg[i+2]=b/cnt;}
+  const edge=[];
+  for(let gx=0;gx<GX;gx++){edge.push([gx,0]);edge.push([gx,GY-1]);}
+  for(let gy=0;gy<GY;gy++){edge.push([0,gy]);edge.push([GX-1,gy]);}
+  const compMed=k=>{const a=edge.map(([gx,gy])=>avg[(gy*GX+gx)*3+k]).sort((x,y)=>x-y);return a[Math.floor(a.length/2)];};
+  const bg=[compMed(0),compMed(1),compMed(2)];
+  const fg=new Uint8Array(GX*GY);
+  for(let i=0;i<GX*GY;i++){const dr=avg[i*3]-bg[0],dg=avg[i*3+1]-bg[1],db=avg[i*3+2]-bg[2];
+    if(Math.sqrt(dr*dr+dg*dg+db*db)>55)fg[i]=1;}
+  const lab=new Int32Array(GX*GY);let cur=0,best=0,bestBox=null;const stack=[];
+  for(let s=0;s<GX*GY;s++){if(!fg[s]||lab[s])continue;cur++;let cnt=0,minx=GX,miny=GY,maxx=0,maxy=0;
+    stack.push(s);lab[s]=cur;
+    while(stack.length){const p=stack.pop();const gx=p%GX,gy=(p/GX)|0;cnt++;
+      if(gx<minx)minx=gx;if(gx>maxx)maxx=gx;if(gy<miny)miny=gy;if(gy>maxy)maxy=gy;
+      const gxs=[gx-1,gx+1,gx,gx],gys=[gy,gy,gy-1,gy+1];
+      for(let k=0;k<4;k++){const nx=gxs[k],ny=gys[k];if(nx<0||ny<0||nx>=GX||ny>=GY)continue;const q=ny*GX+nx;if(fg[q]&&!lab[q]){lab[q]=cur;stack.push(q);}}}
+    if(cnt>best){best=cnt;bestBox=[minx,miny,maxx,maxy];}}
+  if(!bestBox)return null;
+  let x0=Math.floor(bestBox[0]*cw),y0=Math.floor(bestBox[1]*ch),x1=Math.ceil((bestBox[2]+1)*cw),y1=Math.ceil((bestBox[3]+1)*ch);
+  const padX=cw*0.5,padY=ch*0.5;
+  x0=Math.max(0,Math.floor(x0-padX));y0=Math.max(0,Math.floor(y0-padY));
+  x1=Math.min(IW,Math.ceil(x1+padX));y1=Math.min(IH,Math.ceil(y1+padY));
+  return {x0,y0,w:x1-x0,h:y1-y0};}
+
+function runDecodeAttempts(img){
+  const buf=buildBuffer(img);const {px,IW,IH}=buf;let all=[];
+  const collect=(p,W,H)=>{
+    try{const ru=findRuler(p,W,H);if(ru){const rr=decodeByRuler(p,W,H,ru);if(rr.length)all=all.concat(rr);}}catch(e){}
+    try{const f=scanImage(p,W,H);if(f.length)all=all.concat(f);}catch(e){}
+  };
+  const hasSolid=()=>all.some(r=>r.kind==='one'||r.kind==='three'||r.kind==='mono');
+  const done=()=>{if(!all.length)return [];
+    const seen=new Set(),u=[];for(const r of all){const k=(r.kind||'')+'|'+r.res.join('\u0001');if(!seen.has(k)){seen.add(k);u.push(r);}}
+    u.sort((a,b)=>b.res.filter(x=>x).join('').length-a.res.filter(x=>x).join('').length);return u;};
+  collect(px,IW,IH);
+  if(hasSolid())return done();
+  try{const box=findCodeBox(px,IW,IH);
+    if(box){const side=Math.max(box.w,box.h),cx=box.x0+box.w/2,cy=box.y0+box.h/2;
+      for(const sf of [1.0,1.05,0.96]){let s=Math.round(side*sf);let nx=Math.round(cx-s/2),ny=Math.round(cy-s/2);
+        nx=Math.max(0,nx);ny=Math.max(0,ny);s=Math.min(s,IW-nx,IH-ny);if(s<40)continue;
+        const c=cropPx(px,IW,IH,{x0:nx,y0:ny,w:s,h:s});collect(c,s,s);
+        if(hasSolid())return done();
+        for(const wt of [[1/12,12],[1/16,10]]){try{const b=bradley(c,s,s,wt[0],wt[1]);
+          const ru=findRuler(b,s,s);if(ru){const rr=decodeByRuler(b,s,s,ru);if(rr.length)all=all.concat(rr);}}catch(e){}}
+        if(hasSolid())return done();
+      }}}catch(e){}
+  try{const box=findOrnament(px,IW,IH);if(box){collect(cropPx(px,IW,IH,box),box.w,box.h);}}catch(e){}
+  if(hasSolid())return done();
+  try{const cor=findCorners(px,IW,IH);if(cor){const N=Math.max(512,Math.min(1400,Math.round(cor.side)));collect(deskew(px,IW,IH,cor,N),N,N);}}catch(e){}
+  if(hasSolid())return done();
+  try{const pf=scanPhoto(px,IW,IH);if(pf.length)all=all.concat(pf);}catch(e){}
+  return done();}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ФОТО-ШЛЯХ v4: локальний поріг Брэдлі (нерівне світло, блік, муар екрана)
+   + рамка-лінійка по регулярності. Читає з фото/паперу коротко-середні коди.
+   Використовує наявні: findOrnament, findRuler, decodeByRuler.
+   Безпечно: рішення ухвалює той самий decodeByRuler (точно + суворе голосування),
+   тож хибних читань не додає; складне чесно лишає непрочитаним.
+   ═══════════════════════════════════════════════════════════════════ */
+function bradley(px,IW,IH,winFrac,tPct){
+  const lum=i=>(px[i*4]+px[i*4+1]+px[i*4+2])/3;
+  const integ=new Float64Array(IW*IH);
+  for(let y=0;y<IH;y++){let s=0;for(let x=0;x<IW;x++){s+=lum(y*IW+x);
+    integ[y*IW+x]=(y>0?integ[(y-1)*IW+x]:0)+s;}}
+  const S=Math.max(2,Math.floor(IW*winFrac)),t=tPct;
+  const out=new Uint8ClampedArray(IW*IH*4);
+  for(let y=0;y<IH;y++)for(let x=0;x<IW;x++){
+    const x1=Math.max(x-S,0),x2=Math.min(x+S,IW-1),y1=Math.max(y-S,0),y2=Math.min(y+S,IH-1);
+    const count=(x2-x1)*(y2-y1);
+    const sum=integ[y2*IW+x2]-integ[y1*IW+x2]-integ[y2*IW+x1]+integ[y1*IW+x1];
+    const v=lum(y*IW+x);
+    const res=(v*count<=sum*(100-t)/100)?0:255;   // світліше локального серед. → 255 (дані)
+    const d=(y*IW+x)*4;out[d]=out[d+1]=out[d+2]=res;out[d+3]=255;}
+  return out;}
+function pbox_runs(get,len){let p=-1,r=[],s=0;for(let i=0;i<len;i++){const c=get(i)>127?1:0;
+  if(c!==p){if(p>=0)r.push([s,i-1]);s=i;p=c;}}r.push([s,len-1]);return r;}
+function pbox_med(a){const b=[...a].sort((x,y)=>x-y);return b[Math.floor(b.length/2)];}
+function pbox_reg(rs){if(rs.length<7)return 0;const L=rs.map(s=>s[1]-s[0]+1);const m=pbox_med(L);
+  if(m<3)return 0;let g=0;for(const l of L)if(l>=m*.55&&l<=m*1.45)g++;return g/rs.length;}
+function pbox_rulerBox(px,W,H){const lum=(x,y)=>px[(y*W+x)*4];
+  const T=()=>{for(let y=Math.floor(H*.004);y<Math.floor(H*.25);y++)if(pbox_reg(pbox_runs(k=>lum(k,y),W))>=.75)return y;return -1;};
+  const B=()=>{for(let y=H-1-Math.floor(H*.004);y>Math.floor(H*.75);y--)if(pbox_reg(pbox_runs(k=>lum(k,y),W))>=.75)return y;return -1;};
+  const L=()=>{for(let x=Math.floor(W*.004);x<Math.floor(W*.25);x++)if(pbox_reg(pbox_runs(k=>lum(x,k),H))>=.75)return x;return -1;};
+  const R=()=>{for(let x=W-1-Math.floor(W*.004);x>Math.floor(W*.75);x--)if(pbox_reg(pbox_runs(k=>lum(x,k),H))>=.75)return x;return -1;};
+  const t=T(),b=B(),l=L(),r=R();if([t,b,l,r].some(v=>v<0))return null;return {x0:l,y0:t,w:r-l+1,h:b-t+1};}
+function pbox_toSquare(px,W,H){const N=Math.max(W,H);const o=new Uint8ClampedArray(N*N*4);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){const sx=Math.min(W-1,Math.floor(x*W/N)),sy=Math.min(H-1,Math.floor(y*H/N));
+    const s=(sy*W+sx)*4,d=(y*N+x)*4;o[d]=px[s];o[d+1]=px[s+1];o[d+2]=px[s+2];o[d+3]=255;}return {px:o,N};}
+function scanPhoto(px,IW,IH){
+  const box=findOrnament(px,IW,IH);if(!box)return [];
+  const cpx=cropPx(px,IW,IH,box);let out=[];
+  for(const wt of [[1/12,12],[1/16,10],[1/8,15]]){
+    const b=bradley(cpx,box.w,box.h,wt[0],wt[1]);
+    const rb=pbox_rulerBox(b,box.w,box.h);if(!rb)continue;
+    if(rb.w/rb.h<0.85||rb.w/rb.h>1.18)continue;
+    const bc=cropPx(b,box.w,box.h,rb);
+    const sq=pbox_toSquare(bc,rb.w,rb.h);
+    const ru=findRuler(sq.px,sq.N,sq.N);if(!ru)continue;
+    const rr=decodeByRuler(sq.px,sq.N,sq.N,ru);if(rr.length)out=out.concat(rr);}
+  return out;}
+// ═══ КАМЕРА (живе відео + підтвердження 2 кадрами: краще не прочитати, ніж збрехати) ═══
+let camStream=null, camRAF=null, camBusy=false, camLastText=null, camTimer=0;
+function camEls(){return {v:$('cam-video'),vf:$('vf'),btn:$('cam-btn')};}
+async function startCam(){
+  const {v,vf,btn}=camEls();
+  try{
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1920}}});
+    v.srcObject=camStream; v.setAttribute('playsinline','');
+    await v.play();
+    CV.classList.add('hide'); v.classList.remove('hide'); vf.classList.remove('hide');
+    $('stage').classList.add('scanning');
+    btn.textContent='⏹ Зупинити'; $('rt').innerHTML='<span class="w">наведи на код…</span>';
+    camLastText=null; camTimer=0; camBusy=false;
+    startScanSound();
+    camLoop();
+  }catch(e){ alert('Камера недоступна: '+e); }
+}
+function stopCam(){
+  const {v,vf,btn}=camEls();
+  if(camRAF)cancelAnimationFrame(camRAF); camRAF=null;
+  if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}
+  if(v.srcObject)v.srcObject=null;
+  v.classList.add('hide'); vf.classList.add('hide'); CV.classList.remove('hide');
+  $('stage').classList.remove('scanning');
+  stopScanSound();
+  btn.textContent='📷 Камера';
+}
+function camLoop(){
+  const {v}=camEls();
+  if(!camStream){return;}
+  const now=performance.now();
+  if(!camBusy && v.readyState>=2 && now-camTimer>250){
+    camTimer=now; camBusy=true;
+    try{
+     const c=document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight;
+      const cx=c.getContext('2d',{willReadFrequently:true});
+      cx.drawImage(v,0,0);
+      let found=[];
+      try{ found=runDecodeAttempts(c); }catch(e){}
+      if(found.length){
+        const txt=found[0].res.filter(x=>x).join('\u0001');
+        if(txt && txt===camLastText){
+          const shot=document.createElement('canvas');shot.width=shot.height=512;
+          shot.getContext('2d').drawImage(c,0,0,512,512);
+          const url=shot.toDataURL('image/png');
+          stopCam();
+          showCamResult(found,url);
+          camBusy=false; return;
+        }
+        camLastText=txt;
+      }else{ camLastText=null; }
+    }catch(e){}
+    camBusy=false;
+  }
+  camRAF=requestAnimationFrame(camLoop);
+}
+$('cam-btn').onclick=()=>{ camStream?stopCam():startCam(); };
+
+  async function showCamResult(found,shotURL){
+  flash();
+  const best=found[0];
+  mode=best.mode;syncSeg('sym','m',mode);
+  scannedImg=shotURL;
+  if(best.kind==='three'){
+    setLayers(3);monoMark=0;
+    D.ch=[best.res[0]||'',best.res[1]||'',best.res[2]||''];
+    okChime();
+    for(let i=0;i<3;i++)$('t-'+i).value='';
+    for(let i=0;i<3;i++)if(best.res[i]){await typeOut($('t-'+i),best.res[i],22);grow($('t-'+i),120);}
+    showResult('✓ прочитано · камера',null);
+  }else{
+    setLayers(1);monoMark=0;
+    const txt=best.res[0]||'';
+    D.single=txt;okChime();
+    $('txt').value='';
+    await typeOut($('txt'),txt,26);
+    grow($('txt'),200);
+    const el=$('txt');el.scrollTop=el.scrollHeight;
+    showResult('✓ прочитано · камера',txt);
+  }
+  hasImage=true;syncMain();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TAINA · ДЕКОДЕР v5 — под НОВУЮ 3-слойную рамку (тёмный/светлый/зебра).
+   Читает: прямые коды, повёрнутые и с перспективой (по сплошной рамке),
+   моно и RGB, с фазовой подгонкой сетки и soft-match для цвета.
+   Требует уже существующие в index.html функции: buildBuffer, cropPx, deskew,
+   findRuler, decodeSector, fillChannel, markCell, recoverVoted, MINN.
+   替 Замените СТАРУЮ функцию runDecodeAttempts на этот блок целиком.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function findCodeBox(px,IW,IH){
+  const GX=120, GY=Math.max(20,Math.round(120*IH/IW));  // груба сітка
+  const cw=IW/GX, ch=IH/GY;
+  // середній колір кожної комірки
+  const avg=new Float64Array(GX*GY*3);
+  for(let gy=0;gy<GY;gy++)for(let gx=0;gx<GX;gx++){
+    let r=0,g=0,b=0,cnt=0;const x0=Math.floor(gx*cw),x1=Math.floor((gx+1)*cw),y0=Math.floor(gy*ch),y1=Math.floor((gy+1)*ch);
+    for(let y=y0;y<y1;y+=2)for(let x=x0;x<x1;x+=2){const p=(y*IW+x)*4;r+=px[p];g+=px[p+1];b+=px[p+2];cnt++;}
+    const i=(gy*GX+gx)*3;avg[i]=r/cnt;avg[i+1]=g/cnt;avg[i+2]=b/cnt;}
+  // фон = медіана крайових комірок
+  const edge=[];
+  for(let gx=0;gx<GX;gx++){edge.push([gx,0]);edge.push([gx,GY-1]);}
+  for(let gy=0;gy<GY;gy++){edge.push([0,gy]);edge.push([GX-1,gy]);}
+  const comp=k=>{const a=edge.map(([gx,gy])=>avg[(gy*GX+gx)*3+k]).sort((x,y)=>x-y);return a[Math.floor(a.length/2)];};
+  const bg=[comp(0),comp(1),comp(2)];
+  // «різнокольорість» комірки всередині (щоб фон-однотонний інтерфейс не рахувати)
+  const fg=new Uint8Array(GX*GY);
+  for(let i=0;i<GX*GY;i++){const dr=avg[i*3]-bg[0],dg=avg[i*3+1]-bg[1],db=avg[i*3+2]-bg[2];
+    if(Math.sqrt(dr*dr+dg*dg+db*db)>55)fg[i]=1;}
+  // найбільша зв'язна компонента (4-зв'язність)
+  const lab=new Int32Array(GX*GY).fill(0);let cur=0,best=0,bestBox=null;
+  const stack=[];
+  for(let s=0;s<GX*GY;s++){if(!fg[s]||lab[s])continue;cur++;let cnt=0,minx=GX,miny=GY,maxx=0,maxy=0;
+    stack.push(s);lab[s]=cur;
+    while(stack.length){const p=stack.pop();const gx=p%GX,gy=(p/GX)|0;cnt++;
+      if(gx<minx)minx=gx;if(gx>maxx)maxx=gx;if(gy<miny)miny=gy;if(gy>maxy)maxy=gy;
+      const nb=[p-1,p+1,p-GX,p+GX];const gxs=[gx-1,gx+1,gx,gx],gys=[gy,gy,gy-1,gy+1];
+      for(let k=0;k<4;k++){const nx=gxs[k],ny=gys[k];if(nx<0||ny<0||nx>=GX||ny>=GY)continue;const q=ny*GX+nx;if(fg[q]&&!lab[q]){lab[q]=cur;stack.push(q);}}}
+    if(cnt>best){best=cnt;bestBox=[minx,miny,maxx,maxy];}}
+  if(!bestBox)return null;
+  // назад у пікселі, трохи розширити
+  let x0=Math.floor(bestBox[0]*cw),y0=Math.floor(bestBox[1]*ch),x1=Math.ceil((bestBox[2]+1)*cw),y1=Math.ceil((bestBox[3]+1)*ch);
+  const padX=cw*0.5,padY=ch*0.5;x0=Math.max(0,Math.floor(x0-padX));y0=Math.max(0,Math.floor(y0-padY));
+  x1=Math.min(IW,Math.ceil(x1+padX));y1=Math.min(IH,Math.ceil(y1+padY));
+  return {x0,y0,w:x1-x0,h:y1-y0};}
+
+function gradCorners(px,IW,IH,G){
+  const lum=p=>(px[p*4]+px[p*4+1]+px[p*4+2])/3;
+  const cw=IW/G,ch=IH/G;const gr=new Float64Array(G*G);
+  for(let gy=0;gy<G;gy++)for(let gx=0;gx<G;gx++){let s=0,c=0;const x0=Math.floor(gx*cw),x1=Math.floor((gx+1)*cw),y0=Math.floor(gy*ch),y1=Math.floor((gy+1)*ch);
+    for(let y=y0+1;y<y1-1;y+=2)for(let x=x0+1;x<x1-1;x+=2){const gxv=Math.abs(lum(y*IW+x+1)-lum(y*IW+x-1)),gyv=Math.abs(lum((y+1)*IW+x)-lum((y-1)*IW+x));s+=gxv+gyv;c++;}
+    gr[gy*G+gx]=c?s/c:0;}
+  const mx=Math.max(...gr),thr=mx*0.18;
+  const fg=gr.map(v=>v>=thr?1:0);
+  // морфология: закрыть дыры (dilate 1) чтобы компонент был цельным
+  const dil=new Uint8Array(G*G);
+  for(let gy=0;gy<G;gy++)for(let gx=0;gx<G;gx++){let any=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const nx=gx+dx,ny=gy+dy;if(nx>=0&&ny>=0&&nx<G&&ny<G&&fg[ny*G+nx])any=1;}dil[gy*G+gx]=any;}
+  // крупнейшая компонента
+  const lab=new Int32Array(G*G);let cur=0,best=0,bestPts=null;const st=[];
+  for(let s=0;s<G*G;s++){if(!dil[s]||lab[s])continue;cur++;const pts=[];st.push(s);lab[s]=cur;
+    while(st.length){const p=st.pop();pts.push(p);const gx=p%G,gy=(p/G)|0;
+      for(const [nx,ny] of [[gx-1,gy],[gx+1,gy],[gx,gy-1],[gx,gy+1]]){if(nx<0||ny<0||nx>=G||ny>=G)continue;const q=ny*G+nx;if(dil[q]&&!lab[q]){lab[q]=cur;st.push(q);}}}
+    if(pts.length>best){best=pts.length;bestPts=pts;}}
+  if(!bestPts||best<8)return null;
+  // 4 экстремальных угла компоненты (в пикселях, центры ячеек)
+  let TL,TR,BR,BL;for(const p of bestPts){const gx=p%G,gy=(p/G)|0;const X=(gx+0.5)*cw,Y=(gy+0.5)*ch;const s=X+Y,d=X-Y;
+    if(!TL||s<TL.s)TL={X,Y,s};if(!BR||s>BR.s)BR={X,Y,s};if(!TR||d>TR.d)TR={X,Y,d};if(!BL||d<BL.d)BL={X,Y,d};}
+  const dd=(a,b)=>Math.hypot(a.X-b.X,a.Y-b.Y);const side=(dd(TL,TR)+dd(TR,BR)+dd(BR,BL)+dd(BL,TL))/4;
+  return {TL:[TL.X,TL.Y],TR:[TR.X,TR.Y],BR:[BR.X,BR.Y],BL:[BL.X,BL.Y],side};}
+
+function med(a){const b=[...a].sort((x,y)=>x-y);return b[Math.floor(b.length/2)];}
+function runsLine(get,len){let prev=-1,l=0,R=[];for(let i=0;i<len;i++){const c=get(i)>127?1:0;if(c===prev)l++;else{if(prev>=0)R.push(l);prev=c;l=1;}}R.push(l);return R;}
+// оцінка модуля: медіана довжин серій у смузі зебри (рядок ~inset 2.5 модулів від краю — знайдемо перебором)
+function moduleFromZebra(px,IW,IH){const lum=(x,y)=>{const p=(y*IW+x)*4;return (px[p]+px[p+1]+px[p+2])/3;};
+  // спочатку груба оцінка модуля з будь-якого рядка ближче до краю
+  let best=null;
+  for(let frac=0.03;frac<0.16;frac+=0.01){const y=Math.floor(IH*frac);
+    const rs=runsLine(x=>lum(x,y),IW).filter(v=>v>=2);if(rs.length<8)continue;
+    const m=med(rs);let reg=0;for(const r of rs)if(r>=m*0.55&&r<=m*1.45)reg++;const frac2=reg/rs.length;
+    if(!best||frac2>best.frac)best={m,frac:frac2,y};}
+  return best;}
+function decodeNewFrame(px,IW,IH,dbg){
+  if(IW!==IH)return [];
+  // модуль: медіана довжин серій по зебрі, голосування по 4 краях (глибина до 18%)
+  const lumf=(x,y)=>{const p=(y*IW+x)*4;return (px[p]+px[p+1]+px[p+2])/3;};
+  const edgeModule=(get,span,depth)=>{const cand=[];
+    for(let i=Math.floor(depth*0.02);i<depth;i++){const rs=runsLine(k=>get(k,i),span).filter(v=>v>=2);
+      if(rs.length<8)continue;const m=med(rs);let reg=0;for(const r of rs)if(r>=m*0.55&&r<=m*1.45)reg++;
+      if(reg/rs.length>=0.8)cand.push(m);}
+    return cand.length?med(cand):null;};
+  const dep=Math.floor(IW*0.18);
+  const mods=[edgeModule((k,i)=>lumf(k,i),IW,dep),edgeModule((k,i)=>lumf(k,IH-1-i),IW,dep),
+             edgeModule((k,i)=>lumf(i,k),IH,dep),edgeModule((k,i)=>lumf(IW-1-i,k),IH,dep)].filter(Boolean);
+  let module;
+  if(mods.length>=2)module=med(mods);
+  else{const ru=findRuler(px,IW,IH);if(!ru)return [];module=ru.cell;}
+  const Tf=Math.round(IW/module);const n=Tf-6;
+  if(dbg)dbg({module:module.toFixed(1),Tf,n,mods:mods.map(m=>m.toFixed(1))});
+  if(n<MINN||n%2===0)return [];
+  const lum=p=>(px[p]+px[p+1]+px[p+2])/3;const RGBTHR=125;
+  const agree=(g,chk)=>{let ok=0;for(let z=0;z<n*n;z++)if((chk[z]?1:0)===g[z])ok++;return ok/(n*n);};
+  const out=[];const SOFT=0.93;
+  const sampleAt=(ci,cell,ox,oy)=>{const g=new Uint8Array(n*n);
+    for(let y=0;y<n;y++)for(let x=0;x<n;x++){const X=Math.min(IW-1,Math.max(0,Math.round((x+3+0.5)*cell+ox))),Y=Math.min(IH-1,Math.max(0,Math.round((y+3+0.5)*cell+oy)));
+      const p=(Y*IW+X)*4;const v=ci<0?lum(p):px[p+ci];g[y*n+x]=v>(ci<0?110:RGBTHR)?1:0;}return g;};
+  // фазовый + масштабный поиск: берём тот, где моно-самопроверка даёт максимум (в идеале 100%)
+  let bestPh={sc:-1,cell:IW/Tf,ox:0,oy:0};
+  for(const sf of [1.0,0.997,1.003]){const cellS=(IW/Tf)*sf;
+    for(let ox=-cellS*0.35;ox<=cellS*0.35;ox+=cellS*0.12)for(let oy=-cellS*0.35;oy<=cellS*0.35;oy+=cellS*0.12){
+      const gl=sampleAt(-1,cellS,ox,oy);let bs=0;
+      for(const m of ['oct','quad','half']){const t=decodeSector(gl,n,m,0);if(t!==null){const chk=fillChannel(t,n,m,null);const a=agree(gl,chk.g);if(a>bs)bs=a;}}
+      if(bs>bestPh.sc)bestPh={sc:bs,cell:cellS,ox,oy};}}
+  const cell=bestPh.cell, PX=bestPh.ox, PY=bestPh.oy;
+  const sample=(ci)=>sampleAt(ci,cell,PX,PY);
+  const cl=sample(-1),cr=sample(0),cg=sample(1),cb=sample(2);
+  let sameRGB=true;for(let z=0;z<cl.length;z++)if(cr[z]!==cg[z]||cr[z]!==cb[z]){sameRGB=false;break;}
+  for(const m of ['oct','quad','half']){
+    // моно (по яскравості) — точна звірка
+    {const t=decodeSector(cl,n,m,0);if(t!==null){const chk=fillChannel(t,n,m,null);if(agree(cl,chk.g)===1)out.push({kind:'one',mode:m,n,res:[t,null,null]});}}
+      if(!out.some(r=>r.kind==='one'||r.kind==='mono'||r.kind==='three')){const rv=recoverVoted(cl,n,m,0,null);if(rv)out.push({kind:'recovered',mode:m,n,res:[rv.text,null,null],agree:rv.agree});}
+    if(!sameRGB){
+      if(markCell(cr,n,m)===1){const rR=decodeSector(cr,n,m,1),rG=decodeSector(cg,n,m,0),rB=decodeSector(cb,n,m,0);
+        if(rR!==null){const kR=fillChannel(rR,n,m,1),kG=fillChannel(rG||'',n,m,null),kB=fillChannel(rB||'',n,m,null);
+          if(agree(cr,kR.g)>=SOFT&&agree(cg,kG.g)>=SOFT&&agree(cb,kB.g)>=SOFT)out.push({kind:'mono',mode:m,n,res:[(rR||'')+(rG||'')+(rB||''),null,null]});}}
+      const tr=decodeSector(cr,n,m,0),tg=decodeSector(cg,n,m,0),tb=decodeSector(cb,n,m,0);
+      if([tr,tg,tb].filter(x=>x!==null).length>=2){const ne=[tr,tg,tb].filter(x=>x);
+        const kR=fillChannel(tr||'',n,m,null),kG=fillChannel(tg||'',n,m,null),kB=fillChannel(tb||'',n,m,null);
+        if(!ne.every(x=>x===ne[0])&&agree(cr,kR.g)>=SOFT&&agree(cg,kG.g)>=SOFT&&agree(cb,kB.g)>=SOFT)out.push({kind:'three',mode:m,n,res:[tr,tg,tb]});}}}
+  out.sort((a,b)=>b.res.filter(x=>x).join('').length-a.res.filter(x=>x).join('').length);return out;}
+
+function runDecodeAttempts(img){
+  const b=buildBuffer(img);const {px,IW,IH}=b;
+  const pickSolid=list=>list.find(r=>r.kind==='one'||r.kind==='three'||r.kind==='mono');
+  let cand=[];
+  // Путь 1: прямой код (локализация по яркой середине + возврат рамки)
+  const box=findCodeBox(px,IW,IH);
+  if(box){for(const exp of [1.0,1.12,1.20,1.28]){const s=Math.round(Math.max(box.w,box.h)*exp);let nx=Math.max(0,Math.round(box.x0+box.w/2-s/2)),ny=Math.max(0,Math.round(box.y0+box.h/2-s/2));const ss=Math.min(s,IW-nx,IH-ny);if(ss<40)continue;
+    const c=cropPx(px,IW,IH,{x0:nx,y0:ny,w:ss,h:ss});const r=decodeNewFrame(c,ss,ss);if(r.length){cand=cand.concat(r);const sd=pickSolid(cand);if(sd)return [sd];}}}
+  // Путь 2: поворот/перспектива (сплошная рамка → 4 угла → выпрямление)
+  const cor=gradCorners(px,IW,IH,120);
+  if(cor){const cx=(cor.TL[0]+cor.TR[0]+cor.BR[0]+cor.BL[0])/4,cy=(cor.TL[1]+cor.TR[1]+cor.BR[1]+cor.BL[1])/4;
+    for(const ef of [1.0,1.03,1.06,0.98]){const exp=c=>[cx+(c[0]-cx)*ef,cy+(c[1]-cy)*ef];
+      const cc={TL:exp(cor.TL),TR:exp(cor.TR),BR:exp(cor.BR),BL:exp(cor.BL)};const N=Math.max(256,Math.min(1200,Math.round(cor.side*ef)));
+      const d=deskew(px,IW,IH,cc,N);const r=decodeNewFrame(d,N,N);if(r.length){cand=cand.concat(r);const sd=pickSolid(cand);if(sd)return [sd];}}}
+  cand.sort((a,b)=>b.res.filter(x=>x).join('').length-a.res.filter(x=>x).join('').length);
+  return cand.length?[cand[0]]:[];}
   
   function drawScanned(url){
   return new Promise(res=>{const im=new Image();
@@ -990,7 +1588,7 @@ $('file').onchange=e=>{
     st.classList.add('scanning');startScanSound();
     $('rt').innerHTML='<span class="w">сканування…</span>';
     const [found]=await Promise.all([
-   (async()=>{await sleep(30);return runDecodeAttempts(im)})(),
+ (async()=>{await sleep(30);return runDecodeAttempts(im)})(),
       sleep(1600)]);
     stopScanSound();st.classList.remove('scanning');
 
@@ -1224,6 +1822,77 @@ function setLayers(n){
   if(n===3&&palOpen){palOpen=false;$('pal-panel').classList.add('hide');$('pal-btn').classList.remove('on')}}
 function refreshInputs(){
   $('txt').value=D.single;autoGrow();
+
+/* ═══════ МОБІЛЬНА ЛОГІКА (шапка, нижня панель, action sheet, клавіатура) ═══════ */
+(function(){
+  const mq=window.matchMedia('(max-width:768px)');
+
+  /* ── нижня панель дій: [Зберегти] [Сканувати] ── */
+  const bar=document.createElement('div');bar.id='mobabar';
+  bar.innerHTML='<button id="mb-save" disabled>⤓ Зберегти</button>'+
+                '<button id="mb-scan">⌖ Сканувати</button>';
+  document.body.appendChild(bar);
+
+  /* Зберегти — активна лише коли є код */
+  function syncMobSave(){const b=document.getElementById('mb-save');
+    if(b)b.disabled=!(typeof hasImage!=='undefined'&&hasImage);}
+  /* стежимо за появою коду (легкий поллінг + хук на syncMain) */
+  if(typeof syncMain==='function'){const _sm=syncMain;window.syncMain=function(){_sm.apply(this,arguments);syncMobSave();};}
+  setInterval(syncMobSave,500);
+
+  document.getElementById('mb-save').onclick=()=>{
+    if(typeof hasImage==='undefined'||!hasImage)return;
+    const n=(typeof defaultName==='function'?defaultName():'taina');
+    if(typeof savePNG==='function')savePNG(n);
+  };
+  document.getElementById('mb-scan').onclick=()=>openSheet();
+
+  /* ── action sheet: Камера / Завантажити ── */
+  const sheet=document.createElement('div');sheet.id='sheet';
+  sheet.innerHTML='<div class="veil2"></div><div class="card">'+
+    '<div class="sh-t">Сканувати код</div>'+
+    '<button class="sh-b" id="sh-cam">📷 Камера</button>'+
+    '<button class="sh-b" id="sh-file">🖼 Завантажити з галереї</button>'+
+    '<button class="sh-b sh-cancel" id="sh-x">Скасувати</button></div>';
+  document.body.appendChild(sheet);
+  function openSheet(){sheet.classList.add('on');}
+  function closeSheet(){sheet.classList.remove('on');}
+  sheet.querySelector('.veil2').onclick=closeSheet;
+  document.getElementById('sh-x').onclick=closeSheet;
+  document.getElementById('sh-cam').onclick=()=>{closeSheet();
+    if(typeof startCam==='function')startCam();};
+  document.getElementById('sh-file').onclick=()=>{closeSheet();
+    const f=document.getElementById('file');if(f)f.click();};
+
+  /* ── акордеон: заголовки секцій у бічних панелях згортають вміст ── */
+  function setupAccordion(){
+    if(!mq.matches)return;
+    document.querySelectorAll('.side .grp > .sec-t').forEach(t=>{
+      if(t.dataset.acc)return;t.dataset.acc='1';
+      t.addEventListener('click',()=>{t.parentElement.classList.toggle('mclosed');});
+    });
+  }
+  setupAccordion();
+  mq.addEventListener?.('change',setupAccordion);
+
+  /* ── шапка: одна динамічна кнопка (тут завжди «Галерея» → gallery.html) ── */
+  /* статичний таб і introBtn ховаються через CSS; лишається лого + посилання Галерея,
+     яке вже є в розмітці. Нічого додавати не треба. */
+
+  /* ── клавіатура: стискаємо canvas, аби не перекривало ввід ── */
+  const vv=window.visualViewport;
+  function onKbd(){
+    if(!mq.matches){document.body.classList.remove('kbd');return;}
+    /* якщо висота visualViewport помітно менша за вікно — клавіатура відкрита */
+    const kb = vv ? (window.innerHeight - vv.height > 140) : false;
+    document.body.classList.toggle('kbd',kb);
+  }
+  if(vv){vv.addEventListener('resize',onKbd);vv.addEventListener('scroll',onKbd);}
+  /* фокус/блюр як запасний сигнал */
+  document.addEventListener('focusin',e=>{if(mq.matches&&e.target.classList&&e.target.classList.contains('inp'))document.body.classList.add('kbd');});
+  document.addEventListener('focusout',()=>{setTimeout(onKbd,60);});
+})();
+  
   for(let i=0;i<3;i++)$('t-'+i).value=D.ch[i]||'';}
 /* авторост моно-поля до 3 рядків */
 function grow(el,max){if(!el)return;el.style.height='auto';el.style.height=Math.min(el.scrollHeight,max)+'px';}
@@ -1336,5 +2005,162 @@ setLayers(1);
 build();
 autoGrow();
 </script>
+
+<!-- ═══ МОБІЛЬНИЙ ПАТЧ taina · вставити ПЕРЕД </body> ═══ -->
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   МОБІЛЬНА АДАПТАЦІЯ v2 (тільки ≤768px; десктоп не змінюється)
+   ═══════════════════════════════════════════════════════════════ */
+@media(max-width:768px){
+  /* одна колонка; місце знизу під фіксовану панель */
+  .app{grid-template-columns:1fr!important;max-width:100%!important;
+    padding-bottom:96px!important;}
+  .center{order:1!important;padding:10px 14px 6px!important;gap:8px!important;}
+  .side.left{order:2!important;}
+  .side.right{order:3!important;}
+  .side{border:0!important;border-top:1px solid var(--line)!important;
+    padding:14px 16px!important;gap:12px!important;}
+
+  /* canvas зверху, менший — завжди видно цілком; стискається під клавіатуру */
+  .stage{max-width:min(66vw,290px)!important;transition:max-width .25s;}
+  body.kbd .stage{max-width:min(40vw,160px)!important;}
+
+  /* поле + статус одразу під кодом */
+  .txtzone{height:auto!important;max-width:100%!important;gap:6px!important;}
+
+  /* ── ШАПКА: лишити лого + «Галерея»; сховати таб і всі іконки ── */
+  .roomtab.on{display:none!important;}
+  #introBtn{display:none!important;}
+  .navbtns{display:none!important;}          /* тема/undo/redo/очистити (пусті квадрати) */
+  .nav{gap:10px!important;padding:0 14px!important;}
+
+  /* ── СХОВАТИ зайве на мобільному ── */
+  .stat{display:none!important;}             /* статистика */
+  #admin-toggle,#admin-box{display:none!important;}  /* адмін */
+  #rgb-note-grp{display:none!important;}      /* пояснення про 3 канали */
+  .action{display:none!important;}           /* старі кнопки камера/завантаж/зберегти */
+  /* права панель: Символи — остання секція → ховаємо (клавіатура дає емодзі) */
+  .side.right .grp:last-child{display:none!important;}
+  /* у секції «Вигляд» лишаємо тільки палітру; форму й рамку ховаємо */
+  #shape,#frame{display:none!important;}
+
+  /* Палітра завжди розкрита і зручна */
+  #pal-panel{position:static!important;box-shadow:none!important;border:0!important;
+    padding:6px 0 0!important;background:transparent!important;}
+  #pal-btn{display:none!important;}          /* тогл не потрібен — палітра відкрита */
+
+  /* ── нижня фіксована панель дій ── */
+  #mobabar{display:flex!important;}
+}
+
+/* десктоп: мобільні елементи приховані */
+#mobabar{display:none;}
+
+/* ── нижня панель: НАМЕРТВО внизу, над баром браузера ── */
+#mobabar{position:fixed;left:0;right:0;bottom:0;z-index:9999;
+  gap:10px;padding:10px 14px calc(12px + env(safe-area-inset-bottom));
+  background:rgba(13,10,8,.96);backdrop-filter:blur(12px);
+  border-top:1px solid var(--line);}
+body.light-mode #mobabar{background:rgba(240,232,218,.96);}
+#mobabar button{flex:1;font-family:var(--mono);font-size:14px;font-weight:700;
+  letter-spacing:.05em;padding:16px 12px;border-radius:12px;cursor:pointer;
+  text-transform:uppercase;border:1px solid color-mix(in srgb,var(--acc) 55%,transparent);
+  background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 26%,transparent),color-mix(in srgb,var(--acc) 10%,transparent));
+  color:var(--acc-hot);display:flex;align-items:center;justify-content:center;gap:8px;}
+#mobabar button:disabled{opacity:.4;cursor:default;
+  border-color:var(--line);background:transparent;color:var(--muted);}
+
+/* ── Action Sheet (Камера / Завантажити) ── */
+#sheet{position:fixed;inset:0;z-index:10000;display:none;}
+#sheet.on{display:block;}
+#sheet .veil2{position:absolute;inset:0;background:rgba(0,0,0,.55);}
+#sheet .card{position:absolute;left:0;right:0;bottom:0;
+  background:var(--panel);border-top-left-radius:18px;border-top-right-radius:18px;
+  padding:14px 16px calc(18px + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;gap:10px;
+  box-shadow:0 -12px 40px rgba(0,0,0,.6);animation:sheetup .22s ease;}
+@keyframes sheetup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+#sheet .sh-t{font-family:var(--mono);font-size:10px;letter-spacing:.18em;
+  color:var(--acc-dim);text-transform:uppercase;text-align:center;padding:4px 0 6px;}
+#sheet .sh-b{font-family:var(--mono);font-size:15px;font-weight:600;padding:16px;
+  border-radius:12px;border:1px solid var(--line);background:var(--panel2);
+  color:var(--parchment);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;}
+#sheet .sh-b:active{background:color-mix(in srgb,var(--acc) 16%,transparent);}
+#sheet .sh-cancel{color:var(--muted);border-style:dashed;}
+
+</style>
+<script>
+/* ═══════ МОБІЛЬНА ЛОГІКА (шапка, нижня панель, action sheet, клавіатура) ═══════ */
+(function(){
+  const mq=window.matchMedia('(max-width:768px)');
+
+  /* ── нижня панель дій: [Зберегти] [Сканувати] ── */
+  const bar=document.createElement('div');bar.id='mobabar';
+  bar.innerHTML='<button id="mb-save" disabled>⤓ Зберегти</button>'+
+                '<button id="mb-scan">⌖ Сканувати</button>';
+  document.body.appendChild(bar);
+
+  /* Зберегти — активна лише коли є код */
+  function syncMobSave(){const b=document.getElementById('mb-save');
+    if(b)b.disabled=!(typeof hasImage!=='undefined'&&hasImage);}
+  /* стежимо за появою коду (легкий поллінг + хук на syncMain) */
+  if(typeof syncMain==='function'){const _sm=syncMain;window.syncMain=function(){_sm.apply(this,arguments);syncMobSave();};}
+  setInterval(syncMobSave,500);
+
+  document.getElementById('mb-save').onclick=()=>{
+    if(typeof hasImage==='undefined'||!hasImage)return;
+    const n=(typeof defaultName==='function'?defaultName():'taina');
+    if(typeof savePNG==='function')savePNG(n);
+  };
+  document.getElementById('mb-scan').onclick=()=>openSheet();
+
+  /* ── action sheet: Камера / Завантажити ── */
+  const sheet=document.createElement('div');sheet.id='sheet';
+  sheet.innerHTML='<div class="veil2"></div><div class="card">'+
+    '<div class="sh-t">Сканувати код</div>'+
+    '<button class="sh-b" id="sh-cam">📷 Камера</button>'+
+    '<button class="sh-b" id="sh-file">🖼 Завантажити з галереї</button>'+
+    '<button class="sh-b sh-cancel" id="sh-x">Скасувати</button></div>';
+  document.body.appendChild(sheet);
+  function openSheet(){sheet.classList.add('on');}
+  function closeSheet(){sheet.classList.remove('on');}
+  sheet.querySelector('.veil2').onclick=closeSheet;
+  document.getElementById('sh-x').onclick=closeSheet;
+  document.getElementById('sh-cam').onclick=()=>{closeSheet();
+    if(typeof startCam==='function')startCam();};
+  document.getElementById('sh-file').onclick=()=>{closeSheet();
+    const f=document.getElementById('file');if(f)f.click();};
+
+  /* ── акордеон: заголовки секцій у бічних панелях згортають вміст ── */
+  function setupAccordion(){
+    if(!mq.matches)return;
+    document.querySelectorAll('.side .grp > .sec-t').forEach(t=>{
+      if(t.dataset.acc)return;t.dataset.acc='1';
+      t.addEventListener('click',()=>{t.parentElement.classList.toggle('mclosed');});
+    });
+  }
+  setupAccordion();
+  mq.addEventListener?.('change',setupAccordion);
+
+  /* ── шапка: одна динамічна кнопка (тут завжди «Галерея» → gallery.html) ── */
+  /* статичний таб і introBtn ховаються через CSS; лишається лого + посилання Галерея,
+     яке вже є в розмітці. Нічого додавати не треба. */
+
+  /* ── клавіатура: стискаємо canvas, аби не перекривало ввід ── */
+  const vv=window.visualViewport;
+  function onKbd(){
+    if(!mq.matches){document.body.classList.remove('kbd');return;}
+    /* якщо висота visualViewport помітно менша за вікно — клавіатура відкрита */
+    const kb = vv ? (window.innerHeight - vv.height > 140) : false;
+    document.body.classList.toggle('kbd',kb);
+  }
+  if(vv){vv.addEventListener('resize',onKbd);vv.addEventListener('scroll',onKbd);}
+  /* фокус/блюр як запасний сигнал */
+  document.addEventListener('focusin',e=>{if(mq.matches&&e.target.classList&&e.target.classList.contains('inp'))document.body.classList.add('kbd');});
+  document.addEventListener('focusout',()=>{setTimeout(onKbd,60);});
+})();
+
+</script>
+  
 </body>
 </html>
