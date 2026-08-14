@@ -2133,11 +2133,22 @@ body.light-mode #mobabar{background:rgba(240,232,218,.96);}
   const mq=window.matchMedia('(max-width:768px)');
   const $ID=id=>document.getElementById(id);
   const bar=document.createElement('div');bar.id='mobabar';
-  bar.innerHTML='<button id="mb-save" disabled>⤓ Зберегти</button><button id="mb-scan">⌖ Сканувати</button>';
+  bar.innerHTML='<button id="mb-save">⤓ Зберегти</button><button id="mb-scan">⌖ Сканувати</button>';
   document.body.appendChild(bar);
-  function syncMobSave(){const b=$ID('mb-save');if(b)b.disabled=!(typeof hasImage!=='undefined'&&hasImage);}
+  function syncMobSave(){
+    const b=$ID('mb-save');
+    if(b){
+      b.disabled=false;
+      b.removeAttribute('disabled');
+      b.style.display='block';
+    }
+  }
   if(typeof syncMain==='function'){const _sm=syncMain;window.syncMain=function(){_sm.apply(this,arguments);syncMobSave();};}
-  $ID('mb-save').onclick=()=>{if(typeof hasImage==='undefined'||!hasImage)return;const n=(typeof defaultName==='function'?defaultName():'taina');if(typeof savePNG==='function')savePNG(n);};
+  setInterval(syncMobSave,300);
+  $ID('mb-save').onclick=()=>{
+    const n=(typeof defaultName==='function'?defaultName():'taina');
+    if(typeof savePNG==='function')savePNG(n);
+  };
   $ID('mb-scan').onclick=()=>openSheet();
   const sheet=document.createElement('div');sheet.id='sheet';
   sheet.innerHTML='<div class="veil2"></div><div class="card"><div class="sh-t">Сканувати код</div><button class="sh-b" id="sh-cam">📷 Камера</button><button class="sh-b" id="sh-file">🖼 Завантажити з галереї</button><button class="sh-b sh-cancel" id="sh-x">Скасувати</button></div>';
