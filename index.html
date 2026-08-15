@@ -2213,6 +2213,180 @@ body.light-mode #mobabar{background:rgba(240,232,218,.96);}
   },500);
 })();
 </script>
+
+<!-- ═══ TAINA · МОБІЛЬНЕ ДОПОВНЕННЯ v5 · вставити ПЕРЕД </body> ═══ -->
+<style>
+/* ── окно кода: завжди нейтральний сірий, у будь-якій темі ── */
+#stage{background:#8a8580!important;}
+#stage canvas{background:#8a8580;}
+
+/* ── мобільні контроли ── */
+.m5{display:none;}
+@media(max-width:768px){
+  /* поля вводу ЗАВЖДИ над кодом */
+  .txtzone{order:-1!important;}
+  .center{display:flex!important;flex-direction:column!important;}
+
+  /* кнопка теми у шапці */
+  #m5-theme{display:inline-flex!important;align-items:center;justify-content:center;
+    margin-left:auto;width:40px;height:40px;border-radius:10px;font-size:17px;
+    border:1px solid var(--line);background:transparent;cursor:pointer;flex:0 0 auto;}
+
+  /* хрестик очищення біля поля */
+  .txtzone{position:relative;}
+  #m5-clear{display:flex!important;align-items:center;justify-content:center;
+    position:absolute;top:-2px;right:2px;z-index:6;width:30px;height:30px;
+    border-radius:9px;border:1px solid var(--line);background:var(--panel);
+    color:var(--muted);font-size:14px;cursor:pointer;}
+  #m5-clear:active{color:var(--bad);border-color:var(--bad);}
+
+  /* палітра: один ряд, без заголовка й без темних */
+  #pal-btn{display:none!important;}
+  #pal-panel,#pal-panel.hide{display:block!important;position:static!important;
+    box-shadow:none!important;border:0!important;padding:0!important;
+    background:transparent!important;}
+  #pal-panel .pal-row:nth-child(2){display:none!important;}  /* нулі/фон — прибрати */
+  #pal-panel .pal-row .lbl{display:none!important;}          /* підпис — прибрати */
+  #sw-one{display:flex!important;flex-wrap:nowrap!important;overflow-x:auto;
+    gap:8px!important;background:transparent!important;padding:2px 0!important;
+    -webkit-overflow-scrolling:touch;}
+  #sw-one .sw{flex:0 0 auto;width:30px;height:30px;}
+
+  /* прибрати кнопку split з-під полів (тепер лише при збереженні) */
+  .mob-splitbtn{display:none!important;}
+}
+
+/* ── спливаюче віконце (інструкція RGB / вибір при збереженні) ── */
+#m5-pop{position:fixed;inset:0;z-index:12000;display:none;}
+#m5-pop.on{display:block;}
+#m5-pop .bg{position:absolute;inset:0;background:rgba(0,0,0,.6);}
+#m5-pop .box{position:absolute;left:0;right:0;bottom:0;background:var(--panel);
+  border-top-left-radius:18px;border-top-right-radius:18px;
+  padding:18px 18px calc(20px + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;gap:12px;box-shadow:0 -12px 40px rgba(0,0,0,.6);}
+#m5-pop .t{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--acc-hot);}
+#m5-pop .d{font-size:14px;line-height:1.55;color:var(--parchment);}
+#m5-pop button{font-family:var(--mono);font-size:14px;font-weight:700;padding:15px;
+  border-radius:12px;cursor:pointer;border:1px solid color-mix(in srgb,var(--acc) 55%,transparent);
+  background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 26%,transparent),color-mix(in srgb,var(--acc) 10%,transparent));
+  color:var(--acc-hot);}
+#m5-pop button.sec{background:transparent;color:var(--muted);border-style:dashed;}
+</style>
+<script>
+(function(){
+var mq=window.matchMedia('(max-width:768px)');
+var $I=function(id){return document.getElementById(id);};
+
+/* ══ 1. ЧОТИРИ ТЕМИ (одна кнопка по колу), контраст перевірено ══ */
+var M5=[
+ {n:'🌙',ink:'#0d0a08',panel:'#15100b',panel2:'#1d1610',parch:'#ede3d0',muted:'#a08f76',
+  acc:'#c9a876',hot:'#f0d5a0',dim:'#9a7f58',line:'rgba(201,168,118,.28)',light:false},
+ {n:'☀️',ink:'#f4efe4',panel:'#fffdf7',panel2:'#ece4d4',parch:'#1e1710',muted:'#5d4f3c',
+  acc:'#8a5e18',hot:'#5e3f0c',dim:'#8a6f45',line:'rgba(120,95,55,.34)',light:true},
+ {n:'◐',ink:'#191a1c',panel:'#232528',panel2:'#2c2f33',parch:'#e8e9ea',muted:'#9ea3a8',
+  acc:'#b9bec4',hot:'#f2f4f6',dim:'#7d8288',line:'rgba(185,190,196,.28)',light:false},
+ {n:'❄️',ink:'#0b1620',panel:'#11212e',panel2:'#172c3c',parch:'#dfeef8',muted:'#8fabbf',
+  acc:'#5ec8e8',hot:'#a8e6ff',dim:'#43829c',line:'rgba(94,200,232,.30)',light:false}
+];
+var m5i=0;try{m5i=parseInt(localStorage.getItem('taina_m5'))||0;}catch(e){}
+function m5apply(i){
+  m5i=((i%M5.length)+M5.length)%M5.length;var t=M5[m5i],r=document.body.style;
+  document.body.classList.toggle('light-mode',t.light);
+  r.setProperty('--ink',t.ink);r.setProperty('--panel',t.panel);r.setProperty('--panel2',t.panel2);
+  r.setProperty('--parchment',t.parch);r.setProperty('--muted',t.muted);
+  r.setProperty('--acc',t.acc);r.setProperty('--acc-hot',t.hot);
+  r.setProperty('--acc-dim',t.dim);r.setProperty('--line',t.line);
+  var b=$I('m5-theme');if(b)b.textContent=t.n;
+  try{localStorage.setItem('taina_m5',m5i);}catch(e){}
+}
+var nav=document.querySelector('.nav');
+if(nav){var tb=document.createElement('button');tb.id='m5-theme';tb.type='button';
+  tb.setAttribute('aria-label','Тема');tb.textContent=M5[m5i].n;
+  tb.onclick=function(){m5apply(m5i+1);};nav.appendChild(tb);}
+m5apply(m5i);
+/* тримати тему попри внутрішні перемикання кольорів */
+setInterval(function(){var t=M5[m5i];
+  if(document.body.style.getPropertyValue('--acc')!==t.acc)m5apply(m5i);},700);
+
+/* ══ 2. ХРЕСТИК очищення ══ */
+var tz=document.querySelector('.txtzone');
+if(tz){var cx=document.createElement('button');cx.id='m5-clear';cx.type='button';
+  cx.textContent='✕';cx.setAttribute('aria-label','Очистити');
+  cx.onclick=function(){var c=$I('clr');if(c)c.click();};
+  tz.insertBefore(cx,tz.firstChild);}
+
+/* ══ 3. СПЛИВАЮЧЕ ВІКНО ══ */
+var pop=document.createElement('div');pop.id='m5-pop';
+pop.innerHTML='<div class="bg"></div><div class="box"><div class="t"></div><div class="d"></div><div class="btns"></div></div>';
+document.body.appendChild(pop);
+pop.querySelector('.bg').onclick=function(){pop.classList.remove('on');};
+function m5show(title,text,buttons){
+  pop.querySelector('.t').textContent=title;
+  pop.querySelector('.d').textContent=text;
+  var bx=pop.querySelector('.btns');bx.innerHTML='';
+  bx.style.cssText='display:flex;flex-direction:column;gap:9px;';
+  buttons.forEach(function(b){
+    var el=document.createElement('button');el.textContent=b.t;
+    if(b.sec)el.className='sec';
+    el.onclick=function(){pop.classList.remove('on');if(b.f)b.f();};
+    bx.appendChild(el);});
+  pop.classList.add('on');
+}
+
+/* ══ 4. МІНІ-ІНСТРУКЦІЯ при вході в RGB (один раз) ══ */
+var seenRGB='0';try{seenRGB=localStorage.getItem('taina_rgb_seen')||'0';}catch(e){}
+var lastLayers=layers;
+setInterval(function(){
+  if(layers===3&&lastLayers!==3&&seenRGB!=='1'){
+    seenRGB='1';try{localStorage.setItem('taina_rgb_seen','1');}catch(e){}
+    m5show('Три канали · RGB',
+      'Можна написати три різні тексти — по одному в кожен колір. Або напиши лише один: перед збереженням запропоную розкласти його на три — код вийде компактнішим і читатиметься краще.',
+      [{t:'Зрозуміло'}]);
+  }
+  lastLayers=layers;
+},400);
+
+/* ══ 5. «Розкласти на три» — ЛИШЕ при збереженні ══ */
+window.defaultName=function(){
+  var t=(layers===1?D.single:(D.ch.find(function(x){return x})||''))||'taina';
+  return (t.slice(0,26).trim().replace(/\s+/g,'_'))||'taina';
+};
+function m5save(){var n=(typeof defaultName==='function'?defaultName():'taina');
+  if(typeof savePNG==='function')savePNG(n);}
+function m5trySave(){
+  var one=(layers===3&&monoMark!==1&&D.ch.filter(function(t){return t&&t.trim();}).length===1);
+  if(one){
+    var only=D.ch.find(function(t){return t&&t.trim();})||'';
+    m5show('Заповнено лише один канал',
+      'Розкласти цей текст на три кольори? Візерунок стане компактнішим і барвистішим, а при скануванні знову склеїться в один текст.',
+      [{t:'⑂ Розкласти на три',f:function(){D.ch=splitThree(only);monoMark=1;
+         refreshInputs();build();setTimeout(m5save,250);}},
+       {t:'Лишити як є',sec:true,f:function(){monoMark=0;build();setTimeout(m5save,250);}}]);
+  }else m5save();
+}
+/* перехопити кнопку збереження в нижній панелі */
+setInterval(function(){var b=$I('mb-save');
+  if(b&&!b.dataset.m5){b.dataset.m5='1';b.onclick=m5trySave;}},400);
+
+/* ══ 6. ПОКАЗАТИ ЗНІМОК після сканування ══ */
+var _ds=(typeof drawScanned==='function')?drawScanned:null;
+if(_ds){
+  window.drawScanned=function(url){window.__m5shot=url;return _ds(url);};
+}
+if(typeof showCamResult==='function'){
+  var _sc=showCamResult;
+  window.showCamResult=function(found,shotURL){window.__m5shot=shotURL;return _sc(found,shotURL);};
+}
+/* коли з'явився напис «прочитано» — повернути знімок на полотно */
+var _wasRead=false;
+setInterval(function(){
+  var rt=$I('rt');if(!rt||!_ds)return;
+  var isRead=rt.textContent.indexOf('прочитано')>=0;
+  if(isRead&&!_wasRead&&window.__m5shot){_ds(window.__m5shot);}
+  _wasRead=isRead;
+},500);
+})();
+</script>
   
 </body>
 </html>
