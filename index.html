@@ -250,7 +250,64 @@ input.inp.r,input.inp.g,input.inp.b{font-size:16px;padding:15px 18px;line-height
 .vf span:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}
 .vf span:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
 
+/* ═══════════════════════════════════════════════════════════════
+   МОБІЛЬНА АДАПТАЦІЯ (тільки екрани ≤768px; десктоп не змінюється)
+   ═══════════════════════════════════════════════════════════════ */
+@media(max-width:768px){
+  /* одна колонка, порядок: код → ввід → налаштування */
+  .app{grid-template-columns:1fr!important;max-width:100%!important;
+    padding-bottom:76px!important;}          /* місце під нижню панель */
+  .center{order:1!important;padding:12px 14px 8px!important;gap:10px!important;}
+  .side.left{order:2!important;}
+  .side.right{order:3!important;}
+  .side{border:0!important;border-top:1px solid var(--line)!important;
+    padding:16px 16px!important;gap:12px!important;}
 
+  /* код зверху, стискається коли фокус у полі (клавіатура) */
+  .stage{max-width:min(88vw,340px)!important;transition:max-width .25s,max-height .25s;}
+  body.kbd .stage{max-width:min(46vw,180px)!important;}   /* стиск при клавіатурі */
+
+  /* ввід і статус одразу під кодом */
+  .txtzone{height:auto!important;max-width:100%!important;}
+
+  /* приховати статичний таб-заголовок, лишити лого + одну кнопку */
+  .roomtab.on{display:none!important;}
+  #introBtn{display:none!important;}
+  .nav{gap:10px!important;padding:0 14px!important;}
+
+  /* верхні дублюючі кнопки дій ховаємо — все йде в нижню панель */
+  .action{display:none!important;}
+
+  /* нижня фіксована панель дій */
+  #mobabar{display:flex!important;}
+
+  /* акордеон: тап по заголовку секції згортає її вміст */
+  .side .grp > .sec-t{cursor:pointer;justify-content:space-between;}
+  .side .grp > .sec-t::after{content:'▾';margin-left:auto;transition:transform .2s;font-size:10px;}
+  .side .grp.mclosed > .sec-t::after{transform:rotate(-90deg);}
+  .side .grp.mclosed > *:not(.sec-t){display:none!important;}
+}
+/* десктоп: нижня панель і акордеон-заголовки приховані */
+#mobabar{display:none;}
+
+/* нижня панель дій (мобільна) */
+#mobabar{position:fixed;left:0;right:0;bottom:0;z-index:80;
+  gap:10px;padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+  background:rgba(13,10,8,.94);backdrop-filter:blur(10px);
+  border-top:1px solid var(--line);}
+body.light-mode #mobabar{background:rgba(240,232,218,.94);}
+#mobabar button{flex:1;font-family:var(--mono);font-size:14px;font-weight:700;
+  letter-spacing:.05em;padding:15px 12px;border-radius:12px;cursor:pointer;
+  text-transform:uppercase;border:1px solid color-mix(in srgb,var(--acc) 55%,transparent);
+  background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 26%,transparent),color-mix(in srgb,var(--acc) 10%,transparent));
+  color:var(--acc-hot);display:flex;align-items:center;justify-content:center;gap:8px;}
+#mobabar button:disabled{opacity:.4;cursor:default;
+  border-color:var(--line);background:transparent;color:var(--muted);}
+
+
+
+  
+</style>
 </head>
 <body class="room-mono">
 
@@ -1636,28 +1693,19 @@ document.addEventListener('click',e=>{
   if(menuOpen&&!e.target.closest('.action'))closeMenu();
   if(palOpen&&!e.target.closest('.palette-pop')){palOpen=false;$('pal-panel').classList.add('hide')}});
 
+function splitThree(t){const ch=[...t];const k=Math.ceil(ch.length/3);
+  return [ch.slice(0,k).join(''),ch.slice(k,2*k).join(''),ch.slice(2*k).join('')];}
+function defaultName(){
+  const t=(layers===1?D.single:(D.ch.find(x=>x)||''))||'taina';
+  return (modeName(mode)+'_'+t).slice(0,26).trim().replace(/\s+/g,'_')}
 function savePNG(name){
   const scale=Math.max(1,Math.round(1200/Math.max(OFF.width,1)));
   const ex=document.createElement('canvas');
   ex.width=OFF.width*scale;ex.height=OFF.height*scale;
   const c=ex.getContext('2d');c.imageSmoothingEnabled=false;
   c.drawImage(OFF,0,0,OFF.width,OFF.height,0,0,ex.width,ex.height);
-  
-  try {
-    const dataUrl = ex.toDataURL('image/png');
-    const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = name + '.png';
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  } catch(e) {
-    const win = window.open();
-    if(win) win.document.write('<img src="' + ex.toDataURL('image/png') + '"/>');
-  }
-  if(typeof tone==='function') tone(660,.09,.07);
-}
+  ex.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);
+    a.download=name+'.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);tone(660,.09,.07)});}
 
 /* ═══════ ПУБЛІКАЦІЯ В ГАЛЕРЕЮ ═══════ */
 const SUPA_URL='https://iieahzklwngqugkovhrs.supabase.co';
@@ -1785,7 +1833,19 @@ function refreshInputs(){
                 '<button id="mb-scan">⌖ Сканувати</button>';
   document.body.appendChild(bar);
 
-  
+  /* Зберегти — активна лише коли є код */
+  function syncMobSave(){const b=document.getElementById('mb-save');
+    if(b)b.disabled=!(typeof hasImage!=='undefined'&&hasImage);}
+  /* стежимо за появою коду (легкий поллінг + хук на syncMain) */
+  if(typeof syncMain==='function'){const _sm=syncMain;window.syncMain=function(){_sm.apply(this,arguments);syncMobSave();};}
+  setInterval(syncMobSave,500);
+
+  document.getElementById('mb-save').onclick=()=>{
+    if(typeof hasImage==='undefined'||!hasImage)return;
+    const n=(typeof defaultName==='function'?defaultName():'taina');
+    if(typeof savePNG==='function')savePNG(n);
+  };
+  document.getElementById('mb-scan').onclick=()=>openSheet();
 
   /* ── action sheet: Камера / Завантажити ── */
   const sheet=document.createElement('div');sheet.id='sheet';
@@ -1946,151 +2006,6 @@ build();
 autoGrow();
 </script>
 
-
-  </style>
-</head>
-<body class="room-mono">
-
-<header><div class="nav">
-  <span class="mark">taina</span>
-  <div class="roomnav">
-    <span class="roomtab on">лабораторія байткоду</span>
-    <a href="gallery.html" class="roomtab">Галерея</a>
-    <button class="roomtab" id="introBtn" type="button">Що це?</button>
-  </div>
-  <div class="navbtns">
-    <button class="nb" id="themeBtn" title="Оформлення"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
-    <button class="nb" id="undo" title="Назад" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-    <button class="nb" id="redo" title="Вперед" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
-    <button class="nb" id="clr" title="Очистити"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
-  </div>
-</div>
-</header>
-
-<div class="app">
-
-  <aside class="side left">
-    <div class="grp">
-      <div class="sec-t">Режим</div>
-      <div class="seg" id="layers">
-        <button data-l="1" class="on">Один шар</button>
-        <button data-l="3">Три шари · RGB</button>
-      </div>
-    </div>
-  </aside>
-</div>
-
-<!-- ═══ МОБІЛЬНИЙ ПАТЧ taina v3 · вставити ПЕРЕД </body> ═══ -->
-<style>
-@media(max-width:768px){
-  .app{grid-template-columns:1fr!important;max-width:100%!important;padding-bottom:96px!important;}
-  .center{order:1!important;padding:10px 14px 6px!important;gap:8px!important;}
-  .side.left{order:2!important;}
-  .side.right{order:3!important;}
-  .side{border:0!important;border-top:1px solid var(--line)!important;padding:14px 16px!important;gap:12px!important;}
-  .stage{max-width:min(66vw,290px)!important;transition:max-width .25s;}
-  body.kbd .stage{max-width:min(40vw,160px)!important;}
-  .txtzone{height:auto!important;max-width:100%!important;gap:6px!important;}
-  .roomtab.on{display:none!important;}
-  #introBtn{display:none!important;}
-  .navbtns{display:none!important;}
-  .nav{gap:10px!important;padding:0 14px!important;}
-  .stat{display:none!important;}
-  #admin-toggle,#admin-box{display:none!important;}
-  #rgb-note-grp{display:none!important;}
-  .action{display:none!important;}
-  .side.right .grp:last-child{display:none!important;}
-  #shape,#frame{display:none!important;}
-  #pal-panel{position:static!important;box-shadow:none!important;border:0!important;padding:6px 0 0!important;background:transparent!important;}
-  #pal-btn{display:none!important;}
-  #mobabar{display:flex!important;}
-}
-#mobabar{display:none;}
-#mobabar{position:fixed;left:0;right:0;bottom:0;z-index:9999;gap:10px;padding:10px 14px calc(12px + env(safe-area-inset-bottom));background:rgba(13,10,8,.96);backdrop-filter:blur(12px);border-top:1px solid var(--line);}
-body.light-mode #mobabar{background:rgba(240,232,218,.96);}
-#mobabar button{flex:1;font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:.05em;padding:16px 12px;border-radius:12px;cursor:pointer;text-transform:uppercase;border:1px solid color-mix(in srgb,var(--acc) 55%,transparent);background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 26%,transparent),color-mix(in srgb,var(--acc) 10%,transparent));color:var(--acc-hot);display:flex;align-items:center;justify-content:center;gap:8px;}
-#mobabar button:disabled{opacity:.4;cursor:default;border-color:var(--line);background:transparent;color:var(--muted);}
-#sheet{position:fixed;inset:0;z-index:10000;display:none;}
-#sheet.on{display:block;}
-#sheet .veil2{position:absolute;inset:0;background:rgba(0,0,0,.55);}
-#sheet .card{position:absolute;left:0;right:0;bottom:0;background:var(--panel);border-top-left-radius:18px;border-top-right-radius:18px;padding:14px 16px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;box-shadow:0 -12px 40px rgba(0,0,0,.6);animation:sheetup .22s ease;}
-@keyframes sheetup{from{transform:translateY(100%)}to{transform:translateY(0)}}
-#sheet .sh-t{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--acc-dim);text-transform:uppercase;text-align:center;padding:4px 0 6px;}
-#sheet .sh-b{font-family:var(--mono);font-size:15px;font-weight:600;padding:16px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--parchment);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;}
-#sheet .sh-b:active{background:color-mix(in srgb,var(--acc) 16%,transparent);}
-#sheet .sh-cancel{color:var(--muted);border-style:dashed;}
-#mob-theme,#mob-clear,.mob-splitbtn{display:none;}
-@media(max-width:768px){
-  #mob-theme{display:inline-flex!important;align-items:center;justify-content:center;margin-left:auto;width:40px;height:40px;border-radius:10px;font-size:18px;border:1px solid var(--line);background:transparent;cursor:pointer;flex:0 0 auto;}
-  .txtzone{position:relative;padding-top:6px!important;}
-  #mob-clear{display:flex!important;align-items:center;justify-content:center;position:absolute;top:4px;right:4px;z-index:5;width:32px;height:32px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--muted);font-size:15px;cursor:pointer;}
-  #mob-clear:active{color:var(--bad);border-color:var(--bad);}
-  .mob-splitbtn{display:block!important;width:100%;margin-top:8px;font-family:var(--mono);font-size:13px;font-weight:700;padding:13px;border-radius:11px;cursor:pointer;text-transform:none;border:1px solid color-mix(in srgb,var(--acc) 52%,transparent);background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 24%,transparent),color-mix(in srgb,var(--acc) 8%,transparent));color:var(--acc-hot);}
-  .mob-splitbtn.hide{display:none!important;}
-}
-</style>
-<script>
-(function(){
-  const mq=window.matchMedia('(max-width:768px)');
-  const $ID=id=>document.getElementById(id);
-  const bar=document.createElement('div');bar.id='mobabar';
-  bar.innerHTML='<button id="mb-save">⤓ Зберегти</button><button id="mb-scan">⌖ Сканувати</button>';
-  document.body.appendChild(bar);
-  function syncMobSave(){
-    const b=$ID('mb-save');
-    if(b){
-      b.disabled=false;
-      b.removeAttribute('disabled');
-      b.style.display='block';
-    }
-  }
-  if(typeof syncMain==='function'){const _sm=syncMain;window.syncMain=function(){_sm.apply(this,arguments);syncMobSave();};}
-  setInterval(syncMobSave,300);
-  $ID('mb-save').onclick=()=>{
-    const n=(typeof defaultName==='function'?defaultName():'taina');
-    if(typeof savePNG==='function')savePNG(n);
-  };
-  $ID('mb-scan').onclick=()=>openSheet();
-  const sheet=document.createElement('div');sheet.id='sheet';
-  sheet.innerHTML='<div class="veil2"></div><div class="card"><div class="sh-t">Сканувати код</div><button class="sh-b" id="sh-cam">📷 Камера</button><button class="sh-b" id="sh-file">🖼 Завантажити з галереї</button><button class="sh-b sh-cancel" id="sh-x">Скасувати</button></div>';
-  document.body.appendChild(sheet);
-  function openSheet(){sheet.classList.add('on');}
-  function closeSheet(){sheet.classList.remove('on');}
-  sheet.querySelector('.veil2').onclick=closeSheet;
-  $ID('sh-x').onclick=closeSheet;
-  $ID('sh-cam').onclick=()=>{closeSheet();if(typeof startCam==='function')startCam();};
-  $ID('sh-file').onclick=()=>{closeSheet();const f=$ID('file');if(f)f.click();};
-  const nav=document.querySelector('.nav');
-  if(nav){const tb=document.createElement('button');tb.id='mob-theme';tb.type='button';tb.textContent='🌙';tb.setAttribute('aria-label','Тема');
-    tb.onclick=()=>{if(typeof applyMode==='function'&&typeof modeIdx!=='undefined'){applyMode(modeIdx+1);try{tb.textContent=document.body.classList.contains('light-mode')?'☀️':'🌙';}catch(e){}}};
-    nav.appendChild(tb);}
-  const tz=document.querySelector('.txtzone');
-  if(tz){const cx=document.createElement('button');cx.id='mob-clear';cx.type='button';cx.textContent='✕';cx.setAttribute('aria-label','Очистити');
-    cx.onclick=()=>{const c=$ID('clr');if(c)c.click();};tz.insertBefore(cx,tz.firstChild);}
-  const r3=$ID('row-three');
-  if(r3&&r3.parentElement){const sp=document.createElement('button');sp.id='mob-split';sp.type='button';sp.textContent='⑂ Розкласти на три';sp.className='mob-splitbtn hide';
-    r3.parentElement.insertBefore(sp,r3.nextSibling);
-    sp.onclick=()=>{if(typeof layers==='undefined'||layers!==3)return;const filled=(typeof D!=='undefined')?D.ch.filter(t=>t&&t.trim()):[];
-      if(filled.length!==1){if(typeof toast==='function')toast('Заповни лише один канал');return;}
-      const only=D.ch.find(t=>t&&t.trim())||'';
-      if(typeof splitThree==='function'){D.ch=splitThree(only);monoMark=1;if(typeof refreshInputs==='function')refreshInputs();if(typeof build==='function')build();}};
-    function syncSplit(){sp.classList.toggle('hide',!(typeof layers!=='undefined'&&layers===3));}
-    setInterval(syncSplit,400);syncSplit();}
-  setInterval(syncMobSave,500);
-  if(typeof window.defaultName==='function'||typeof defaultName==='function'){
-    window.defaultName=function(){const t=(typeof layers!=='undefined'&&layers===1?D.single:(D.ch.find(x=>x)||''))||'taina';return (t.slice(0,26).trim().replace(/\s+/g,'_'))||'taina';};}
-  function setupAccordion(){if(!mq.matches)return;document.querySelectorAll('.side .grp > .sec-t').forEach(t=>{if(t.dataset.acc)return;t.dataset.acc='1';t.addEventListener('click',()=>{t.parentElement.classList.toggle('mclosed');});});}
-  setupAccordion();if(mq.addEventListener)mq.addEventListener('change',setupAccordion);
-  const vv=window.visualViewport;
-  function onKbd(){if(!mq.matches){document.body.classList.remove('kbd');return;}const kb=vv?(window.innerHeight-vv.height>140):false;document.body.classList.toggle('kbd',kb);}
-  if(vv){vv.addEventListener('resize',onKbd);vv.addEventListener('scroll',onKbd);}
-  document.addEventListener('focusin',e=>{if(mq.matches&&e.target.classList&&e.target.classList.contains('inp'))document.body.classList.add('kbd');});
-  document.addEventListener('focusout',()=>{setTimeout(onKbd,60);});
-})();
-</script>
-</body>
-</html>
-
 <!-- ═══ МОБІЛЬНИЙ ПАТЧ taina · вставити ПЕРЕД </body> ═══ -->
 <style>
 /* ═══════════════════════════════════════════════════════════════
@@ -2191,11 +2106,14 @@ body.light-mode #mobabar{background:rgba(240,232,218,.96);}
   /* стежимо за появою коду (легкий поллінг + хук на syncMain) */
   if(typeof syncMain==='function'){const _sm=syncMain;window.syncMain=function(){_sm.apply(this,arguments);syncMobSave();};}
   setInterval(syncMobSave,500);
-document.getElementById('mb-save').onclick=()=>{
+
+  document.getElementById('mb-save').onclick=()=>{
+    if(typeof hasImage==='undefined'||!hasImage)return;
     const n=(typeof defaultName==='function'?defaultName():'taina');
     if(typeof savePNG==='function')savePNG(n);
   };
   document.getElementById('mb-scan').onclick=()=>openSheet();
+
   /* ── action sheet: Камера / Завантажити ── */
   const sheet=document.createElement('div');sheet.id='sheet';
   sheet.innerHTML='<div class="veil2"></div><div class="card">'+
@@ -2243,116 +2161,6 @@ document.getElementById('mb-save').onclick=()=>{
 })();
 
 </script>
-
-<!-- ═══ МОБІЛЬНИЙ ПАТЧ taina v3 · вставити ПЕРЕД </body> ═══ -->
-<style>
-/* ═══════════════════════════════════════════════════════════════
-   МОБІЛЬНА АДАПТАЦІЯ v2 (тільки ≤768px; десктоп не змінюється)
-   ═══════════════════════════════════════════════════════════════ */
-@media(max-width:768px){
-  /* одна колонка; місце знизу під фіксовану панель */
-  .app{grid-template-columns:1fr!important;max-width:100%!important;
-    padding-bottom:96px!important;}
-  .center{order:1!important;padding:10px 14px 6px!important;gap:8px!important;}
-  .side.left{order:2!important;}
-  .side.right{order:3!important;}
-  .side{border:0!important;border-top:1px solid var(--line)!important;
-    padding:14px 16px!important;gap:12px!important;}
-
-  /* canvas зверху, менший — завжди видно цілком; стискається під клавіатуру */
-  .stage{max-width:min(66vw,290px)!important;transition:max-width .25s;}
-  body.kbd .stage{max-width:min(40vw,160px)!important;}
-
-  /* поле + статус одразу під кодом */
-  .txtzone{height:auto!important;max-width:100%!important;gap:6px!important;}
-
-  /* ── ШАПКА: лишити лого + «Галерея»; сховати таб і всі іконки ── */
-  .roomtab.on{display:none!important;}
-  #introBtn{display:none!important;}
-  .navbtns{display:none!important;}          /* тема/undo/redo/очистити (пусті квадрати) */
-  .nav{gap:10px!important;padding:0 14px!important;}
-
-  /* ── СХОВАТИ зайве на мобільному ── */
-  .stat{display:none!important;}             /* статистика */
-  #admin-toggle,#admin-box{display:none!important;}  /* адмін */
-  #rgb-note-grp{display:none!important;}      /* пояснення про 3 канали */
-  .action{display:none!important;}           /* старі кнопки камера/завантаж/зберегти */
-  /* права панель: Символи — остання секція → ховаємо (клавіатура дає емодзі) */
-  .side.right .grp:last-child{display:none!important;}
-  /* у секції «Вигляд» лишаємо тільки палітру; форму й рамку ховаємо */
-  #shape,#frame{display:none!important;}
-
-  /* Палітра завжди розкрита і зручна */
-#pal-panel.hide{display:block!important;}
-#pal-panel{position:static!important;box-shadow:none!important;border:0!important;padding:6px 0 0!important;background:transparent!important;}
-
-  /* ── нижня фіксована панель дій ── */
-  #mobabar{display:flex!important;}
-}
-
-/* десктоп: мобільні елементи приховані */
-#mobabar{display:none;}
-
-/* ── нижня панель: НАМЕРТВО внизу, над баром браузера ── */
-#mobabar{position:fixed;left:0;right:0;bottom:0;z-index:9999;
-  gap:10px;padding:10px 14px calc(12px + env(safe-area-inset-bottom));
-  background:rgba(13,10,8,.96);backdrop-filter:blur(12px);
-  border-top:1px solid var(--line);}
-body.light-mode #mobabar{background:rgba(240,232,218,.96);}
-#mobabar button{flex:1;font-family:var(--mono);font-size:14px;font-weight:700;
-  letter-spacing:.05em;padding:16px 12px;border-radius:12px;cursor:pointer;
-  text-transform:uppercase;border:1px solid color-mix(in srgb,var(--acc) 55%,transparent);
-  background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 26%,transparent),color-mix(in srgb,var(--acc) 10%,transparent));
-  color:var(--acc-hot);display:flex;align-items:center;justify-content:center;gap:8px;}
-#mobabar button:disabled{opacity:.4;cursor:default;
-  border-color:var(--line);background:transparent;color:var(--muted);}
-
-/* ── Action Sheet (Камера / Завантажити) ── */
-#sheet{position:fixed;inset:0;z-index:10000;display:none;}
-#sheet.on{display:block;}
-#sheet .veil2{position:absolute;inset:0;background:rgba(0,0,0,.55);}
-#sheet .card{position:absolute;left:0;right:0;bottom:0;
-  background:var(--panel);border-top-left-radius:18px;border-top-right-radius:18px;
-  padding:14px 16px calc(18px + env(safe-area-inset-bottom));
-  display:flex;flex-direction:column;gap:10px;
-  box-shadow:0 -12px 40px rgba(0,0,0,.6);animation:sheetup .22s ease;}
-@keyframes sheetup{from{transform:translateY(100%)}to{transform:translateY(0)}}
-#sheet .sh-t{font-family:var(--mono);font-size:10px;letter-spacing:.18em;
-  color:var(--acc-dim);text-transform:uppercase;text-align:center;padding:4px 0 6px;}
-#sheet .sh-b{font-family:var(--mono);font-size:15px;font-weight:600;padding:16px;
-  border-radius:12px;border:1px solid var(--line);background:var(--panel2);
-  color:var(--parchment);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;}
-#sheet .sh-b:active{background:color-mix(in srgb,var(--acc) 16%,transparent);}
-#sheet .sh-cancel{color:var(--muted);border-style:dashed;}
-
-/* ── нові мобільні контроли (тема / очистка / RGB-split) ── */
-#mob-theme,#mob-clear,.mob-splitbtn{display:none;}   /* десктоп: приховані */
-@media(max-width:768px){
-  /* кнопка теми у шапці */
-  #mob-theme{display:inline-flex!important;align-items:center;justify-content:center;
-    margin-left:auto;width:40px;height:40px;border-radius:10px;font-size:18px;
-    border:1px solid var(--line);background:transparent;cursor:pointer;flex:0 0 auto;}
-  /* поле вводу — місце під ✕ */
-  .txtzone{position:relative;padding-top:6px!important;}
-  #mob-clear{display:flex!important;align-items:center;justify-content:center;
-    position:absolute;top:4px;right:4px;z-index:5;width:32px;height:32px;border-radius:9px;
-    border:1px solid var(--line);background:var(--panel);color:var(--muted);
-    font-size:15px;cursor:pointer;}
-  #mob-clear:active{color:var(--bad);border-color:var(--bad);}
-  /* кнопка RGB-split під полями каналів */
-  .mob-splitbtn{display:block!important;width:100%;margin-top:8px;
-    font-family:var(--mono);font-size:13px;font-weight:700;padding:13px;border-radius:11px;
-    cursor:pointer;text-transform:none;
-    border:1px solid color-mix(in srgb,var(--acc) 52%,transparent);
-    background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 24%,transparent),color-mix(in srgb,var(--acc) 8%,transparent));
-    color:var(--acc-hot);}
-  .mob-splitbtn.hide{display:none!important;}
-}
-
-</style>
-
   
-</style>
-
 </body>
 </html>
