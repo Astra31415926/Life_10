@@ -2161,6 +2161,58 @@ body.light-mode #mobabar{background:rgba(240,232,218,.96);}
 })();
 
 </script>
+
+<!-- ═══ ДОПОЛНЕНИЕ v4: палітра + RGB-split + ім'я файлу ═══ -->
+<style>
+@media(max-width:768px){
+  /* палітра: кнопка видима, панель завжди розкрита */
+  #pal-btn{display:block!important;}
+  #pal-panel,#pal-panel.hide{display:flex!important;position:static!important;
+    box-shadow:none!important;border:0!important;padding:8px 0 0!important;
+    background:transparent!important;}
+  /* кнопка розкладання на три канали */
+  .mob-splitbtn{display:block!important;width:100%;margin-top:10px;
+    font-family:var(--mono);font-size:13px;font-weight:700;padding:13px;
+    border-radius:11px;cursor:pointer;
+    border:1px solid color-mix(in srgb,var(--acc) 52%,transparent);
+    background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 24%,transparent),color-mix(in srgb,var(--acc) 8%,transparent));
+    color:var(--acc-hot);}
+  .mob-splitbtn.hide{display:none!important;}
+}
+.mob-splitbtn{display:none;}
+</style>
+<script>
+(function(){
+  var mq=window.matchMedia('(max-width:768px)');
+  /* 1. Прибрати «×8_» з імені файлу */
+  window.defaultName=function(){
+    var t=(layers===1?D.single:(D.ch.find(function(x){return x})||''))||'taina';
+    return (t.slice(0,26).trim().replace(/\s+/g,'_'))||'taina';
+  };
+  /* 2. Кнопка «Розкласти на три» під полями каналів */
+  var r3=document.getElementById('row-three');
+  if(r3&&r3.parentElement){
+    var sp=document.createElement('button');
+    sp.type='button';sp.className='mob-splitbtn hide';
+    sp.textContent='⑂ Розкласти на три';
+    r3.parentElement.insertBefore(sp,r3.nextSibling);
+    sp.onclick=function(){
+      if(layers!==3)return;
+      var filled=D.ch.filter(function(t){return t&&t.trim()});
+      if(filled.length!==1){alert('Заповни лише один канал');return;}
+      var only=D.ch.find(function(t){return t&&t.trim()})||'';
+      D.ch=splitThree(only);monoMark=1;refreshInputs();build();
+    };
+    setInterval(function(){sp.classList.toggle('hide',layers!==3);},400);
+  }
+  /* 3. Палітра: тримати розкритою на мобільному */
+  setInterval(function(){
+    if(!mq.matches)return;
+    var p=document.getElementById('pal-panel');
+    if(p&&p.classList.contains('hide')&&layers!==3)p.classList.remove('hide');
+  },500);
+})();
+</script>
   
 </body>
 </html>
