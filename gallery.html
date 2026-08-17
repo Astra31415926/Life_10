@@ -343,5 +343,60 @@ function openFromURL(){
 }
 loadGallery();
 </script>
+
+
+
+  <!-- ═══ TAINA · МОБІЛЬНЕ v7 · ГАЛЕРЕЯ · вставити ПЕРЕД </body> ═══ -->
+<style>
+#g7-theme{display:none!important;}
+@media(max-width:768px){
+  /* ── ШАПКА: точно як у лабораторії ── */
+  .nav{display:flex!important;align-items:center;gap:8px!important;padding:0 12px!important;}
+  .mark{flex:0 0 auto;order:0;}
+  .navlinks{order:1;display:flex!important;gap:6px;margin-left:8px!important;flex:0 0 auto;}
+  .navlink{display:inline-flex!important;align-items:center;padding:7px 11px!important;
+    font-size:10px!important;white-space:nowrap;}
+  #g7-theme{display:inline-flex!important;align-items:center;justify-content:center;
+    margin-left:auto!important;order:9;width:38px;height:38px;border-radius:10px;
+    font-size:16px;border:1px solid var(--line);background:transparent;cursor:pointer;flex:0 0 auto;}
+  .hero{padding:20px 16px 12px!important;}
+  .hero h1{font-size:22px!important;}
+  .hero p{font-size:13px!important;}
+  .grid{grid-template-columns:1fr!important;padding:0 16px 40px!important;gap:14px!important;}
+}
+</style>
+<script>
+(function(){
+var TH=[
+ {n:'🌙',ink:'#0d0a08',panel:'#1a1410',panel2:'#241c15',parch:'#f2e9d8',muted:'#b09a7c',
+  acc:'#d4b483',hot:'#ffe6b8',dim:'#a08760',line:'rgba(212,180,131,.34)',light:false},
+ {n:'☀️',ink:'#f3eee3',panel:'#ffffff',panel2:'#e9e1d2',parch:'#191309',muted:'#4a3f2e',
+  acc:'#7a4f10',hot:'#4a2f05',dim:'#6f5c38',line:'rgba(90,70,40,.42)',light:true},
+ {n:'◐',ink:'#1a1c1e',panel:'#26292d',panel2:'#31353a',parch:'#f0f1f3',muted:'#adb3b9',
+  acc:'#c6ccd3',hot:'#ffffff',dim:'#8a9097',line:'rgba(198,204,211,.34)',light:false},
+ {n:'❄️',ink:'#0a1622',panel:'#132433',panel2:'#1b3346',parch:'#e6f3fb',muted:'#9dbdd2',
+  acc:'#6fd2f0',hot:'#c2edff',dim:'#4d8ba6',line:'rgba(111,210,240,.36)',light:false}
+];
+var ti=0;try{ti=parseInt(localStorage.getItem('taina_th'))||0;}catch(e){}
+function applyTh(i){
+  ti=((i%TH.length)+TH.length)%TH.length;var t=TH[ti],r=document.body.style;
+  r.setProperty('--ink',t.ink);r.setProperty('--panel',t.panel);r.setProperty('--panel2',t.panel2);
+  r.setProperty('--parchment',t.parch);r.setProperty('--muted',t.muted);
+  r.setProperty('--acc',t.acc);r.setProperty('--acc-hot',t.hot);
+  r.setProperty('--acc-dim',t.dim);r.setProperty('--line',t.line);
+  document.body.style.background=t.ink;
+  var mk=document.querySelector('.mark');if(mk)mk.style.color=t.parch;
+  var b=document.getElementById('g7-theme');if(b){b.textContent=t.n;b.style.color=t.parch;}
+  try{localStorage.setItem('taina_th',ti);}catch(e){}
+}
+var nav=document.querySelector('.nav');
+if(nav){var tb=document.createElement('button');tb.id='g7-theme';tb.type='button';
+  tb.setAttribute('aria-label','Тема');tb.textContent=TH[ti].n;
+  tb.onclick=function(ev){ev.stopPropagation();applyTh(ti+1);};nav.appendChild(tb);}
+applyTh(ti);
+})();
+</script>
+
+  
 </body>
 </html>
