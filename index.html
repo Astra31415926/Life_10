@@ -2007,75 +2007,91 @@ autoGrow();
 </script>
 
 
-  <!-- ═══ TAINA · МОБІЛЬНЕ v7 · ЛАБОРАТОРІЯ · вставити ПЕРЕД </body> ═══ -->
+<!-- ═══ TAINA · МОБІЛЬНЕ v8 · ВБУДОВАНА ГАЛЕРЕЯ · вставити ПЕРЕД </body> у index.html ═══ -->
 <style>
 #stage{background:#8a8580!important;}
-#m7-theme,#m7-clear{display:none!important;}
+#g8-theme{display:none!important;}
 
+/* ── жорстка сітка (фіксовані блоки, нічого не стрибає) ── */
 @media(max-width:768px){
-  /* ── ШАПКА: однакова в лабораторії та галереї ── */
   .nav{display:flex!important;align-items:center;gap:8px!important;padding:0 12px!important;}
   .mark{flex:0 0 auto;order:0;}
   .roomnav{order:1;display:flex!important;gap:6px;margin-left:8px!important;flex:0 0 auto;}
-  .roomtab{display:inline-flex!important;align-items:center;padding:7px 11px!important;
-    font-size:10px!important;white-space:nowrap;}
+  .roomtab{display:inline-flex!important;align-items:center;padding:7px 11px!important;font-size:10px!important;white-space:nowrap;}
   #introBtn{display:none!important;}
   .navbtns{display:none!important;}
-  #m7-theme{display:inline-flex!important;align-items:center;justify-content:center;
+  #g8-theme{display:inline-flex!important;align-items:center;justify-content:center;
     margin-left:auto!important;order:9;width:38px;height:38px;border-radius:10px;
     font-size:16px;border:1px solid var(--line);background:transparent;cursor:pointer;flex:0 0 auto;}
 
-  /* ── хрестик (лише телефон) ── */
   .txtzone{position:relative;}
-  #m7-clear{display:flex!important;align-items:center;justify-content:center;
+  #g8-clear{display:flex!important;align-items:center;justify-content:center;
     position:absolute;top:-2px;right:2px;z-index:6;width:30px;height:30px;
     border-radius:9px;border:1px solid var(--line);background:var(--panel);
     color:var(--muted);font-size:14px;cursor:pointer;}
 
-  /* ── КОД: фіксований розмір, ніколи не стрибає ── */
-  .stage,body.kbd .stage{max-width:min(74vw,300px)!important;
-    width:min(74vw,300px)!important;transition:none!important;}
+  .stage,body.kbd .stage{max-width:min(74vw,300px)!important;width:min(74vw,300px)!important;transition:none!important;}
 
-  /* ── порядок блоків ── */
   .center{display:flex!important;flex-direction:column!important;align-items:center;}
   .txtzone{order:0!important;height:auto!important;max-width:100%!important;}
   #stage{order:1!important;}
-  #m7-slot{order:2!important;width:100%;max-width:660px;margin-top:12px;}
+  #g8-slot{order:2!important;width:100%;max-width:660px;margin-top:12px;}
   .side.left{order:3!important;}
   .side.right{order:4!important;}
 
-  /* палітра всередині слота — один ряд, без підписів і темних */
   #pal-btn{display:none!important;}
-  #pal-panel,#pal-panel.hide{display:block!important;position:static!important;
-    box-shadow:none!important;border:0!important;padding:0!important;background:transparent!important;}
+  #pal-panel,#pal-panel.hide{display:block!important;position:static!important;box-shadow:none!important;
+    border:0!important;padding:0!important;background:transparent!important;}
   #pal-panel .pal-row:nth-child(2){display:none!important;}
   #pal-panel .pal-row .lbl{display:none!important;}
-  #sw-one{display:flex!important;flex-wrap:nowrap!important;overflow-x:auto;
-    gap:8px!important;background:transparent!important;padding:2px 0!important;
-    -webkit-overflow-scrolling:touch;}
+  #sw-one{display:flex!important;flex-wrap:nowrap!important;overflow-x:auto;gap:8px!important;
+    background:transparent!important;padding:2px 0!important;-webkit-overflow-scrolling:touch;}
   #sw-one .sw{flex:0 0 auto;width:30px;height:30px;}
   .mob-splitbtn{display:none!important;}
-}
 
-.m7pop{position:fixed;inset:0;z-index:11000;}
-.m7pop .bg{position:absolute;inset:0;background:rgba(0,0,0,.6);}
-.m7pop .box{position:absolute;left:0;right:0;bottom:0;background:var(--panel);
-  border-top-left-radius:18px;border-top-right-radius:18px;
-  padding:18px 18px calc(20px + env(safe-area-inset-bottom));
-  display:flex;flex-direction:column;gap:12px;}
-.m7pop .t{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--acc-hot);}
-.m7pop .d{font-size:14px;line-height:1.55;color:var(--parchment);}
-.m7pop button{font-family:var(--mono);font-size:14px;font-weight:700;padding:15px;
-  border-radius:12px;cursor:pointer;border:1px solid var(--acc);
-  background:color-mix(in srgb,var(--acc) 22%,transparent);color:var(--acc-hot);}
-.m7pop button.sec{background:transparent;color:var(--muted);border-style:dashed;border-color:var(--line);}
+  /* ── вбудована галерея ── */
+  #g8-view{display:none;}
+  body.g8-gallery .app,body.g8-gallery .action{display:none!important;}
+  body.g8-gallery #g8-view{display:block!important;}
+  #g8-hero{max-width:1400px;margin:0 auto;padding:20px 16px 12px;text-align:center;}
+  #g8-hero h1{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--parchment);margin-bottom:8px;}
+  #g8-hero p{font-size:13px;color:var(--muted);}
+  #g8-bar{max-width:1400px;margin:0 auto;padding:0 16px 16px;display:flex;justify-content:center;}
+  #g8-count{font-family:var(--mono);font-size:12px;color:var(--acc);border:1px solid var(--line);
+    border-radius:8px;padding:7px 12px;}
+  #g8-grid{max-width:1400px;margin:0 auto;padding:0 16px 100px;display:grid;
+    grid-template-columns:1fr;gap:14px;}
+  .g8-card{border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--panel);
+    display:flex;flex-direction:column;gap:11px;cursor:pointer;}
+  .g8-card canvas{width:100%;aspect-ratio:1;image-rendering:pixelated;border-radius:8px;background:#8a8580;}
+  .g8-card .w{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--parchment);
+    text-align:center;word-break:break-word;}
+  .g8-card .m{font-family:var(--mono);font-size:10.5px;color:var(--acc-dim);text-align:center;
+    display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+}
+.g8modal{position:fixed;inset:0;z-index:11000;display:none;}
+.g8modal.on{display:block;}
+.g8modal .bg{position:absolute;inset:0;background:rgba(0,0,0,.7);}
+.g8modal .box{position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);
+  background:var(--panel);border-radius:18px;padding:22px;text-align:center;max-height:82vh;overflow-y:auto;}
+.g8modal canvas{width:100%;max-width:320px;aspect-ratio:1;image-rendering:pixelated;border-radius:12px;
+  background:#8a8580;margin:0 auto 16px;}
+.g8modal .w{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--acc-hot);margin-bottom:6px;word-break:break-word;}
+.g8modal .m{font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:16px;}
+.g8modal .x{position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:9px;
+  border:1px solid var(--line);background:transparent;color:var(--muted);font-size:16px;cursor:pointer;}
+.g8modal button.act{font-family:var(--mono);font-size:13px;font-weight:700;padding:12px 16px;
+  border-radius:10px;border:1px solid var(--acc);background:color-mix(in srgb,var(--acc) 20%,transparent);
+  color:var(--acc-hot);cursor:pointer;margin:4px;}
 </style>
 <script>
 (function(){
 var $I=function(id){return document.getElementById(id);};
 var mq=window.matchMedia('(max-width:768px)');
+var SUPA_URL='https://iieahzklwngqugkovhrs.supabase.co';
+var SUPA_KEY='sb_publishable_FHtRNaLBvDgDTSLa_8eQnQ_oPMWCIxF';
 
-/* ══ ТЕМИ ══ */
+/* ══ ТЕМИ (спільні з лабораторією) ══ */
 var TH=[
  {n:'🌙',ink:'#0d0a08',panel:'#1a1410',panel2:'#241c15',parch:'#f2e9d8',muted:'#b09a7c',
   acc:'#d4b483',hot:'#ffe6b8',dim:'#a08760',line:'rgba(212,180,131,.34)',light:false},
@@ -2095,26 +2111,25 @@ function applyTh(i){
   r.setProperty('--acc',t.acc);r.setProperty('--acc-hot',t.hot);
   r.setProperty('--acc-dim',t.dim);r.setProperty('--line',t.line);
   var mk=document.querySelector('.mark');if(mk)mk.style.color=t.parch;
-  var b=$I('m7-theme');if(b){b.textContent=t.n;b.style.color=t.parch;}
+  var b=$I('g8-theme');if(b){b.textContent=t.n;b.style.color=t.parch;}
   try{localStorage.setItem('taina_th',ti);}catch(e){}
 }
 var nav=document.querySelector('.nav');
-if(nav){var tb=document.createElement('button');tb.id='m7-theme';tb.type='button';
+if(nav){var tb=document.createElement('button');tb.id='g8-theme';tb.type='button';
   tb.setAttribute('aria-label','Тема');tb.textContent=TH[ti].n;
   tb.onclick=function(ev){ev.stopPropagation();applyTh(ti+1);};nav.appendChild(tb);}
 applyTh(ti);
-setInterval(function(){var t=TH[ti];
-  if(document.body.style.getPropertyValue('--acc')!==t.acc)applyTh(ti);},800);
+setInterval(function(){var t=TH[ti];if(document.body.style.getPropertyValue('--acc')!==t.acc)applyTh(ti);},800);
 
 /* ══ ХРЕСТИК ══ */
 var tz=document.querySelector('.txtzone');
-if(tz){var cx=document.createElement('button');cx.id='m7-clear';cx.type='button';
+if(tz){var cx=document.createElement('button');cx.id='g8-clear';cx.type='button';
   cx.textContent='✕';cx.setAttribute('aria-label','Очистити');
   cx.onclick=function(ev){ev.stopPropagation();var c=$I('clr');if(c)c.click();};
   tz.insertBefore(cx,tz.firstChild);}
 
-/* ══ СЛОТ під кодом: моно→палітра, RGB→зелений+синій ══ */
-var slot=document.createElement('div');slot.id='m7-slot';
+/* ══ СЛОТ під кодом ══ */
+var slot=document.createElement('div');slot.id='g8-slot';
 var center=document.querySelector('.center'),stage=$I('stage');
 if(center&&stage&&stage.parentElement===center)center.insertBefore(slot,stage.nextSibling);
 else if(center)center.appendChild(slot);
@@ -2141,71 +2156,131 @@ function arrange(){
 }
 setInterval(arrange,400);arrange();
 
-/* ══ ВІКНО (створюється й видаляється) ══ */
-function popup(title,text,buttons){
-  var w=document.createElement('div');w.className='m7pop';
-  var bg=document.createElement('div');bg.className='bg';
-  var bx=document.createElement('div');bx.className='box';
-  var t=document.createElement('div');t.className='t';t.textContent=title;
-  var d=document.createElement('div');d.className='d';d.textContent=text;
-  bx.appendChild(t);bx.appendChild(d);
-  function kill(){if(w.parentElement)w.parentElement.removeChild(w);}
-  buttons.forEach(function(b){var el=document.createElement('button');
-    el.textContent=b.t;if(b.sec)el.className='sec';
-    el.onclick=function(ev){ev.stopPropagation();kill();if(b.f)b.f();};bx.appendChild(el);});
-  bg.onclick=kill;w.appendChild(bg);w.appendChild(bx);document.body.appendChild(w);
-  setTimeout(kill,30000);
+/* ══ ВБУДОВАНА ГАЛЕРЕЯ ══ */
+var view=document.createElement('div');view.id='g8-view';
+view.innerHTML='<div id="g8-hero"><h1>Галерея орнаментів</h1><p>Орнаменти, які можна відсканувати та прочитати.</p></div>'+
+  '<div id="g8-bar"><div id="g8-count">Завантаження…</div></div>'+
+  '<div id="g8-grid"></div>';
+document.body.appendChild(view);
+var g8modal=document.createElement('div');g8modal.className='g8modal';
+g8modal.innerHTML='<div class="bg"></div><div class="box"><button class="x">✕</button>'+
+  '<canvas width="640" height="640"></canvas><div class="w"></div><div class="m"></div>'+
+  '<button class="act g8share">Поділитися</button></div>';
+document.body.appendChild(g8modal);
+g8modal.querySelector('.bg').onclick=function(){g8modal.classList.remove('on');};
+g8modal.querySelector('.x').onclick=function(){g8modal.classList.remove('on');};
+
+var GALLERY_LOADED=false, GALLERY_ITEMS=[];
+var enc2=new TextEncoder();
+function Rof2(n){return (n-1)/2}
+function cap2(m,n){var R=Rof2(n);if(m==='oct')return (R+1)*(R+2)/2;if(m==='quad')return (R+1)*(R+1);
+  if(m==='half')return (R+1)*n;return 0;}
+function base2(m,n){var c=Rof2(n),R=c,o=[];
+  if(m==='oct'){for(var i=0;i<=R;i++)for(var j=0;j<=i;j++)o.push([c+i,c+j]);}
+  else if(m==='quad'){for(var i=0;i<=R;i++)for(var j=0;j<=R;j++)o.push([c+i,c+j]);}
+  else{for(var y=0;y<n;y++)for(var i=0;i<=R;i++)o.push([c+i,y]);}
+  return o;}
+function mirr2(m,n,x,y){var c=Rof2(n),i=x-c,j=y-c,p;
+  if(m==='oct')p=[[i,j],[j,i],[-i,j],[-j,i],[i,-j],[j,-i],[-i,-j],[-j,-i]];
+  else if(m==='quad')p=[[i,j],[-i,j],[i,-j],[-i,-j]];else p=[[i,j],[-i,j]];
+  var o=[];for(var k=0;k<p.length;k++){var X=c+p[k][0],Y=c+p[k][1];if(X>=0&&Y>=0&&X<n&&Y<n)o.push([X,Y]);}
+  return o;}
+function pickN22(m,need){for(var n=7;n<=145;n+=2)if(cap2(m,n)>=need)return n;return 145;}
+function textBits2(t){var d=enc2.encode(t),b=new Uint8Array(d.length*8);
+  for(var i=0;i<d.length;i++)for(var k=0;k<8;k++)b[i*8+k]=(d[i]>>(7-k))&1;return b;}
+function fill2(t,n,m,markBit){var g=new Uint8Array(n*n),dm=new Uint8Array(n*n);var bc=base2(m,n);var seq;
+  if(markBit===null||markBit===undefined)seq=textBits2(t);
+  else{var bits=textBits2(t);seq=new Uint8Array(bits.length+1);seq[0]=markBit;seq.set(bits,1);}
+  var lim=Math.min(seq.length,bc.length);
+  for(var i=0;i<lim;i++){var x=bc[i][0],y=bc[i][1];var ms=mirr2(m,n,x,y);
+    for(var k=0;k<ms.length;k++){dm[ms[k][1]*n+ms[k][0]]=1;if(seq[i])g[ms[k][1]*n+ms[k][0]]=1;}}
+  return {g:g,dm:dm};}
+var RGB_SOFT2={r:[220,50,60],g:[65,195,65],b:[60,70,215]};
+function renderBC(cv,rec){
+  var s=rec.settings||{};var mode=rec.mode||'oct';var layers2=rec.layers||1;
+  var colOne=s.colOne||'#f5f5f5';var colZero=s.colZero||'#0d0a08';
+  var frameW=(s.frame!==undefined)?s.frame:1;
+  var words=layers2===3?(s.words||[rec.word,'','']):[rec.word,'',''];
+  var monoMark2=s.monoMark||0;var W,H;var grid={},dmask={};
+  var extraR=(layers2===3&&monoMark2===1)?1:0;var maxBits=0;
+  words.forEach(function(t){if(t)maxBits=Math.max(maxBits,enc2.encode(t).length*8);});
+  var n=pickN22(mode,maxBits+extraR);W=H=n;
+  ['r','g','b'].forEach(function(k,i){var markBit=null;if(layers2===3&&monoMark2===1&&i===0)markBit=1;
+    var r=fill2(words[i]||'',n,mode,markBit);grid[k]=r.g;dmask[k]=r.dm;});
+  var FRAME_A='#0a0806',FRAME_B='#f4efe6';var pad=3,tw=W+pad*2,th=H+pad*2;
+  var cell=Math.max(1,Math.floor(cv.width/Math.max(tw,th)));
+  var ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;
+  var ox=Math.floor((cv.width-tw*cell)/2),oy=Math.floor((cv.height-th*cell)/2);
+  ctx.fillStyle='#8a8580';ctx.fillRect(0,0,cv.width,cv.height);
+  var CW=tw,CHc=th;
+  var cellAt=function(cx,cy,col){ctx.fillStyle=col;ctx.fillRect(ox+cx*cell,oy+cy*cell,cell,cell);};
+  ctx.fillStyle=colZero;ctx.fillRect(ox,oy,tw*cell,th*cell);
+  for(var cx=0;cx<CW;cx++){cellAt(cx,0,FRAME_A);cellAt(cx,CHc-1,FRAME_A);}
+  for(var cy=1;cy<CHc-1;cy++){cellAt(0,cy,FRAME_A);cellAt(CW-1,cy,FRAME_A);}
+  for(var cx=1;cx<CW-1;cx++){cellAt(cx,1,FRAME_B);cellAt(cx,CHc-2,FRAME_B);}
+  for(var cy=2;cy<CHc-2;cy++){cellAt(1,cy,FRAME_B);cellAt(CW-2,cy,FRAME_B);}
+  for(var cx=2;cx<CW-2;cx++){cellAt(cx,2,((cx+2)%2===0)?FRAME_A:FRAME_B);cellAt(cx,CHc-3,((cx+CHc-3)%2===0)?FRAME_A:FRAME_B);}
+  for(var cy=3;cy<CHc-3;cy++){cellAt(2,cy,((2+cy)%2===0)?FRAME_A:FRAME_B);cellAt(CW-3,cy,((CW-3+cy)%2===0)?FRAME_A:FRAME_B);}
+  ctx.fillStyle=colZero;ctx.fillRect(ox+pad*cell,oy+pad*cell,W*cell,H*cell);
+  for(var y=0;y<H;y++)for(var x=0;x<W;x++){var i=y*W+x;
+    if(layers2===3){var on={r:dmask.r[i]&&grid.r[i],g:dmask.g[i]&&grid.g[i],b:dmask.b[i]&&grid.b[i]};
+      if(!on.r&&!on.g&&!on.b)continue;var R=0,G=0,B=0;
+      if(on.r){R+=RGB_SOFT2.r[0];G+=RGB_SOFT2.r[1];B+=RGB_SOFT2.r[2];}
+      if(on.g){R+=RGB_SOFT2.g[0];G+=RGB_SOFT2.g[1];B+=RGB_SOFT2.g[2];}
+      if(on.b){R+=RGB_SOFT2.b[0];G+=RGB_SOFT2.b[1];B+=RGB_SOFT2.b[2];}
+      ctx.fillStyle='rgb('+Math.min(255,R)+','+Math.min(255,G)+','+Math.min(255,B)+')';
+      ctx.fillRect(ox+(x+pad)*cell,oy+(y+pad)*cell,cell,cell);
+    }else{if(!dmask.r[i]||!grid.r[i])continue;ctx.fillStyle=colOne;
+      ctx.fillRect(ox+(x+pad)*cell,oy+(y+pad)*cell,cell,cell);}}
+}
+function loadG8(){
+  if(GALLERY_LOADED)return;
+  $I('g8-count').textContent='Завантаження…';
+  fetch(SUPA_URL+'/rest/v1/bytecodes?select=*&order=created_at.desc&limit=200',
+    {headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}})
+    .then(function(r){return r.json();})
+    .then(function(items){
+      GALLERY_LOADED=true;GALLERY_ITEMS=items;
+      $I('g8-count').textContent=items.length===0?'поки порожньо':items.length+' орнаментів';
+      var grid=$I('g8-grid');grid.innerHTML='';
+      items.forEach(function(rec){
+        var card=document.createElement('div');card.className='g8-card';
+        var cv=document.createElement('canvas');cv.width=cv.height=400;card.appendChild(cv);
+        var w=document.createElement('div');w.className='w';w.textContent=rec.word;card.appendChild(w);
+        var meta=document.createElement('div');meta.className='m';
+        var ml={oct:'×8',quad:'×4',half:'×2',row:'×1'}[rec.mode]||rec.mode;
+        meta.innerHTML='<span>'+ml+'</span>'+(rec.layers===3?'<span>RGB</span>':'')+(rec.lang?'<span>'+rec.lang+'</span>':'');
+        card.appendChild(meta);
+        try{renderBC(cv,rec);}catch(e){}
+        card.onclick=function(){openG8(rec);};
+        grid.appendChild(card);
+      });
+    }).catch(function(){$I('g8-count').textContent='помилка завантаження';});
+}
+function openG8(rec){
+  var cv=g8modal.querySelector('canvas');renderBC(cv,rec);
+  g8modal.querySelector('.w').textContent=rec.word;
+  var ml={oct:'×8',quad:'×4',half:'×2',row:'×1'}[rec.mode]||rec.mode;
+  g8modal.querySelector('.m').textContent='симетрія '+ml+(rec.layers===3?' · RGB':'')+(rec.lang?' · '+rec.lang:'');
+  g8modal.querySelector('.g8share').onclick=function(){
+    if(navigator.share){navigator.share({title:'taina',text:'Орнамент — '+rec.word,url:location.href}).catch(function(){});}
+  };
+  g8modal.classList.add('on');
 }
 
-/* ══ ІНСТРУКЦІЯ RGB (один раз) ══ */
-var seen='0';try{seen=localStorage.getItem('taina_rgbtip')||'0';}catch(e){}
-var prevL=(typeof layers!=='undefined')?layers:1;
-setInterval(function(){
-  if(typeof layers==='undefined')return;
-  if(layers===3&&prevL!==3&&seen!=='1'){
-    seen='1';try{localStorage.setItem('taina_rgbtip','1');}catch(e){}
-    popup('Три канали · RGB',
-      'Можна написати три різні тексти — по одному в кожен колір. Або напиши лише один: перед збереженням запропоную розкласти його на три — візерунок вийде компактнішим і читатиметься краще.',
-      [{t:'Зрозуміло'}]);
-  }
-  prevL=layers;
-},400);
-
-/* ══ ІМʼЯ ФАЙЛУ + розкладання при збереженні ══ */
-window.defaultName=function(){
-  var t=(layers===1?D.single:(D.ch.find(function(x){return x})||''))||'taina';
-  return (t.slice(0,26).trim().replace(/\s+/g,'_'))||'taina';
-};
-function doSave(){var n=(typeof defaultName==='function'?defaultName():'taina');
-  if(typeof savePNG==='function')savePNG(n);}
-function trySave(){
-  var one=(layers===3&&monoMark!==1&&D.ch.filter(function(t){return t&&t.trim();}).length===1);
-  if(!one){doSave();return;}
-  var only=D.ch.find(function(t){return t&&t.trim();})||'';
-  popup('Заповнено лише один канал',
-    'Розкласти цей текст на три кольори? Візерунок стане компактнішим, а при скануванні знову склеїться в один текст.',
-    [{t:'⑂ Розкласти на три',f:function(){D.ch=splitThree(only);monoMark=1;
-        refreshInputs();build();setTimeout(doSave,300);}},
-     {t:'Лишити як є',sec:true,f:function(){monoMark=0;build();setTimeout(doSave,300);}}]);
+/* ══ ПЕРЕМИКАННЯ ЛАБОРАТОРІЯ ↔ ГАЛЕРЕЯ (без переходу, без панелі Safari) ══ */
+var galBtn=document.querySelector('.roomnav a.roomtab[href="gallery.html"]');
+if(galBtn){
+  galBtn.setAttribute('href','#');
+  galBtn.onclick=function(ev){
+    ev.preventDefault();
+    var inGal=document.body.classList.toggle('g8-gallery');
+    galBtn.textContent=inGal?'ЛАБОРАТОРІЯ':'ГАЛЕРЕЯ';
+    if(inGal)loadG8();
+  };
 }
-setInterval(function(){var b=$I('mb-save');
-  if(b&&!b.dataset.m7){b.dataset.m7='1';b.onclick=function(ev){ev.stopPropagation();trySave();};}},500);
-
-/* ══ ЗНІМОК після сканування ══ */
-var _ds=(typeof drawScanned==='function')?drawScanned:null;
-if(_ds){window.drawScanned=function(u){window.__shot=u;return _ds(u);};}
-if(typeof showCamResult==='function'){var _sc=showCamResult;
-  window.showCamResult=function(f,u){window.__shot=u;return _sc(f,u);};}
-var wasRead=false;
-setInterval(function(){
-  var rt=$I('rt');if(!rt||!_ds)return;
-  var now=rt.textContent.indexOf('прочитано')>=0;
-  if(now&&!wasRead&&window.__shot)_ds(window.__shot);
-  wasRead=now;
-},500);
 })();
 </script>
-
   
 </body>
 </html>
