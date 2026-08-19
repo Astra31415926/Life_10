@@ -2213,6 +2213,29 @@ body.light-mode #mobabar{background:rgba(240,232,218,.96);}
   },500);
 })();
 </script>
+
+
+  <style>
+@media(max-width:768px){
+  .txtzone{position:relative;}
+  #x1-clear{display:flex;align-items:center;justify-content:center;
+    position:absolute;top:-2px;right:2px;z-index:6;width:30px;height:30px;
+    border-radius:9px;border:1px solid var(--line);background:var(--panel);
+    color:var(--muted);font-size:14px;cursor:pointer;}
+}
+</style>
+<script>
+(function(){
+  if(!window.matchMedia('(max-width:768px)').matches)return;
+  var tz=document.querySelector('.txtzone');
+  if(!tz)return;
+  var cx=document.createElement('button');
+  cx.id='x1-clear';cx.type='button';cx.textContent='✕';
+  cx.onclick=function(){var c=document.getElementById('clr');if(c)c.click();};
+  tz.insertBefore(cx,tz.firstChild);
+})();
+</script>
+
   
 </body>
 </html>
