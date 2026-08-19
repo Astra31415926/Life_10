@@ -551,7 +551,7 @@ function typeOut(el,text,speed=30){
     if(!text.length){res();return}
     const t=setInterval(()=>{el.value=text.slice(0,++i);
       if(isTA){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,200)+'px';}
-      try{el.selectionStart=el.selectionEnd=el.value.length}catch(e){}}
+      try{el.selectionStart=el.selectionEnd=el.value.length}catch(e){}
       if(i%2===1)typeClick();
       if(i>=text.length){clearInterval(t);res()}},speed);});}
 
@@ -604,7 +604,7 @@ function rowBuild(text,maxB){
   const g=new Uint8Array(w*h);
   chars.forEach((c,r)=>{const bs=enc.encode(c);
     for(let i=0;i<maxB;i++){const v=i<bs.length?bs[i]:0;
-      for(let b=0;b<8;b++)g[r*w+i*8+b]=(v>>(7-b))&1;}}});
+      for(let b=0;b<8;b++)g[r*w+i*8+b]=(v>>(7-b))&1;}});
   return {g,w,h};}
 function rowDecode(g,w,h){
   if(w%8)return null;const maxB=w/8;if(maxB<1||maxB>4)return null;
@@ -686,7 +686,7 @@ function build(){
     ok=((rR||'')+(rG||'')+(rB||''))===T.join('');
   }else{
     const got=CH.map(k=>decodeSector(grid[k],W,mode,0));
-    ok=CH.every((k,i)=>(got[i]||'')===(T[i]||''));)}
+    ok=CH.every((k,i)=>(got[i]||'')===(T[i]||''));}
   $('rt').innerHTML=ok?'<span class="g">✓ цей орнамент декодується</span>':'<span class="w">перевір текст</span>';
   hasImage=true;syncMain();
   for(let i=0;i<3;i++)$('d-'+i).classList.toggle('filled',(D.ch[i]||'').length>0);}
@@ -704,14 +704,14 @@ if(pad>=3){
     const CW=W+pad*2, CH=H+pad*2;
     const cellAt=(cx,cy,col)=>{ctx.fillStyle=col;ctx.fillRect(cx*cell,cy*cell,cell,cell)};
     /* шар 1 — суцільний тёмний периметр */
-    for(let cx=0;cx<CW;cx++){cellAt(cx,0,FRAME_A);cellAt(cx,CH-1,FRAME_A);)}
-    for(let cy=1;cy<CH-1;cy++){cellAt(0,cy,FRAME_A);cellAt(CW-1,cy,FRAME_A);)}
+    for(let cx=0;cx<CW;cx++){cellAt(cx,0,FRAME_A);cellAt(cx,CH-1,FRAME_A);}
+    for(let cy=1;cy<CH-1;cy++){cellAt(0,cy,FRAME_A);cellAt(CW-1,cy,FRAME_A);}
     /* шар 2 — суцільний світлий роздільник */
-    for(let cx=1;cx<CW-1;cx++){cellAt(cx,1,FRAME_B);cellAt(cx,CH-2,FRAME_B);)}
-    for(let cy=2;cy<CH-2;cy++){cellAt(1,cy,FRAME_B);cellAt(CW-2,cy,FRAME_B);)}
-    /* шар 3 — зебра (дає число клітин T) */
-    for(let cx=2;cx<CW-2;cx++){cellAt(cx,2,((cx+2)%2===0)?FRAME_A:FRAME_B);cellAt(cx,CH-3,((cx+CH-3)%2===0)?FRAME_A:FRAME_B);)}
-    for(let cy=3;cy<CH-3;cy++){cellAt(2,cy,((2+cy)%2===0)?FRAME_A:FRAME_B);cellAt(CW-3,cy,((CW-3+cy)%2===0)?FRAME_A:FRAME_B);)}
+    for(let cx=1;cx<CW-1;cx++){cellAt(cx,1,FRAME_B);cellAt(cx,CH-2,FRAME_B);}
+    for(let cy=2;cy<CH-2;cy++){cellAt(1,cy,FRAME_B);cellAt(CW-2,cy,FRAME_B);}
+    /* шар 3 — зебра (даёт число клітин T) */
+    for(let cx=2;cx<CW-2;cx++){cellAt(cx,2,((cx+2)%2===0)?FRAME_A:FRAME_B);cellAt(cx,CH-3,((cx+CH-3)%2===0)?FRAME_A:FRAME_B);}
+    for(let cy=3;cy<CH-3;cy++){cellAt(2,cy,((2+cy)%2===0)?FRAME_A:FRAME_B);cellAt(CW-3,cy,((CW-3+cy)%2===0)?FRAME_A:FRAME_B);}
   }else if(pad>0){
     ctx.fillStyle=FRAME_COL;ctx.fillRect(0,0,TW,TH);
   }
@@ -811,7 +811,7 @@ function scanImage(px,IW,IH){
         if(!sameRGB){
           if(markCell(cr,n,m)===1){
             const rR=decodeSector(cr,n,m,1),rG=decodeSector(cg,n,m,0),rB=decodeSector(cb,n,m,0);
-            if(rR!==null)results.push({kind:'mono',mode:m,n,pad,res:[(rR||'')+(rG||'')+(rB||''),null,null]});)}
+            if(rR!==null)results.push({kind:'mono',mode:m,n,pad,res:[(rR||'')+(rG||'')+(rB||''),null,null]});}
           const tr=decodeSector(cr,n,m,0),tg=decodeSector(cg,n,m,0),tb=decodeSector(cb,n,m,0);
           const cnt=[tr,tg,tb].filter(x=>x!==null).length;
           if(cnt>=2){
@@ -1043,7 +1043,7 @@ function runDecodeAttempts(img){
   const seen=new Set(),uniq=[];
   for(const r of all){const key=(r.kind||'')+'|'+r.res.join('\u0001');if(!seen.has(key)){seen.add(key);uniq.push(r)}}
   uniq.sort((a,b)=>{const al=a.res.filter(x=>x).join('').length,bl=b.res.filter(x=>x).join('').length;return bl-al;});
-  return uniq();}
+  return uniq;}
   
   
 /* ═══════════════════════════════════════════════════════════════════
@@ -1130,7 +1130,7 @@ function decodeByRuler(px,IW,IH,ruler){
          if(same)results.push({kind:'one',mode:m,n,pad,res:[t,null,null]});}}
       if(!sameRGB){
         if(markCell(cr,n,m)===1){const rR=decodeSector(cr,n,m,1),rG=decodeSector(cg,n,m,0),rB=decodeSector(cb,n,m,0);
-          if(rR!==null)results.push({kind:'mono',mode:m,n,pad,res:[(rR||'')+(rG||'')+(rB||''),null,null]});}}
+          if(rR!==null)results.push({kind:'mono',mode:m,n,pad,res:[(rR||'')+(rG||'')+(rB||''),null,null]});}
         const tr=decodeSector(cr,n,m,0),tg=decodeSector(cg,n,m,0),tb=decodeSector(cb,n,m,0);
         const cnt=[tr,tg,tb].filter(x=>x!==null).length;
         if(cnt>=2){const ne=[tr,tg,tb].filter(x=>x!==null);
@@ -1250,7 +1250,6 @@ function findCodeBox(px,IW,IH){
       const gxs=[gx-1,gx+1,gx,gx],gys=[gy,gy,gy-1,gy+1];
       for(let k=0;k<4;k++){const nx=gxs[k],ny=gys[k];if(nx<0||ny<0||nx>=GX||ny>=GY)continue;const q=ny*GX+nx;if(fg[q]&&!lab[q]){lab[q]=cur;stack.push(q);}}}
     if(cnt>best){best=cnt;bestBox=[minx,miny,maxx,maxy];}}
- 
   if(!bestBox)return null;
   let x0=Math.floor(bestBox[0]*cw),y0=Math.floor(bestBox[1]*ch),x1=Math.ceil((bestBox[2]+1)*cw),y1=Math.ceil((bestBox[3]+1)*ch);
   const padX=cw*0.5,padY=ch*0.5;
@@ -1277,7 +1276,7 @@ function runDecodeAttempts(img){
         const c=cropPx(px,IW,IH,{x0:nx,y0:ny,w:s,h:s});collect(c,s,s);
         if(hasSolid())return done();
         for(const wt of [[1/12,12],[1/16,10]]){try{const b=bradley(c,s,s,wt[0],wt[1]);
-          const ru=findRuler(b,s,s);if(ru){const rr=decodeByRuler(b,s,s,ru);if(rr.length)all=all.concat(rr);}}}catch(e){}}
+          const ru=findRuler(b,s,s);if(ru){const rr=decodeByRuler(b,s,s,ru);if(rr.length)all=all.concat(rr);}}catch(e){}}
         if(hasSolid())return done();
       }}}catch(e){}
   try{const box=findOrnament(px,IW,IH);if(box){collect(cropPx(px,IW,IH,box),box.w,box.h);}}catch(e){}
@@ -1391,7 +1390,7 @@ function camLoop(){
   }
   camRAF=requestAnimationFrame(camLoop);
 }
- $('cam-btn').onclick=()=>{ camStream?stopCam():startCam(); };
+$('cam-btn').onclick=()=>{ camStream?stopCam():startCam(); };
 
   async function showCamResult(found,shotURL){
   flash();
@@ -1527,7 +1526,7 @@ function decodeNewFrame(px,IW,IH,dbg){
     for(let ox=-cellS*0.35;ox<=cellS*0.35;ox+=cellS*0.12)for(let oy=-cellS*0.35;oy<=cellS*0.35;oy+=cellS*0.12){
       const gl=sampleAt(-1,cellS,ox,oy);let bs=0;
       for(const m of ['oct','quad','half']){const t=decodeSector(gl,n,m,0);if(t!==null){const chk=fillChannel(t,n,m,null);const a=agree(gl,chk.g);if(a>bs)bs=a;}}
-      if(bs>bestPh.sc)bestPh={sc:bs,cell:cellS,ox,oy};}}}
+      if(bs>bestPh.sc)bestPh={sc:bs,cell:cellS,ox,oy};}}
   const cell=bestPh.cell, PX=bestPh.ox, PY=bestPh.oy;
   const sample=(ci)=>sampleAt(ci,cell,PX,PY);
   const cl=sample(-1),cr=sample(0),cg=sample(1),cb=sample(2);
@@ -1569,7 +1568,7 @@ function runDecodeAttempts(img){
       OCTX.drawImage(im,0,0,512,512);blit();res()};
     im.onerror=()=>res();im.src=url;});}
 
- $('file').onchange=e=>{
+$('file').onchange=e=>{
   const f=e.target.files[0];if(!f)return;
   const url=URL.createObjectURL(f),im=new Image();
   im.onload=async()=>{
@@ -1689,7 +1688,7 @@ function openMenu(){
     m.innerHTML=`<div class="menu-t">Джерело</div>
       <div class="row"><button class="b gold" id="src-gal">🖼 Обрати файл</button></div>`;
     $('src-gal').onclick=()=>{closeMenu();$('file').click()};}}
- $('mainbtn').onclick=e=>{e.stopPropagation();if(busy)return;menuOpen?closeMenu():openMenu()};
+$('mainbtn').onclick=e=>{e.stopPropagation();if(busy)return;menuOpen?closeMenu():openMenu()};
 document.addEventListener('click',e=>{
   if(menuOpen&&!e.target.closest('.action'))closeMenu();
   if(palOpen&&!e.target.closest('.palette-pop')){palOpen=false;$('pal-panel').classList.add('hide')}});
@@ -1764,7 +1763,7 @@ function buildSwatches(){
         render();tone(700,.05,.05);};box.appendChild(s);});};
   mk($('sw-one'),ONE_COLORS,()=>colOne,c=>colOne=c);
   mk($('sw-zero'),ZERO_COLORS,()=>colZero,c=>colZero=c);}
- $('pal-btn').onclick=e=>{e.stopPropagation();palOpen=!palOpen;
+$('pal-btn').onclick=e=>{e.stopPropagation();palOpen=!palOpen;
   $('pal-panel').classList.toggle('hide',!palOpen);$('pal-btn').classList.toggle('on',palOpen);};
 
 /* ═══════ СИМВОЛИ ═══════ */
@@ -1823,6 +1822,77 @@ function setLayers(n){
   if(n===3&&palOpen){palOpen=false;$('pal-panel').classList.add('hide');$('pal-btn').classList.remove('on')}}
 function refreshInputs(){
   $('txt').value=D.single;autoGrow();
+
+/* ═══════ МОБІЛЬНА ЛОГІКА (шапка, нижня панель, action sheet, клавіатура) ═══════ */
+(function(){
+  const mq=window.matchMedia('(max-width:768px)');
+
+  /* ── нижня панель дій: [Зберегти] [Сканувати] ── */
+  const bar=document.createElement('div');bar.id='mobabar';
+  bar.innerHTML='<button id="mb-save" disabled>⤓ Зберегти</button>'+
+                '<button id="mb-scan">⌖ Сканувати</button>';
+  document.body.appendChild(bar);
+
+  /* Зберегти — активна лише коли є код */
+  function syncMobSave(){const b=document.getElementById('mb-save');
+    if(b)b.disabled=!(typeof hasImage!=='undefined'&&hasImage);}
+  /* стежимо за появою коду (легкий поллінг + хук на syncMain) */
+  if(typeof syncMain==='function'){const _sm=syncMain;window.syncMain=function(){_sm.apply(this,arguments);syncMobSave();};}
+  setInterval(syncMobSave,500);
+
+  document.getElementById('mb-save').onclick=()=>{
+    if(typeof hasImage==='undefined'||!hasImage)return;
+    const n=(typeof defaultName==='function'?defaultName():'taina');
+    if(typeof savePNG==='function')savePNG(n);
+  };
+  document.getElementById('mb-scan').onclick=()=>openSheet();
+
+  /* ── action sheet: Камера / Завантажити ── */
+  const sheet=document.createElement('div');sheet.id='sheet';
+  sheet.innerHTML='<div class="veil2"></div><div class="card">'+
+    '<div class="sh-t">Сканувати код</div>'+
+    '<button class="sh-b" id="sh-cam">📷 Камера</button>'+
+    '<button class="sh-b" id="sh-file">🖼 Завантажити з галереї</button>'+
+    '<button class="sh-b sh-cancel" id="sh-x">Скасувати</button></div>';
+  document.body.appendChild(sheet);
+  function openSheet(){sheet.classList.add('on');}
+  function closeSheet(){sheet.classList.remove('on');}
+  sheet.querySelector('.veil2').onclick=closeSheet;
+  document.getElementById('sh-x').onclick=closeSheet;
+  document.getElementById('sh-cam').onclick=()=>{closeSheet();
+    if(typeof startCam==='function')startCam();};
+  document.getElementById('sh-file').onclick=()=>{closeSheet();
+    const f=document.getElementById('file');if(f)f.click();};
+
+  /* ── акордеон: заголовки секцій у бічних панелях згортають вміст ── */
+  function setupAccordion(){
+    if(!mq.matches)return;
+    document.querySelectorAll('.side .grp > .sec-t').forEach(t=>{
+      if(t.dataset.acc)return;t.dataset.acc='1';
+      t.addEventListener('click',()=>{t.parentElement.classList.toggle('mclosed');});
+    });
+  }
+  setupAccordion();
+  mq.addEventListener?.('change',setupAccordion);
+
+  /* ── шапка: одна динамічна кнопка (тут завжди «Галерея» → gallery.html) ── */
+  /* статичний таб і introBtn ховаються через CSS; лишається лого + посилання Галерея,
+     яке вже є в розмітці. Нічого додавати не треба. */
+
+  /* ── клавіатура: стискаємо canvas, аби не перекривало ввід ── */
+  const vv=window.visualViewport;
+  function onKbd(){
+    if(!mq.matches){document.body.classList.remove('kbd');return;}
+    /* якщо висота visualViewport помітно менша за вікно — клавіатура відкрита */
+    const kb = vv ? (window.innerHeight - vv.height > 140) : false;
+    document.body.classList.toggle('kbd',kb);
+  }
+  if(vv){vv.addEventListener('resize',onKbd);vv.addEventListener('scroll',onKbd);}
+  /* фокус/блюр як запасний сигнал */
+  document.addEventListener('focusin',e=>{if(mq.matches&&e.target.classList&&e.target.classList.contains('inp'))document.body.classList.add('kbd');});
+  document.addEventListener('focusout',()=>{setTimeout(onKbd,60);});
+})();
+  
   for(let i=0;i<3;i++)$('t-'+i).value=D.ch[i]||'';}
 /* авторост моно-поля до 3 рядків */
 function grow(el,max){if(!el)return;el.style.height='auto';el.style.height=Math.min(el.scrollHeight,max)+'px';}
@@ -1831,15 +1901,15 @@ function autoGrow(){
   for(let i=0;i<3;i++)grow($('t-'+i),120);
 }
 
- $('layers').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+$('layers').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   scannedImg=null;setLayers(+b.dataset.l);build()};
- $('sym').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+$('sym').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   scannedImg=null;mode=b.dataset.m;syncSeg('sym','m',mode);build()};
- $('shape').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+$('shape').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   shape=b.dataset.s;syncSeg('shape','s',shape);scannedImg=null;render()};
- $('frame').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+$('frame').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   frameW=+b.dataset.f;syncSeg('frame','f',String(frameW));scannedImg=null;render()};
- $('admin-toggle').onclick=()=>{adminOn=!adminOn;
+$('admin-toggle').onclick=()=>{adminOn=!adminOn;
   $('admin-box').classList.toggle('hide',!adminOn);
   $('admin-toggle').classList.toggle('on',adminOn);
   $('admin-toggle').textContent=adminOn?'⚙ сховати адмін':'⚙ для адміна';};
@@ -1861,14 +1931,14 @@ function applyHist(){
   else{const parts=snap.split('|');monoMark=+parts[0];setLayers(3);
     D.ch=parts.slice(2).join('|').split('\u0001');}
   refreshInputs();build();syncHist();tone(560,.06,.05);}
- $('undo').onclick=()=>{if(hPos>0){hPos--;applyHist()}};
- $('redo').onclick=()=>{if(hPos<HIST.length-1){hPos++;applyHist()}};
- $('clr').onclick=()=>{clearTimeout(hTimer);
+$('undo').onclick=()=>{if(hPos>0){hPos--;applyHist()}};
+$('redo').onclick=()=>{if(hPos<HIST.length-1){hPos++;applyHist()}};
+$('clr').onclick=()=>{clearTimeout(hTimer);
   D.single='';D.ch=['','',''];monoMark=0;refreshInputs();pushHist();build();
   activeInput().focus();tone(320,.09,.06,'triangle');};
 
 let prevLen=0;
- $('txt').oninput=e=>{const v=e.target.value;
+$('txt').oninput=e=>{const v=e.target.value;
   if(v.length>prevLen)keyClick();prevLen=v.length;
   scannedImg=null;D.single=v;autoGrow();build();schedHist();};
 for(let i=0;i<3;i++)$('t-'+i).oninput=e=>{
@@ -1923,7 +1993,7 @@ function refreshThemeAccent(){
 }
 
 /* ── старт ── */
- $('themeBtn').onclick=()=>applyMode(modeIdx+1);   /* клік = наступний режим по колу */
+$('themeBtn').onclick=()=>applyMode(modeIdx+1);   /* клік = наступний режим по колу */
 let startIdx=0;
 try{startIdx=parseInt(localStorage.getItem('taina_mode_idx'))||0;}catch(e){}
 applyMode(startIdx);
