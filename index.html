@@ -51,7 +51,7 @@ header{border-bottom:1px solid var(--line);flex:0 0 auto;background:rgba(13,10,8
   border:1px solid var(--line);border-radius:6px;padding:4px 10px;text-transform:uppercase;transition:.4s}
 .navbtns{margin-left:auto;display:flex;gap:6px}
 .nb{width:38px;height:38px;border-radius:9px;border:1px solid var(--line);background:transparent;
-  color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+  color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}.nb svg{width:20px;height:20px}
 .roomnav{display:flex;gap:6px;margin-left:6px}
 .center{position:relative}
 .intro-panel{position:absolute;inset:0;z-index:50;background:color-mix(in srgb,var(--ink) 92%,transparent);
@@ -265,7 +265,7 @@ input.inp.r,input.inp.g,input.inp.b{font-size:16px;padding:15px 18px;line-height
 
   /* код зверху, стискається коли фокус у полі (клавіатура) */
   .stage{max-width:min(88vw,340px)!important;transition:max-width .25s,max-height .25s;}
-  body.kbd .stage{max-width:min(46vw,180px)!important;}   /* стиск при клавіатурі */
+  body.kbd .stage{max-width:min(66vw,260px)!important;}  /* стиск при клавіатурі */
 
   /* ввід і статус одразу під кодом */
   .txtzone{height:auto!important;max-width:100%!important;}
@@ -312,7 +312,7 @@ body.light-mode #mobabar{background:rgba(240,232,218,.94);}
 <body class="room-mono">
 
 <header><div class="nav">
-  <span class="mark">taina</span>
+ <span class="mark">taina-2</span>
   <div class="roomnav">
     <span class="roomtab on">лабораторія байткоду</span>
     <a href="gallery.html" class="roomtab">Галерея</a>
@@ -419,6 +419,7 @@ body.light-mode #mobabar{background:rgba(240,232,218,.94);}
 
       
       <div class="menu hide" id="menu"></div>
+      <div class="menu hide" id="mob-split-menu" style="position:fixed;left:16px;right:16px;bottom:96px;z-index:9998;max-width:none"></div>
       <button class="mainbtn" id="mainbtn"></button>
     </div>
   </main>
@@ -1390,7 +1391,7 @@ function camLoop(){
   }
   camRAF=requestAnimationFrame(camLoop);
 }
-$('cam-btn').onclick=()=>{ camStream?stopCam():startCam(); };
+ $('cam-btn').onclick=()=>{ camStream?stopCam():startCam(); };
 
   async function showCamResult(found,shotURL){
   flash();
@@ -1414,7 +1415,7 @@ $('cam-btn').onclick=()=>{ camStream?stopCam():startCam(); };
     const el=$('txt');el.scrollTop=el.scrollHeight;
     showResult('✓ прочитано · камера',txt);
   }
-  hasImage=true;syncMain();
+ scannedImg=null;build();
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1568,7 +1569,7 @@ function runDecodeAttempts(img){
       OCTX.drawImage(im,0,0,512,512);blit();res()};
     im.onerror=()=>res();im.src=url;});}
 
-$('file').onchange=e=>{
+ $('file').onchange=e=>{
   const f=e.target.files[0];if(!f)return;
   const url=URL.createObjectURL(f),im=new Image();
   im.onload=async()=>{
@@ -1624,14 +1625,13 @@ $('file').onchange=e=>{
       prevLen=txt.length;pushHist();
       showResult('✓ прочитано'+(best.kind==='mono'?' · монолітний текст':''),txt);}
 
-    /* адмін-звіт */
+   /* адмін-звіт */
     $('report').innerHTML='<div style="margin-bottom:4px;color:var(--acc-dim)">Варіантів: '+found.length+'</div>'+
       found.slice(0,6).map(f=>{
         const txt=f.res.filter(x=>x).join(' | ')||'—';
         const tag=f.kind==='three'?'RGB×3':(f.kind==='mono'?'RGB моно':modeName(f.mode));
         return `<span>${tag} · ${f.n} → <b>${txt.slice(0,22)}</b></span>`;}).join('');
-    /* НЕ викликаємо build() — лишаємо скановану картинку на полотні */
-    hasImage=true;syncMain();busy=false;e.target.value='';};
+    scannedImg=null;build();busy=false;e.target.value='';};
   im.onerror=()=>{URL.revokeObjectURL(url);$('rt').innerHTML='<span class="r">не вдалося відкрити файл</span>'};
   im.src=url;};
 function modeName(m){return {oct:'×8',quad:'×4',half:'×2',row:'×1'}[m]||m}
@@ -1688,7 +1688,7 @@ function openMenu(){
     m.innerHTML=`<div class="menu-t">Джерело</div>
       <div class="row"><button class="b gold" id="src-gal">🖼 Обрати файл</button></div>`;
     $('src-gal').onclick=()=>{closeMenu();$('file').click()};}}
-$('mainbtn').onclick=e=>{e.stopPropagation();if(busy)return;menuOpen?closeMenu():openMenu()};
+ $('mainbtn').onclick=e=>{e.stopPropagation();if(busy)return;menuOpen?closeMenu():openMenu()};
 document.addEventListener('click',e=>{
   if(menuOpen&&!e.target.closest('.action'))closeMenu();
   if(palOpen&&!e.target.closest('.palette-pop')){palOpen=false;$('pal-panel').classList.add('hide')}});
@@ -1697,7 +1697,7 @@ function splitThree(t){const ch=[...t];const k=Math.ceil(ch.length/3);
   return [ch.slice(0,k).join(''),ch.slice(k,2*k).join(''),ch.slice(2*k).join('')];}
 function defaultName(){
   const t=(layers===1?D.single:(D.ch.find(x=>x)||''))||'taina';
-  return (modeName(mode)+'_'+t).slice(0,26).trim().replace(/\s+/g,'_')}
+return t.slice(0,26).trim().replace(/\s+/g,'_')}
 function savePNG(name){
   const scale=Math.max(1,Math.round(1200/Math.max(OFF.width,1)));
   const ex=document.createElement('canvas');
@@ -1763,7 +1763,7 @@ function buildSwatches(){
         render();tone(700,.05,.05);};box.appendChild(s);});};
   mk($('sw-one'),ONE_COLORS,()=>colOne,c=>colOne=c);
   mk($('sw-zero'),ZERO_COLORS,()=>colZero,c=>colZero=c);}
-$('pal-btn').onclick=e=>{e.stopPropagation();palOpen=!palOpen;
+ $('pal-btn').onclick=e=>{e.stopPropagation();palOpen=!palOpen;
   $('pal-panel').classList.toggle('hide',!palOpen);$('pal-btn').classList.toggle('on',palOpen);};
 
 /* ═══════ СИМВОЛИ ═══════ */
@@ -1774,7 +1774,7 @@ const SYMS={
   '₿':{name:'крипта й гроші',list:[...'₿ΞŁ$€£¥₽¢₹₩₪₴₺₮₦₱₡₫💰💵💴💶💷🪙💸💳']},
   'ᚠ':{name:'руни',list:[...'ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗᛚᛜᛞᛟᚪᚫᚬᛘᛦᛨ']},
   '福':{name:'ієрогліфи',list:[...'福愛龍虎鳳凰道德仁義禮智信和平安康壽喜財富貴春夏秋冬日月山水火風雷電花鳥魚']},
-  '☩':{name:'обереги',list:[...'☩⚕☯♁✠☥⚚☫☬〄卐꙰ᛝᛞ☘♧⚜⁂❋⚛☸♆⊕✶✷✸']},
+  '☩':{name:'обереги',list:[...'☩⚕☯♁✠☥⚚☫☬〄卐〄卐꙰ᛝᛞ☘♧⚜⁂❋⚛☸♆⊕✶✷✸']},
   '🃏':{name:'таро',list:[...'🃏🂠🂡🂢🂣🂤🂥🂦🂧🂨🂩🂪🂫🂭🂮🃁🃂🃃🃄🃅🃆🃇🃈🃉🃊🃋🃍🃎']},
   '🌸':{name:'природа',list:[...'🌸🌼🌻🌺🌷🌹🥀💐🌵🌲🌳🌴🌱🍀🍁🍂🍃🌾🌿☘🍄🌰⭐🌟✨⚡☄🔥💧🌊❄☃⛄🌈☀🌙']},
   '🎵':{name:'різне',list:[...'🎵🎶🎼🎹🎸🎺🎻🥁♟♜♞♝♛♚⚀⚁⚂⚃⚄⚅🀄🎲🎯🎰🎴⚽⚾🏀🏐🏈']}
@@ -1822,77 +1822,6 @@ function setLayers(n){
   if(n===3&&palOpen){palOpen=false;$('pal-panel').classList.add('hide');$('pal-btn').classList.remove('on')}}
 function refreshInputs(){
   $('txt').value=D.single;autoGrow();
-
-/* ═══════ МОБІЛЬНА ЛОГІКА (шапка, нижня панель, action sheet, клавіатура) ═══════ */
-(function(){
-  const mq=window.matchMedia('(max-width:768px)');
-
-  /* ── нижня панель дій: [Зберегти] [Сканувати] ── */
-  const bar=document.createElement('div');bar.id='mobabar';
-  bar.innerHTML='<button id="mb-save" disabled>⤓ Зберегти</button>'+
-                '<button id="mb-scan">⌖ Сканувати</button>';
-  document.body.appendChild(bar);
-
-  /* Зберегти — активна лише коли є код */
-  function syncMobSave(){const b=document.getElementById('mb-save');
-    if(b)b.disabled=!(typeof hasImage!=='undefined'&&hasImage);}
-  /* стежимо за появою коду (легкий поллінг + хук на syncMain) */
-  if(typeof syncMain==='function'){const _sm=syncMain;window.syncMain=function(){_sm.apply(this,arguments);syncMobSave();};}
-  setInterval(syncMobSave,500);
-
-  document.getElementById('mb-save').onclick=()=>{
-    if(typeof hasImage==='undefined'||!hasImage)return;
-    const n=(typeof defaultName==='function'?defaultName():'taina');
-    if(typeof savePNG==='function')savePNG(n);
-  };
-  document.getElementById('mb-scan').onclick=()=>openSheet();
-
-  /* ── action sheet: Камера / Завантажити ── */
-  const sheet=document.createElement('div');sheet.id='sheet';
-  sheet.innerHTML='<div class="veil2"></div><div class="card">'+
-    '<div class="sh-t">Сканувати код</div>'+
-    '<button class="sh-b" id="sh-cam">📷 Камера</button>'+
-    '<button class="sh-b" id="sh-file">🖼 Завантажити з галереї</button>'+
-    '<button class="sh-b sh-cancel" id="sh-x">Скасувати</button></div>';
-  document.body.appendChild(sheet);
-  function openSheet(){sheet.classList.add('on');}
-  function closeSheet(){sheet.classList.remove('on');}
-  sheet.querySelector('.veil2').onclick=closeSheet;
-  document.getElementById('sh-x').onclick=closeSheet;
-  document.getElementById('sh-cam').onclick=()=>{closeSheet();
-    if(typeof startCam==='function')startCam();};
-  document.getElementById('sh-file').onclick=()=>{closeSheet();
-    const f=document.getElementById('file');if(f)f.click();};
-
-  /* ── акордеон: заголовки секцій у бічних панелях згортають вміст ── */
-  function setupAccordion(){
-    if(!mq.matches)return;
-    document.querySelectorAll('.side .grp > .sec-t').forEach(t=>{
-      if(t.dataset.acc)return;t.dataset.acc='1';
-      t.addEventListener('click',()=>{t.parentElement.classList.toggle('mclosed');});
-    });
-  }
-  setupAccordion();
-  mq.addEventListener?.('change',setupAccordion);
-
-  /* ── шапка: одна динамічна кнопка (тут завжди «Галерея» → gallery.html) ── */
-  /* статичний таб і introBtn ховаються через CSS; лишається лого + посилання Галерея,
-     яке вже є в розмітці. Нічого додавати не треба. */
-
-  /* ── клавіатура: стискаємо canvas, аби не перекривало ввід ── */
-  const vv=window.visualViewport;
-  function onKbd(){
-    if(!mq.matches){document.body.classList.remove('kbd');return;}
-    /* якщо висота visualViewport помітно менша за вікно — клавіатура відкрита */
-    const kb = vv ? (window.innerHeight - vv.height > 140) : false;
-    document.body.classList.toggle('kbd',kb);
-  }
-  if(vv){vv.addEventListener('resize',onKbd);vv.addEventListener('scroll',onKbd);}
-  /* фокус/блюр як запасний сигнал */
-  document.addEventListener('focusin',e=>{if(mq.matches&&e.target.classList&&e.target.classList.contains('inp'))document.body.classList.add('kbd');});
-  document.addEventListener('focusout',()=>{setTimeout(onKbd,60);});
-})();
-  
   for(let i=0;i<3;i++)$('t-'+i).value=D.ch[i]||'';}
 /* авторост моно-поля до 3 рядків */
 function grow(el,max){if(!el)return;el.style.height='auto';el.style.height=Math.min(el.scrollHeight,max)+'px';}
@@ -1901,15 +1830,15 @@ function autoGrow(){
   for(let i=0;i<3;i++)grow($('t-'+i),120);
 }
 
-$('layers').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+ $('layers').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   scannedImg=null;setLayers(+b.dataset.l);build()};
-$('sym').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+ $('sym').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   scannedImg=null;mode=b.dataset.m;syncSeg('sym','m',mode);build()};
-$('shape').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+ $('shape').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   shape=b.dataset.s;syncSeg('shape','s',shape);scannedImg=null;render()};
-$('frame').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+ $('frame').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   frameW=+b.dataset.f;syncSeg('frame','f',String(frameW));scannedImg=null;render()};
-$('admin-toggle').onclick=()=>{adminOn=!adminOn;
+ $('admin-toggle').onclick=()=>{adminOn=!adminOn;
   $('admin-box').classList.toggle('hide',!adminOn);
   $('admin-toggle').classList.toggle('on',adminOn);
   $('admin-toggle').textContent=adminOn?'⚙ сховати адмін':'⚙ для адміна';};
@@ -1931,14 +1860,14 @@ function applyHist(){
   else{const parts=snap.split('|');monoMark=+parts[0];setLayers(3);
     D.ch=parts.slice(2).join('|').split('\u0001');}
   refreshInputs();build();syncHist();tone(560,.06,.05);}
-$('undo').onclick=()=>{if(hPos>0){hPos--;applyHist()}};
-$('redo').onclick=()=>{if(hPos<HIST.length-1){hPos++;applyHist()}};
-$('clr').onclick=()=>{clearTimeout(hTimer);
+ $('undo').onclick=()=>{if(hPos>0){hPos--;applyHist()}};
+ $('redo').onclick=()=>{if(hPos<HIST.length-1){hPos++;applyHist()}};
+ $('clr').onclick=()=>{clearTimeout(hTimer);
   D.single='';D.ch=['','',''];monoMark=0;refreshInputs();pushHist();build();
   activeInput().focus();tone(320,.09,.06,'triangle');};
 
 let prevLen=0;
-$('txt').oninput=e=>{const v=e.target.value;
+ $('txt').oninput=e=>{const v=e.target.value;
   if(v.length>prevLen)keyClick();prevLen=v.length;
   scannedImg=null;D.single=v;autoGrow();build();schedHist();};
 for(let i=0;i<3;i++)$('t-'+i).oninput=e=>{
@@ -1993,7 +1922,7 @@ function refreshThemeAccent(){
 }
 
 /* ── старт ── */
-$('themeBtn').onclick=()=>applyMode(modeIdx+1);   /* клік = наступний режим по колу */
+ $('themeBtn').onclick=()=>applyMode(modeIdx+1);   /* клік = наступний режим по колу */
 let startIdx=0;
 try{startIdx=parseInt(localStorage.getItem('taina_mode_idx'))||0;}catch(e){}
 applyMode(startIdx);
@@ -2023,15 +1952,17 @@ autoGrow();
 
   /* canvas зверху, менший — завжди видно цілком; стискається під клавіатуру */
   .stage{max-width:min(66vw,290px)!important;transition:max-width .25s;}
-  body.kbd .stage{max-width:min(40vw,160px)!important;}
+body.kbd .stage{max-width:min(56vw,200px)!important;}
 
   /* поле + статус одразу під кодом */
-  .txtzone{height:auto!important;max-width:100%!important;gap:6px!important;}
+ .txtzone{height:auto!important;max-width:100%!important;gap:6px!important;}
 
   /* ── ШАПКА: лишити лого + «Галерея»; сховати таб і всі іконки ── */
   .roomtab.on{display:none!important;}
   #introBtn{display:none!important;}
-  .navbtns{display:none!important;}          /* тема/undo/redo/очистити (пусті квадрати) */
+.navbtns{display:flex!important;margin-left:auto;}#themeBtn{display:flex!important;}.navbtns #undo,.navbtns #redo,.navbtns #clr{display:none!important;}
+  
+  /* тема/undo/redo/очистити (пусті квадрати) */
   .nav{gap:10px!important;padding:0 14px!important;}
 
   /* ── СХОВАТИ зайве на мобільному ── */
@@ -2045,7 +1976,7 @@ autoGrow();
   #shape,#frame{display:none!important;}
 
   /* Палітра завжди розкрита і зручна */
-  #pal-panel{position:static!important;box-shadow:none!important;border:0!important;
+   #pal-panel{display:flex!important;position:static!important;box-shadow:none!important;border:0!important;
     padding:6px 0 0!important;background:transparent!important;}
   #pal-btn{display:none!important;}          /* тогл не потрібен — палітра відкрита */
 
@@ -2108,12 +2039,34 @@ body.light-mode #mobabar{background:rgba(240,232,218,.96);}
   setInterval(syncMobSave,500);
 
   document.getElementById('mb-save').onclick=()=>{
-    if(typeof hasImage==='undefined'||!hasImage)return;
-    const n=(typeof defaultName==='function'?defaultName():'taina');
-    if(typeof savePNG==='function')savePNG(n);
+    if(!hasImage)return;
+    savePNG(defaultName());
   };
+  function openMobSplit(){
+    const m=document.getElementById('mob-split-menu');
+    m.classList.remove('hide');
+    const only=D.ch.find(t=>t&&t.trim())||'';
+    m.innerHTML=`<div class="menu-t">Заповнено лише один канал</div>
+      <div class="hint">Розкласти цей текст на три кольори? Побачиш результат перед збереженням.</div>
+      <div class="row"><button class="b gold" id="mob-do-split">⑂ Розкласти на три</button></div>
+      <div class="row"><button class="b" id="mob-do-asis">Лишити як є</button></div>`;
+    document.getElementById('mob-do-split').onclick=()=>{
+      const parts=splitThree(only);D.ch=parts;monoMark=1;
+      refreshInputs();build();
+      m.innerHTML=`<div class="menu-t">Ось як вийшло</div>
+        <div class="hint">Зберегти цей варіант?</div>
+        <div class="row"><button class="b gold" id="mob-confirm-save">⤓ Зберегти</button></div>
+        <div class="row"><button class="b" id="mob-cancel-split">Скасувати</button></div>`;
+      document.getElementById('mob-confirm-save').onclick=()=>{
+        m.classList.add('hide');savePNG(defaultName());};
+      document.getElementById('mob-cancel-split').onclick=()=>{
+        D.ch=['','',''].map((v,i)=>i===D.ch.indexOf(only)?only:v);
+        monoMark=0;refreshInputs();build();m.classList.add('hide');};
+    };
+    document.getElementById('mob-do-asis').onclick=()=>{
+      m.classList.add('hide');monoMark=0;build();savePNG(defaultName());};
+  }
   document.getElementById('mb-scan').onclick=()=>openSheet();
-
   /* ── action sheet: Камера / Завантажити ── */
   const sheet=document.createElement('div');sheet.id='sheet';
   sheet.innerHTML='<div class="veil2"></div><div class="card">'+
@@ -2162,77 +2115,256 @@ body.light-mode #mobabar{background:rgba(240,232,218,.96);}
 
 </script>
 
-<!-- ═══ ДОПОЛНЕНИЕ v4: палітра + RGB-split + ім'я файлу ═══ -->
+<!-- ═══ TAINA · ВБУДОВАНА ГАЛЕРЕЯ · вставити ПЕРЕД </body> (в кінці файлу) ═══ -->
 <style>
-@media(max-width:768px){
-  /* палітра: кнопка видима, панель завжди розкрита */
-  #pal-btn{display:block!important;}
-  #pal-panel,#pal-panel.hide{display:flex!important;position:static!important;
-    box-shadow:none!important;border:0!important;padding:8px 0 0!important;
-    background:transparent!important;}
-  /* кнопка розкладання на три канали */
-  .mob-splitbtn{display:block!important;width:100%;margin-top:10px;
-    font-family:var(--mono);font-size:13px;font-weight:700;padding:13px;
-    border-radius:11px;cursor:pointer;
-    border:1px solid color-mix(in srgb,var(--acc) 52%,transparent);
-    background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 24%,transparent),color-mix(in srgb,var(--acc) 8%,transparent));
-    color:var(--acc-hot);}
-  .mob-splitbtn.hide{display:none!important;}
-}
-.mob-splitbtn{display:none;}
+#eg-view{display:none;}
+body.eg-gallery .app,body.eg-gallery .action{display:none!important;}
+body.eg-gallery #eg-view{display:block!important;}
+#eg-hero{max-width:1400px;margin:0 auto;padding:26px 20px 14px;text-align:center;}
+#eg-hero h1{font-family:var(--mono);font-size:26px;font-weight:700;color:var(--parchment);margin-bottom:8px;}
+#eg-hero p{font-size:14px;color:var(--muted);}
+#eg-bar{max-width:1400px;margin:0 auto;padding:0 20px 18px;display:flex;justify-content:center;}
+#eg-count{font-family:var(--mono);font-size:12px;color:var(--acc);border:1px solid var(--line);
+  border-radius:8px;padding:7px 14px;}
+#eg-grid{max-width:1400px;margin:0 auto;padding:0 20px 60px;display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;}
+@media(max-width:768px){#eg-grid{grid-template-columns:1fr;padding:0 16px 100px;gap:14px;}}
+.eg-card{border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--panel);
+  display:flex;flex-direction:column;gap:11px;cursor:pointer;transition:.15s;}
+.eg-card:hover{border-color:var(--acc-dim);}
+.eg-card canvas{width:100%;aspect-ratio:1;image-rendering:pixelated;border-radius:8px;background:#8a8580;}
+.eg-card .w{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--parchment);
+  text-align:center;word-break:break-word;}
+.eg-card .m{font-family:var(--mono);font-size:10.5px;color:var(--acc-dim);text-align:center;
+  display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.egmodal{position:fixed;inset:0;z-index:11000;display:none;}
+.egmodal.on{display:block;}
+.egmodal .bg{position:absolute;inset:0;background:rgba(0,0,0,.7);}
+.egmodal .box{position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);
+  background:var(--panel);border-radius:18px;padding:24px;text-align:center;max-height:82vh;
+  overflow-y:auto;max-width:380px;margin:0 auto;}
+.egmodal canvas{width:100%;max-width:320px;aspect-ratio:1;image-rendering:pixelated;border-radius:12px;
+  background:#8a8580;margin:0 auto 16px;}
+.egmodal .w{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--acc-hot);margin-bottom:6px;word-break:break-word;}
+.egmodal .m{font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:16px;}
+.egmodal .x{position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:9px;
+  border:1px solid var(--line);background:transparent;color:var(--muted);font-size:16px;cursor:pointer;}
 </style>
 <script>
 (function(){
-  var mq=window.matchMedia('(max-width:768px)');
-  /* 1. Прибрати «×8_» з імені файлу */
-  window.defaultName=function(){
-    var t=(layers===1?D.single:(D.ch.find(function(x){return x})||''))||'taina';
-    return (t.slice(0,26).trim().replace(/\s+/g,'_'))||'taina';
-  };
-  /* 2. Кнопка «Розкласти на три» під полями каналів */
-  var r3=document.getElementById('row-three');
-  if(r3&&r3.parentElement){
-    var sp=document.createElement('button');
-    sp.type='button';sp.className='mob-splitbtn hide';
-    sp.textContent='⑂ Розкласти на три';
-    r3.parentElement.insertBefore(sp,r3.nextSibling);
-    sp.onclick=function(){
-      if(layers!==3)return;
-      var filled=D.ch.filter(function(t){return t&&t.trim()});
-      if(filled.length!==1){alert('Заповни лише один канал');return;}
-      var only=D.ch.find(function(t){return t&&t.trim()})||'';
-      D.ch=splitThree(only);monoMark=1;refreshInputs();build();
-    };
-    setInterval(function(){sp.classList.toggle('hide',layers!==3);},400);
-  }
-  /* 3. Палітра: тримати розкритою на мобільному */
-  setInterval(function(){
-    if(!mq.matches)return;
-    var p=document.getElementById('pal-panel');
-    if(p&&p.classList.contains('hide')&&layers!==3)p.classList.remove('hide');
-  },500);
+var SUPA_URL='https://iieahzklwngqugkovhrs.supabase.co';
+var SUPA_KEY='sb_publishable_FHtRNaLBvDgDTSLa_8eQnQ_oPMWCIxF';
+var enc2=new TextEncoder();
+function Rof2(n){return (n-1)/2}
+function cap2(m,n){var R=Rof2(n);if(m==='oct')return (R+1)*(R+2)/2;if(m==='quad')return (R+1)*(R+1);
+  if(m==='half')return (R+1)*n;return 0;}
+function base2(m,n){var c=Rof2(n),R=c,o=[];
+  if(m==='oct'){for(var i=0;i<=R;i++)for(var j=0;j<=i;j++)o.push([c+i,c+j]);}
+  else if(m==='quad'){for(var i=0;i<=R;i++)for(var j=0;j<=R;j++)o.push([c+i,c+j]);}
+  else{for(var y=0;y<n;y++)for(var i=0;i<=R;i++)o.push([c+i,y]);}
+  return o;}
+function mirr2(m,n,x,y){var c=Rof2(n),i=x-c,j=y-c,p;
+  if(m==='oct')p=[[i,j],[j,i],[-i,j],[-j,i],[i,-j],[j,-i],[-i,-j],[-j,-i]];
+  else if(m==='quad')p=[[i,j],[-i,j],[i,-j],[-i,-j]];else p=[[i,j],[-i,j]];
+  var o=[];for(var k=0;k<p.length;k++){var X=c+p[k][0],Y=c+p[k][1];if(X>=0&&Y>=0&&X<n&&Y<n)o.push([X,Y]);}
+  return o;}
+function pickN22(m,need){for(var n=7;n<=145;n+=2)if(cap2(m,n)>=need)return n;return 145;}
+function textBits2(t){var d=enc2.encode(t),b=new Uint8Array(d.length*8);
+  for(var i=0;i<d.length;i++)for(var k=0;k<8;k++)b[i*8+k]=(d[i]>>(7-k))&1;return b;}
+function fill2(t,n,m,markBit){var g=new Uint8Array(n*n),dm=new Uint8Array(n*n);var bc=base2(m,n);var seq;
+  if(markBit===null||markBit===undefined)seq=textBits2(t);
+  else{var bits=textBits2(t);seq=new Uint8Array(bits.length+1);seq[0]=markBit;seq.set(bits,1);}
+  var lim=Math.min(seq.length,bc.length);
+  for(var i=0;i<lim;i++){var x=bc[i][0],y=bc[i][1];var ms=mirr2(m,n,x,y);
+    for(var k=0;k<ms.length;k++){dm[ms[k][1]*n+ms[k][0]]=1;if(seq[i])g[ms[k][1]*n+ms[k][0]]=1;}}
+  return {g:g,dm:dm};}
+var RGB_SOFT2={r:[220,50,60],g:[65,195,65],b:[60,70,215]};
+function renderBC(cv,rec){
+  var s=rec.settings||{};var mode=rec.mode||'oct';var layers2=rec.layers||1;
+  var colOne=s.colOne||'#f5f5f5';var colZero=s.colZero||'#0d0a08';
+  var words=layers2===3?(s.words||[rec.word,'','']):[rec.word,'',''];
+  var monoMark2=s.monoMark||0;var W,H;var grid={},dmask={};
+  var extraR=(layers2===3&&monoMark2===1)?1:0;var maxBits=0;
+  words.forEach(function(t){if(t)maxBits=Math.max(maxBits,enc2.encode(t).length*8);});
+  var n=pickN22(mode,maxBits+extraR);W=H=n;
+  ['r','g','b'].forEach(function(k,i){var markBit=null;if(layers2===3&&monoMark2===1&&i===0)markBit=1;
+    var r=fill2(words[i]||'',n,mode,markBit);grid[k]=r.g;dmask[k]=r.dm;});
+  var FRAME_A='#0a0806',FRAME_B='#f4efe6';var pad=3,tw=W+pad*2,th=H+pad*2;
+  var cell=Math.max(1,Math.floor(cv.width/Math.max(tw,th)));
+  var ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;
+  var ox=Math.floor((cv.width-tw*cell)/2),oy=Math.floor((cv.height-th*cell)/2);
+  ctx.fillStyle='#8a8580';ctx.fillRect(0,0,cv.width,cv.height);
+  var CW=tw,CHc=th;
+  var cellAt=function(cx,cy,col){ctx.fillStyle=col;ctx.fillRect(ox+cx*cell,oy+cy*cell,cell,cell);};
+  ctx.fillStyle=colZero;ctx.fillRect(ox,oy,tw*cell,th*cell);
+  for(var cx=0;cx<CW;cx++){cellAt(cx,0,FRAME_A);cellAt(cx,CHc-1,FRAME_A);}
+  for(var cy=1;cy<CHc-1;cy++){cellAt(0,cy,FRAME_A);cellAt(CW-1,cy,FRAME_A);}
+  for(var cx=1;cx<CW-1;cx++){cellAt(cx,1,FRAME_B);cellAt(cx,CHc-2,FRAME_B);}
+  for(var cy=2;cy<CHc-2;cy++){cellAt(1,cy,FRAME_B);cellAt(CW-2,cy,FRAME_B);}
+  for(var cx=2;cx<CW-2;cx++){cellAt(cx,2,((cx+2)%2===0)?FRAME_A:FRAME_B);cellAt(cx,CHc-3,((cx+CHc-3)%2===0)?FRAME_A:FRAME_B);}
+  for(var cy=3;cy<CHc-3;cy++){cellAt(2,cy,((2+cy)%2===0)?FRAME_A:FRAME_B);cellAt(CW-3,cy,((CW-3+cy)%2===0)?FRAME_A:FRAME_B);}
+  ctx.fillStyle=colZero;ctx.fillRect(ox+pad*cell,oy+pad*cell,W*cell,H*cell);
+  for(var y=0;y<H;y++)for(var x=0;x<W;x++){var i=y*W+x;
+    if(layers2===3){var on={r:dmask.r[i]&&grid.r[i],g:dmask.g[i]&&grid.g[i],b:dmask.b[i]&&grid.b[i]};
+      if(!on.r&&!on.g&&!on.b)continue;var R=0,G=0,B=0;
+      if(on.r){R+=RGB_SOFT2.r[0];G+=RGB_SOFT2.r[1];B+=RGB_SOFT2.r[2];}
+      if(on.g){R+=RGB_SOFT2.g[0];G+=RGB_SOFT2.g[1];B+=RGB_SOFT2.g[2];}
+      if(on.b){R+=RGB_SOFT2.b[0];G+=RGB_SOFT2.b[1];B+=RGB_SOFT2.b[2];}
+      ctx.fillStyle='rgb('+Math.min(255,R)+','+Math.min(255,G)+','+Math.min(255,B)+')';
+      ctx.fillRect(ox+(x+pad)*cell,oy+(y+pad)*cell,cell,cell);
+    }else{if(!dmask.r[i]||!grid.r[i])continue;ctx.fillStyle=colOne;
+      ctx.fillRect(ox+(x+pad)*cell,oy+(y+pad)*cell,cell,cell);}}
+}
+var view=document.createElement('div');view.id='eg-view';
+view.innerHTML='<div id="eg-hero"><h1>Галерея орнаментів</h1><p>Орнаменти, які можна відсканувати та прочитати.</p></div>'+
+  '<div id="eg-bar"><div id="eg-count">Завантаження…</div></div>'+
+  '<div id="eg-grid"></div>';
+document.body.appendChild(view);
+var egmodal=document.createElement('div');egmodal.className='egmodal';
+egmodal.innerHTML='<div class="bg"></div><div class="box"><button class="x">✕</button>'+
+  '<canvas width="640" height="640"></canvas><div class="w"></div><div class="m"></div></div>';
+document.body.appendChild(egmodal);
+egmodal.querySelector('.bg').onclick=function(){egmodal.classList.remove('on');};
+egmodal.querySelector('.x').onclick=function(){egmodal.classList.remove('on');};
+var LOADED=false;
+function loadGallery(){
+  if(LOADED)return;
+  document.getElementById('eg-count').textContent='Завантаження…';
+  fetch(SUPA_URL+'/rest/v1/bytecodes?select=*&order=created_at.desc&limit=200',
+    {headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}})
+    .then(function(r){return r.json();})
+    .then(function(items){
+      LOADED=true;
+      document.getElementById('eg-count').textContent=items.length===0?'поки порожньо':items.length+' орнаментів';
+      var grid=document.getElementById('eg-grid');grid.innerHTML='';
+      items.forEach(function(rec){
+        var card=document.createElement('div');card.className='eg-card';
+        var cv=document.createElement('canvas');cv.width=cv.height=400;card.appendChild(cv);
+        var w=document.createElement('div');w.className='w';w.textContent=rec.word;card.appendChild(w);
+        var meta=document.createElement('div');meta.className='m';
+        var ml={oct:'×8',quad:'×4',half:'×2',row:'×1'}[rec.mode]||rec.mode;
+        meta.innerHTML='<span>'+ml+'</span>'+(rec.layers===3?'<span>RGB</span>':'')+(rec.lang?'<span>'+rec.lang+'</span>':'');
+        card.appendChild(meta);
+        try{renderBC(cv,rec);}catch(e){}
+        card.onclick=function(){
+          var mcv=egmodal.querySelector('canvas');renderBC(mcv,rec);
+          egmodal.querySelector('.w').textContent=rec.word;
+          egmodal.querySelector('.m').textContent='симетрія '+ml+(rec.layers===3?' · RGB':'')+(rec.lang?' · '+rec.lang:'');
+          egmodal.classList.add('on');
+        };
+        grid.appendChild(card);
+      });
+    }).catch(function(){document.getElementById('eg-count').textContent='помилка завантаження';});
+}
+var galBtn=document.querySelector('.roomnav a[href="gallery.html"]');
+var labTab=document.querySelector('.roomnav .roomtab.on');
+if(galBtn){
+  galBtn.setAttribute('href','#');
+  galBtn.addEventListener('click',function(ev){
+    ev.preventDefault();
+    var inGal=document.body.classList.toggle('eg-gallery');
+    galBtn.textContent=inGal?'Лабораторія':'Галерея';
+    if(labTab)labTab.textContent=inGal?'Галерея орнаментів':'лабораторія байткоду';
+    if(inGal)loadGallery();
+  });
+}
 })();
 </script>
 
 
-  <style>
+<!-- ═══ TAINA · МОБІЛЬНИЙ КРОК 1 · RGB одним полем ═══ -->
+<style>
 @media(max-width:768px){
-  .txtzone{position:relative;}
-  #x1-clear{display:flex;align-items:center;justify-content:center;
-    position:absolute;top:-2px;right:2px;z-index:6;width:30px;height:30px;
-    border-radius:9px;border:1px solid var(--line);background:var(--panel);
-    color:var(--muted);font-size:14px;cursor:pointer;}
+  body.rgb-solo #row-three{display:none!important;}
+  body.rgb-solo #row-one{display:block!important;position:relative;}
+  body.rgb-solo #row-one::before{content:'RGB';position:absolute;left:20px;top:50%;
+    transform:translateY(-50%);font-family:var(--mono);font-size:16px;letter-spacing:.06em;
+    color:var(--acc-dim);pointer-events:none;z-index:2;}
+  body.rgb-solo #txt{text-align:left!important;padding-left:64px!important;}
 }
 </style>
 <script>
 (function(){
-  if(!window.matchMedia('(max-width:768px)').matches)return;
-  var tz=document.querySelector('.txtzone');
-  if(!tz)return;
-  var cx=document.createElement('button');
-  cx.id='x1-clear';cx.type='button';cx.textContent='✕';
-  cx.onclick=function(){var c=document.getElementById('clr');if(c)c.click();};
-  tz.insertBefore(cx,tz.firstChild);
+  const mq=window.matchMedia('(max-width:768px)');
+  const txt=document.getElementById('txt');
+  const rowOne=document.getElementById('row-one');
+  const rowThree=document.getElementById('row-three');
+  const layersBox=document.getElementById('layers');
+  if(!txt||!layersBox)return;
+  function applySolo(){
+    rowOne.classList.remove('hide');rowThree.classList.add('hide');
+    document.body.classList.add('rgb-solo');
+    D.ch=splitThree(txt.value);monoMark=1;build();
+  }
+  layersBox.addEventListener('click',e=>{
+    if(!e.target.closest('button'))return;
+    setTimeout(()=>{
+      if(mq.matches&&layers===3)applySolo();
+      else document.body.classList.remove('rgb-solo');
+    },0);
+  });
+  txt.addEventListener('input',()=>{
+    if(mq.matches&&layers===3){D.ch=splitThree(txt.value);monoMark=1;build();}
+  });
+})();
+</script>
+
+
+  <!-- ═══ TAINA · МОБІЛЬНИЙ КРОК 2 · палітра під полем ═══ -->
+<style>
+@media(max-width:768px){
+  #pal-panel .pal-row:last-child{display:none!important;}  /* прибрати «нуль і фон» */
+  #pal-panel .pal-row .lbl{display:none!important;}         /* без підписів */
+  #pal-panel{margin:8px 0 0!important;}
+  body.rgb-solo #pal-panel{display:none!important;}         /* у RGB палітри нема */
+  .side.right{display:none!important;}                      /* стара права секція не потрібна */
+}
+</style>
+<script>
+(function(){
+  const mq=window.matchMedia('(max-width:768px)');
+  if(!mq.matches)return;
+  const stage=document.getElementById('stage');
+  const pal=document.getElementById('pal-panel');
+  if(stage&&pal)stage.parentNode.insertBefore(pal,stage.nextSibling);
+})();
+</script>
+
+
+<!-- ═══ TAINA · МОБІЛЬНИЙ КРОК 3 · жорстка фіксація + палітра в ряд ═══ -->
+<style>
+@media(max-width:768px){
+  #row-three{display:none!important;}          /* 6 · три поля не блимають */
+  #row-one{display:block!important;}
+  body.rgb-solo #txt{text-align:center!important;padding-left:0!important;} /* 5 */
+  #pal-panel .swatches{flex-wrap:nowrap!important;overflow-x:auto!important;} /* 1 */
+  body.rgb-solo #pal-panel{display:flex!important;visibility:hidden!important;} /* 2,3 */
+  .stage{max-width:min(66vw,290px)!important;}          /* 3,4 */
+  body.kbd .stage{max-width:min(66vw,290px)!important;}
+}
+</style>
+  
+
+<!-- ═══ TAINA · МОБІЛЬНИЙ КРОК 4 · хрестик + палітра 8 кольорів ═══ -->
+<style>
+@media(max-width:768px){
+  #pal-panel .swatches .sw:nth-child(n+9){display:none!important;}   /* лишити 8 */
+  #row-one{position:relative;}
+  #mob-clear{position:absolute;top:9px;right:10px;z-index:3;width:30px;height:30px;
+    border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);
+    font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  #mob-clear:active{color:var(--acc-hot);border-color:var(--acc-dim);}
+}
+@media(min-width:769px){#mob-clear{display:none;}}
+</style>
+<script>
+(function(){
+  const row=document.getElementById('row-one');
+  if(!row||document.getElementById('mob-clear'))return;
+  const x=document.createElement('button');
+  x.type='button';x.id='mob-clear';x.setAttribute('aria-label','Очистити');x.textContent='✕';
+  x.onclick=function(){var c=document.getElementById('clr');if(c)c.click();};
+  row.appendChild(x);
 })();
 </script>
 
