@@ -1376,7 +1376,7 @@ function camLoop(){
       try{ found=runDecodeAttempts(c); }catch(e){}
       if(found.length){
         const txt=found[0].res.filter(x=>x).join('\u0001');
-        if(txt && txt===camLastText){
+      if(txt){
           const shot=document.createElement('canvas');shot.width=shot.height=512;
           shot.getContext('2d').drawImage(c,0,0,512,512);
           const url=shot.toDataURL('image/png');
@@ -1404,6 +1404,9 @@ function camLoop(){
     okChime();
     for(let i=0;i<3;i++)$('t-'+i).value='';
     for(let i=0;i<3;i++)if(best.res[i]){await typeOut($('t-'+i),best.res[i],22);grow($('t-'+i),120);}
+        document.body.classList.add('rgb-solo');
+    $('txt').value=[best.res[0],best.res[1],best.res[2]].filter(Boolean).join(' ');
+    D.single=$('txt').value;
     showResult('✓ прочитано · камера',null);
   }else{
     setLayers(1);monoMark=0;
@@ -1612,6 +1615,9 @@ function runDecodeAttempts(img){
       /* спорожнюємо поля перед друком — щоб текст не блимав цілим */
       for(let i=0;i<3;i++)$('t-'+i).value='';
       for(let i=0;i<3;i++)if(best.res[i]){await typeOut($('t-'+i),best.res[i],22);grow($('t-'+i),120);}
+            document.body.classList.add('rgb-solo');
+      $('txt').value=[best.res[0],best.res[1],best.res[2]].filter(Boolean).join(' ');
+      D.single=$('txt').value;
       showResult('✓ прочитано · три канали',null);
     }else{
       setLayers(1);monoMark=0;
