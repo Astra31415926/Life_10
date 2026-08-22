@@ -521,7 +521,7 @@ function okChime(){tone(587,.09,.08);setTimeout(()=>tone(784,.1,.08),85);
 function sadSound(){tone(392,.2,.08,'triangle');setTimeout(()=>tone(311,.24,.08,'triangle'),170);
   setTimeout(()=>tone(233,.5,.09,'triangle'),360)}
 let scanNodes=null;
-function startScanSound(){const c=ac();if(!c)return;
+function startScanSound(){scanNodes=null;try{tone(660,.08,.05);setTimeout(function(){tone(880,.08,.05);},140);}catch(e){}return;const c=ac();if(!c)return;
   try{
     const o=c.createOscillator(),g=c.createGain(),f=c.createBiquadFilter();
     o.type='triangle';f.type='bandpass';f.frequency.value=800;f.Q.value=3;
@@ -1340,6 +1340,7 @@ let camStream=null, camRAF=null, camBusy=false, camLastText=null, camTimer=0;
 function camEls(){return {v:$('cam-video'),vf:$('vf'),btn:$('cam-btn')};}
 async function startCam(){
   const {v,vf,btn}=camEls();
+  if(camStream){stopCam();}
   try{
     camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1920}}});
     v.srcObject=camStream; v.setAttribute('playsinline','');
@@ -1348,12 +1349,16 @@ async function startCam(){
     $('stage').classList.add('scanning');
     btn.textContent='⏹ Зупинити'; $('rt').innerHTML='<span class="w">наведи на код…</span>';
     camLastText=null; camTimer=0; camBusy=false;
-    startScanSound();
+   startScanSound();
     camLoop();
+    clearTimeout(window._camTO);clearInterval(window._camTick);
+    window._camTick=setInterval(function(){tone(1200,.03,.03,'sine');},900);
+    window._camTO=setTimeout(function(){if(camStream){stopCam();$('rt').innerHTML='<span class="w">не знайдено — спробуй ще</span>';}},10000);
   }catch(e){ alert('Камера недоступна: '+e); }
 }
 function stopCam(){
   const {v,vf,btn}=camEls();
+  clearTimeout(window._camTO);clearInterval(window._camTick);
   if(camRAF)cancelAnimationFrame(camRAF); camRAF=null;
   if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}
   if(v.srcObject)v.srcObject=null;
@@ -1533,7 +1538,24 @@ function decodeNewFrame(px,IW,IH,dbg){
       if(bs>bestPh.sc)bestPh={sc:bs,cell:cellS,ox,oy};}}
   const cell=bestPh.cell, PX=bestPh.ox, PY=bestPh.oy;
   const sample=(ci)=>sampleAt(ci,cell,PX,PY);
-  const cl=sample(-1),cr=sample(0),cg=sample(1),cb=sample(2);
+    const cl=sample(-1);
+  /* === SCI · класифікація клітини по 8 відомих кольорах === */
+  const _S=RGB_SOFT;
+  const _mix=(r,g,b)=>[Math.min(255,(r?_S.r[0]:0)+(g?_S.g[0]:0)+(b?_S.b[0]:0)),
+                       Math.min(255,(r?_S.r[1]:0)+(g?_S.g[1]:0)+(b?_S.b[1]:0)),
+                       Math.min(255,(r?_S.r[2]:0)+(g?_S.g[2]:0)+(b?_S.b[2]:0))];
+  const _refs=[[0,0,0],[1,0,0],[0,1,0],[0,0,1],[1,1,0],[1,0,1],[0,1,1],[1,1,1]]
+                .map(c=>({b:c,col:_mix(c[0],c[1],c[2])}));
+  const _raw=(cx,cy)=>{const X=Math.min(IW-1,Math.max(0,Math.round((cx+3+0.5)*cell+PX)));
+    const Y=Math.min(IH-1,Math.max(0,Math.round((cy+3+0.5)*cell+PY)));const p=(Y*IW+X)*4;
+    return [px[p],px[p+1],px[p+2]];};
+  const cr=new Uint8Array(n*n),cg=new Uint8Array(n*n),cb=new Uint8Array(n*n);
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++){const c=_raw(x,y);
+    let bi=0,bd=1e9;
+    for(let i=0;i<_refs.length;i++){const r=_refs[i].col;
+      const dr=c[0]-r[0],dg=c[1]-r[1],db=c[2]-r[2],dd=dr*dr+dg*dg+db*db;
+      if(dd<bd){bd=dd;bi=i;}}
+    const t=_refs[bi].b;cr[y*n+x]=t[0];cg[y*n+x]=t[1];cb[y*n+x]=t[2];}
   let sameRGB=true;for(let z=0;z<cl.length;z++)if(cr[z]!==cg[z]||cr[z]!==cb[z]){sameRGB=false;break;}
   for(const m of ['oct','quad','half']){
     // моно (по яскравості) — точна звірка
@@ -1760,7 +1782,7 @@ const ONE_COLORS=['#f5f0e6','#ffd27a','#7ee0ff','#ff9ec7','#a8e6a1','#e8c890','#
 const ZERO_COLORS=['#0d0a08','#000000','#141414','#1a1420','#101820','#12100c','#1e1a14','#0a0e14',
   '#241a10','#1a0e0e','#0e1a14','#161020','#2a2018','#0a0a0a','#201818','#101410'];
 /* м'яка RGB-палітра: приглушені, але чисто розділяються з порогом 125 */
-const RGB_SOFT={r:[220,50,60],g:[65,195,65],b:[60,70,215]};
+const RGB_SOFT={r:[255,0,0],g:[0,255,0],b:[0,0,255]}; 
 function buildSwatches(){
   const mk=(box,arr,getCur,set)=>{box.innerHTML='';
     arr.forEach(col=>{const s=document.createElement('div');s.className='sw'+(col===getCur()?' on':'');
@@ -2373,6 +2395,32 @@ if(galBtn){
   row.appendChild(x);
 })();
 </script>
+
+
+  <!-- ═══ TAINA · зупинка сканування тапом по полю ═══ -->
+<script>(function(){var st=document.getElementById('stage');
+  if(st)st.addEventListener('click',function(){
+    if(typeof camStream!=='undefined'&&camStream&&typeof stopCam==='function')stopCam();
+  });})();</script>
+
+
+  <!-- ═══ TAINA · КРОК 7 · прибрати «RGB», хрестик поруч із полем ═══ -->
+<style>
+@media(max-width:768px){
+  body.rgb-solo #row-one::before{content:none!important;}   /* прибрати напис RGB */
+  #row-one{display:flex!important;align-items:center!important;gap:8px!important;}
+  #row-one .inrow{flex:1!important;min-width:0!important;}
+  #mob-clear{position:static!important;flex:0 0 auto!important;top:auto!important;right:auto!important;}
+  body.rgb-solo #txt{text-align:center!important;padding-left:0!important;padding-right:0!important;}
+}
+</style>
+
+<!-- ═══ TAINA · КРОК 8 · хрестик справа і в RGB (як у моно) ═══ -->
+<style>
+@media(max-width:768px){
+  body.rgb-solo #row-one{display:flex!important;position:relative!important;}
+}
+</style>
 
   
 </body>
