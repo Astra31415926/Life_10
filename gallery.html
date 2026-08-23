@@ -397,6 +397,11 @@ applyTh(ti);
 })();
 </script>
 
+
+  <script>(function(){
+  function itemUrl(){var m=location.search.match(/id=([^&]+)/);return m?location.origin+'/item/'+m[1]:location.href;}
+  var sb=document.getElementById('share-btn');
+  if(sb)sb.onclick=function(){var u=itemUrl();if(navigator.share)navigator.share({url:u}).catch(function(){});else if(navigator.clipboard)navigator.clipboard.writeText(u);};})();</script>
   
 </body>
 </html>
