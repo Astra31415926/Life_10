@@ -290,7 +290,7 @@ function closeModal(){
 }
 $('modal-close').onclick=closeModal;
 $('modal').onclick=e=>{if(e.target===$('modal'))closeModal();};
-$('share-link').onclick=()=>{navigator.clipboard.writeText(location.href).then(()=>toast('Посилання скопійовано'));};
+$('share-link').onclick=()=>{var m=location.search.match(/id=([^&]+)/);var u=m?location.origin+'/item/'+m[1]:location.href;navigator.clipboard.writeText(u).then(()=>toast('Посилання скопійовано'));};
 
 /* ═══════ ПОДІЛИТИСЯ ═══════ */
 async function copyLinkFallback(){
