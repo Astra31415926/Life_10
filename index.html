@@ -1762,7 +1762,24 @@ async function doPublish(word){
     colOne, colZero, frame:frameW, monoMark,
     words:layers===3?D.ch.slice():undefined
   };
-  const row={word,mode,layers,settings,lang:detectLang(word)};
+  let image_url=null;
+try{
+  const scale=Math.max(1,Math.round(1000/Math.max(OFF.width,1)));
+  const ex=document.createElement('canvas');
+  ex.width=OFF.width*scale;ex.height=OFF.height*scale;
+  const cx=ex.getContext('2d');cx.imageSmoothingEnabled=false;
+  cx.drawImage(OFF,0,0,OFF.width,OFF.height,0,0,ex.width,ex.height);
+  const blob=await new Promise(function(res){ex.toBlob(res,'image/png');});
+  const fname='o_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.png';
+  const up=await fetch(SUPA_URL+'/storage/v1/object/ornaments/'+fname,{
+    method:'POST',
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'image/png'},
+    body:blob
+  });
+  if(up.ok)image_url=SUPA_URL+'/storage/v1/object/public/ornaments/'+fname;
+  else console.log('upload err',up.status);
+}catch(e){console.log('img err',e);}
+const row={word,mode,layers,settings,lang:detectLang(word),image_url};
   try{
     const resp=await fetch(`${SUPA_URL}/rest/v1/bytecodes`,{
       method:'POST',
