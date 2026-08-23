@@ -1,6 +1,6 @@
 const SUPA_URL = 'https://iieahzklwngqugkovhrs.supabase.co';
 const SUPA_KEY = 'sb_publishable_FHtRNaLBvDgDTSLa_8eQnQ_oPMWCIxF';
-const SITE = 'https://taina.vercel.app';
+const SITE = 'https://taina-2.vercel.app';
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 
