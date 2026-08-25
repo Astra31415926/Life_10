@@ -1678,6 +1678,15 @@ function showResult(msg,text){
   if(url)html+=`<a class="linkbtn" href="${url}" target="_blank" rel="noopener">🔗 Відкрити</a>`;
   $('rt').innerHTML=html;}
 
+/* ═══════ КНОПКА ═══════ */
+const IC_SAVE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>';
+const IC_LOAD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 3h14"/></svg>';
+function syncMain(){$('mainbtn').innerHTML=hasImage?IC_SAVE+'<span>Зберегти</span>':IC_LOAD+'<span>Завантажити · сканувати</span>';
+  if(menuOpen)closeMenu();}
+function closeMenu(){menuOpen=false;$('menu').classList.add('hide');$('menu').innerHTML=''}
+function needSplitHint(){
+  if(layers!==3||monoMark===1)return false;
+  return D.ch.filter(t=>t&&t.trim()).length===1;}
 function openMenu(){
   const m=$('menu');menuOpen=true;m.classList.remove('hide');
   if(hasImage){
@@ -1691,11 +1700,10 @@ function openMenu(){
         const parts=splitThree(only);D.ch=parts;monoMark=1;
         refreshInputs();build();closeMenu();setTimeout(openMenu,60);};
       $('do-asis').onclick=()=>{monoMark=0;build();closeMenu();setTimeout(openMenu,60);};
-      return;
-    }
+      return;}
     const sug=defaultName();
     m.innerHTML=`<div class="menu-t">Ім'я файлу</div>
-      <input id="fname" value="${sug}" autocomplete="off" spellcheck="false" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--parchment);font-family:var(--mono);font-size:14px;padding:11px 13px;outline:none;margin-bottom:6px">
+      <input id="fname" value="${sug}" autocomplete="off" spellcheck="false">
       <div class="row"><button class="b gold" id="do-save">⤓ Зберегти PNG</button></div>
       <div class="row"><button class="b" id="do-publish">✦ Опублікувати в галерею</button></div>
       <div class="row"><button class="b" id="do-scan">⌖ Сканувати інше</button></div>`;
@@ -1705,11 +1713,6 @@ function openMenu(){
     $('do-scan').onclick=()=>{closeMenu();$('file').click()};
     setTimeout(()=>{const f=$('fname');if(f){f.focus();f.select()}},40);
   }else{
-    m.innerHTML=`<div class="menu-t">Джерело</div>
-      <div class="row"><button class="b gold" id="src-gal">🖼 Обрати файл</button></div>`;
-    $('src-gal').onclick=()=>{closeMenu();$('file').click()};
-  }
-}
     m.innerHTML=`<div class="menu-t">Джерело</div>
       <div class="row"><button class="b gold" id="src-gal">🖼 Обрати файл</button></div>`;
     $('src-gal').onclick=()=>{closeMenu();$('file').click()};}}
@@ -1748,17 +1751,13 @@ function openPublish(){
   const m=$('menu');menuOpen=true;m.classList.remove('hide');
   m.innerHTML=`<div class="menu-t">Опублікувати в галерею</div>
     <div class="hint" style="color:#e5a053;line-height:1.5">⚠ Байткод — відкритий код. Будь-хто зможе прочитати ваш текст. Не публікуйте таємниць.</div>
-    <input id="pub-title" value="${mainWord}" placeholder="Назва (видима всім)" autocomplete="off" spellcheck="false" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--parchment);font-family:var(--mono);font-size:14px;padding:11px 13px;outline:none;margin-bottom:6px">
+     <input id="pub-title" placeholder="Назва (видима всім)" autocomplete="off" spellcheck="false" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--parchment);font-family:var(--mono);font-size:14px;padding:11px 13px;outline:none;margin-bottom:6px">
     <div class="row"><button class="b gold" id="pub-yes">✦ Так, опублікувати</button></div>
     <div class="row"><button class="b" id="pub-no">Скасувати</button></div>`;
-  $('pub-yes').onclick=e=>{
-    e.stopPropagation();
-    const customTitle = ($('pub-title').value || mainWord).trim();
-    doPublish(mainWord, customTitle);
-  };
+  $('pub-yes').onclick=e=>{e.stopPropagation();doPublish(mainWord)};
   $('pub-no').onclick=e=>{e.stopPropagation();closeMenu()};
 }
-async function doPublish(word, customTitle){
+async function doPublish(word){
   const btn=$('pub-yes');if(btn){btn.textContent='Публікую…';btn.disabled=true;}
   const settings={
     colOne, colZero, frame:frameW, monoMark,
@@ -1781,24 +1780,14 @@ try{
   if(up.ok)image_url=SUPA_URL+'/storage/v1/object/public/ornaments/'+fname;
   else console.log('upload err',up.status);
 }catch(e){console.log('img err',e);}
-  const finalTitle = customTitle || word;
-  const row={word,mode,layers,settings,lang:detectLang(finalTitle),image_url,title:finalTitle};
+  const pubTitle=(document.getElementById('pub-title')||{}).value||'';
+  const row={word,mode,layers,settings,lang:detectLang(word),image_url,title:pubTitle||word};
   try{
     const resp=await fetch(`${SUPA_URL}/rest/v1/bytecodes`,{
       method:'POST',
       headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`,
         'Content-Type':'application/json','Prefer':'return=minimal'},
       body:JSON.stringify(row)
-    });
-    if(!resp.ok)throw new Error('Помилка бази');
-    closeMenu();
-    toast('Успішно опубліковано!');
-  }catch(err){
-    console.error(err);
-    alert('Помилка: '+err.message);
-    if(btn){btn.textContent='✦ Так, опублікувати';btn.disabled=false;}
-  }
-}
     });
     closeMenu();
     if(resp.ok){toast('✦ Опубліковано в галерею!');okChime();}
