@@ -1761,7 +1761,7 @@ function openPublish(){
   };
   $('pub-no').onclick=e=>{e.stopPropagation();closeMenu()};
 }
-async function doPublish(word){
+async function doPublish(word, customTitle){
   const btn=$('pub-yes');if(btn){btn.textContent='Публікую…';btn.disabled=true;}
   const settings={
     colOne, colZero, frame:frameW, monoMark,
@@ -1784,14 +1784,24 @@ try{
   if(up.ok)image_url=SUPA_URL+'/storage/v1/object/public/ornaments/'+fname;
   else console.log('upload err',up.status);
 }catch(e){console.log('img err',e);}
-  const pubTitle=(document.getElementById('pub-title')||{}).value||'';
-  const row={word,mode,layers,settings,lang:detectLang(word),image_url,title:pubTitle||word};
+  const finalTitle = customTitle || word;
+  const row={word,mode,layers,settings,lang:detectLang(finalTitle),image_url,title:finalTitle};
   try{
     const resp=await fetch(`${SUPA_URL}/rest/v1/bytecodes`,{
       method:'POST',
       headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`,
         'Content-Type':'application/json','Prefer':'return=minimal'},
       body:JSON.stringify(row)
+    });
+    if(!resp.ok)throw new Error('Помилка бази');
+    closeMenu();
+    toast('Успішно опубліковано!');
+  }catch(err){
+    console.error(err);
+    alert('Помилка: '+err.message);
+    if(btn){btn.textContent='✦ Так, опублікувати';btn.disabled=false;}
+  }
+}
     });
     closeMenu();
     if(resp.ok){toast('✦ Опубліковано в галерею!');okChime();}
