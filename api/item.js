@@ -29,7 +29,7 @@ module.exports = async (req, res) => {
   res.status(rec?200:404).send(
 '<!DOCTYPE html><html lang="uk"><head>'+
 '<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">'+
-'<title>'+esc(word)+' · taina</title>'+
+'<title>'+esc(showWord)+' · taina</title>'+
 '<meta name="description" content="'+esc(desc)+'">'+
 '<link rel="canonical" href="'+esc(url)+'">'+
 '<meta property="og:type" content="website">'+
