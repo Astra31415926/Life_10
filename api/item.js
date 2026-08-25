@@ -33,7 +33,7 @@ module.exports = async (req, res) => {
 '<meta name="description" content="'+esc(desc)+'">'+
 '<link rel="canonical" href="'+esc(url)+'">'+
 '<meta property="og:type" content="website">'+
-'<meta property="og:title" content="'+esc(word)+'">'+
+'<meta property="og:title" content="'+esc(showWord)+'">'+
 '<meta property="og:description" content="'+esc(desc)+'">'+
 '<meta property="og:image" content="'+esc(img)+'">'+
 '<meta property="og:url" content="'+esc(url)+'">'+
