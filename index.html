@@ -1751,6 +1751,7 @@ function openPublish(){
   const m=$('menu');menuOpen=true;m.classList.remove('hide');
   m.innerHTML=`<div class="menu-t">Опублікувати в галерею</div>
     <div class="hint" style="color:#e5a053;line-height:1.5">⚠ Байткод — відкритий код. Будь-хто зможе прочитати ваш текст. Не публікуйте таємниць.</div>
+     <input id="pub-title" placeholder="Назва (видима всім)" autocomplete="off" spellcheck="false" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--parchment);font-family:var(--mono);font-size:14px;padding:11px 13px;outline:none;margin-bottom:6px">
     <div class="row"><button class="b gold" id="pub-yes">✦ Так, опублікувати</button></div>
     <div class="row"><button class="b" id="pub-no">Скасувати</button></div>`;
   $('pub-yes').onclick=e=>{e.stopPropagation();doPublish(mainWord)};
