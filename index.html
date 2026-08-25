@@ -1696,14 +1696,9 @@ function openMenu(){
         <div class="hint">Розкласти цей текст на три кольори — вийде компактніший і барвистіший візерунок. При розшифровці він знову стане єдиним текстом.</div>
         <div class="row"><button class="b gold" id="do-split">⑂ Розкласти на три</button></div>
         <div class="row"><button class="b" id="do-asis">Лишити як є</button></div>`;
-      $('do-split').onclick=()=>{
-        const parts=splitThree(only);D.ch=parts;monoMark=1;
-        refreshInputs();build();closeMenu();setTimeout(openMenu,60);};
-      $('do-asis').onclick=()=>{monoMark=0;build();closeMenu();setTimeout(openMenu,60);};
-      return;}
     const sug=defaultName();
     m.innerHTML=`<div class="menu-t">Ім'я файлу</div>
-      <input id="fname" value="${sug}" autocomplete="off" spellcheck="false">
+      <input id="fname" value="${sug}" autocomplete="off" spellcheck="false" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--parchment);font-family:var(--mono);font-size:14px;padding:11px 13px;outline:none;margin-bottom:6px">
       <div class="row"><button class="b gold" id="do-save">⤓ Зберегти PNG</button></div>
       <div class="row"><button class="b" id="do-publish">✦ Опублікувати в галерею</button></div>
       <div class="row"><button class="b" id="do-scan">⌖ Сканувати інше</button></div>`;
@@ -1711,7 +1706,7 @@ function openMenu(){
       savePNG(n);closeMenu()};
     $('do-publish').onclick=e=>{e.stopPropagation();openPublish()};
     $('do-scan').onclick=()=>{closeMenu();$('file').click()};
-    setTimeout(()=>{const f=$('fname');if(f){f.focus();f.select()}},40);
+    setTimeout(()=>{const f=$('fname');if(f){f.focu();f.select()}},40);
   }else{
     m.innerHTML=`<div class="menu-t">Джерело</div>
       <div class="row"><button class="b gold" id="src-gal">🖼 Обрати файл</button></div>`;
