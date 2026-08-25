@@ -1780,7 +1780,8 @@ try{
   if(up.ok)image_url=SUPA_URL+'/storage/v1/object/public/ornaments/'+fname;
   else console.log('upload err',up.status);
 }catch(e){console.log('img err',e);}
-const row={word,mode,layers,settings,lang:detectLang(word),image_url};
+  const pubTitle=(document.getElementById('pub-title')||{}).value||'';
+  const row={word,mode,layers,settings,lang:detectLang(word),image_url,title:pubTitle||word};
   try{
     const resp=await fetch(`${SUPA_URL}/rest/v1/bytecodes`,{
       method:'POST',
