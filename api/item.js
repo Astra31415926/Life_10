@@ -15,8 +15,12 @@ module.exports = async (req, res) => {
       rec = Array.isArray(arr) ? arr[0] : null;
     }catch(e){}
   }
+   const secret = req.query && req.query.s === '1';
   const word = rec && rec.word ? rec.word : 'Орнамент';
-  const desc = 'Орнамент-байткод «'+word+'» — його можна відсканувати й прочитати текст.';
+  const showWord = secret ? 'Таємний орнамент' : word;
+  const desc = secret
+    ? 'Усередині цього візерунка сховане послання. Зможеш прочитати?'
+    : 'Орнамент-байткод «'+word+'» — його можна відсканувати й прочитати текст.';
   const img = rec && rec.image_url ? rec.image_url : SITE+'/og-image.png';
   const url = SITE+'/item/'+encodeURIComponent(id);
   const gallery = SITE+'/gallery.html?id='+encodeURIComponent(id);
