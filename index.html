@@ -1678,15 +1678,6 @@ function showResult(msg,text){
   if(url)html+=`<a class="linkbtn" href="${url}" target="_blank" rel="noopener">🔗 Відкрити</a>`;
   $('rt').innerHTML=html;}
 
-/* ═══════ КНОПКА ═══════ */
-const IC_SAVE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>';
-const IC_LOAD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 3h14"/></svg>';
-function syncMain(){$('mainbtn').innerHTML=hasImage?IC_SAVE+'<span>Зберегти</span>':IC_LOAD+'<span>Завантажити · сканувати</span>';
-  if(menuOpen)closeMenu();}
-function closeMenu(){menuOpen=false;$('menu').classList.add('hide');$('menu').innerHTML=''}
-function needSplitHint(){
-  if(layers!==3||monoMark===1)return false;
-  return D.ch.filter(t=>t&&t.trim()).length===1;}
 function openMenu(){
   const m=$('menu');menuOpen=true;m.classList.remove('hide');
   if(hasImage){
@@ -1696,6 +1687,12 @@ function openMenu(){
         <div class="hint">Розкласти цей текст на три кольори — вийде компактніший і барвистіший візерунок. При розшифровці він знову стане єдиним текстом.</div>
         <div class="row"><button class="b gold" id="do-split">⑂ Розкласти на три</button></div>
         <div class="row"><button class="b" id="do-asis">Лишити як є</button></div>`;
+      $('do-split').onclick=()=>{
+        const parts=splitThree(only);D.ch=parts;monoMark=1;
+        refreshInputs();build();closeMenu();setTimeout(openMenu,60);};
+      $('do-asis').onclick=()=>{monoMark=0;build();closeMenu();setTimeout(openMenu,60);};
+      return;
+    }
     const sug=defaultName();
     m.innerHTML=`<div class="menu-t">Ім'я файлу</div>
       <input id="fname" value="${sug}" autocomplete="off" spellcheck="false" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--parchment);font-family:var(--mono);font-size:14px;padding:11px 13px;outline:none;margin-bottom:6px">
@@ -1706,8 +1703,13 @@ function openMenu(){
       savePNG(n);closeMenu()};
     $('do-publish').onclick=e=>{e.stopPropagation();openPublish()};
     $('do-scan').onclick=()=>{closeMenu();$('file').click()};
-    setTimeout(()=>{const f=$('fname');if(f){f.focu();f.select()}},40);
+    setTimeout(()=>{const f=$('fname');if(f){f.focus();f.select()}},40);
   }else{
+    m.innerHTML=`<div class="menu-t">Джерело</div>
+      <div class="row"><button class="b gold" id="src-gal">🖼 Обрати файл</button></div>`;
+    $('src-gal').onclick=()=>{closeMenu();$('file').click()};
+  }
+}
     m.innerHTML=`<div class="menu-t">Джерело</div>
       <div class="row"><button class="b gold" id="src-gal">🖼 Обрати файл</button></div>`;
     $('src-gal').onclick=()=>{closeMenu();$('file').click()};}}
