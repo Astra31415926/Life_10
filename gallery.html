@@ -256,7 +256,7 @@ function renderGallery(items){
     const card=document.createElement('div');card.className='card';
     const cv=document.createElement('canvas');cv.width=cv.height=400;
     card.appendChild(cv);
-    const w=document.createElement('div');w.className='word';w.textContent=rec.word;card.appendChild(w);
+    const w=document.createElement('div');w.className='word';w.textContent=rec.title||rec.word;card.appendChild(w);
     const meta=document.createElement('div');meta.className='meta';
     const modeLabel={oct:'×8',quad:'×4',half:'×2',row:'×1'}[rec.mode]||rec.mode;
     meta.innerHTML=`<span>${modeLabel}</span>${rec.layers===3?'<span>RGB</span>':''}${rec.lang?`<span>${rec.lang}</span>`:''}`;
@@ -273,14 +273,14 @@ let curRec=null;
 function openModal(rec){
   curRec=rec;
   renderBytecode($('modal-cv'),rec);
-  $('modal-word').textContent=rec.word;
+  $('modal-word').textContent=rec.title||rec.word;
   const modeLabel={oct:'×8',quad:'×4',half:'×2',row:'×1'}[rec.mode]||rec.mode;
   $('modal-meta').textContent=`симетрія ${modeLabel}${rec.layers===3?' · RGB':''}${rec.lang?' · '+rec.lang:''} · читабельний орнамент`;
   $('modal').classList.add('show');
   /* свій адрес для цієї роботи */
   if(rec.id!==undefined){
     history.replaceState(null,'',`?id=${rec.id}`);
-    document.title=`«${rec.word}» — читабельний орнамент · taina`;
+    document.title=`«${rec.title||rec.word}» — читабельний орнамент · taina`;
   }
 }
 function closeModal(){
@@ -310,7 +310,7 @@ async function copyLinkFallback(){
   }
 }
 $('share-btn').onclick=async()=>{
-  const word=curRec?curRec.word:'taina';
+  const word=curRec?currec.title||rec.word:'taina';
   const shareData={
     title:'taina',
     text:`Орнамент, що містить текст — ${word}. Створено на taina.`,
