@@ -10,13 +10,13 @@ module.exports = async (req, res) => {
   let rec = null;
   if(id){
     try{
-      const r = await fetch(SUPA_URL+'/rest/v1/bytecodes?id=eq.'+id+'&select=word,image_url,mode,layers,lang&limit=1',
+      const r = await fetch(SUPA_URL+'/rest/v1/bytecodes?id=eq.'+id+'&select=word,title,image_url,mode,layers,lang&limit=1',
         {headers:{apikey:SUPA_KEY, Authorization:'Bearer '+SUPA_KEY}});
       const arr = await r.json();
       rec = Array.isArray(arr) ? arr[0] : null;
     }catch(e){}
   }
-  const word = rec && rec.word ? rec.word : 'Орнамент';
+  const word = rec && (rec.title || rec.word) ? (rec.title || rec.word) : 'Орнамент';
   const showWord = secret ? 'Таємний орнамент' : word;
   const desc = secret
     ? 'Усередині цього візерунка сховане послання. Наведи камеру — і прочитаєш.'
