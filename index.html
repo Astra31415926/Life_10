@@ -1540,14 +1540,15 @@ function decodeNewFrame(px,IW,IH,dbg){
   const sample=(ci)=>sampleAt(ci,cell,PX,PY);
     const cl=sample(-1);
   /* === SCI · класифікація клітини по 8 відомих кольорах === */
-  const _S=RGB_SOFT;
+   const _S=RGB_SOFT;
   const _mix=(r,g,b)=>[Math.min(255,(r?_S.r[0]:0)+(g?_S.g[0]:0)+(b?_S.b[0]:0)),
                        Math.min(255,(r?_S.r[1]:0)+(g?_S.g[1]:0)+(b?_S.b[1]:0)),
                        Math.min(255,(r?_S.r[2]:0)+(g?_S.g[2]:0)+(b?_S.b[2]:0))];
   const _refs=[[0,0,0],[1,0,0],[0,1,0],[0,0,1],[1,1,0],[1,0,1],[0,1,1],[1,1,1]]
                 .map(c=>({b:c,col:_mix(c[0],c[1],c[2])}));
-  const _raw=(cx,cy)=>{const X=Math.min(IW-1,Math.max(0,Math.round((cx+3+0.5)*cell+PX)));
-    const Y=Math.min(IH-1,Math.max(0,Math.round((cy+3+0.5)*cell+PY)));const p=(Y*IW+X)*4;
+  const _raw=(cx,cy)=>{var ox=0.5,oy=0.5;if(cx===0)ox=0.7;if(cx===n-1)ox=0.3;if(cy===0)oy=0.7;if(cy===n-1)oy=0.3;
+    const X=Math.min(IW-1,Math.max(0,Math.round((cx+3+ox)*cell+PX)));
+    const Y=Math.min(IH-1,Math.max(0,Math.round((cy+3+oy)*cell+PY)));const p=(Y*IW+X)*4;
     return [px[p],px[p+1],px[p+2]];};
   const cr=new Uint8Array(n*n),cg=new Uint8Array(n*n),cb=new Uint8Array(n*n);
   for(let y=0;y<n;y++)for(let x=0;x<n;x++){const c=_raw(x,y);
