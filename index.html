@@ -927,23 +927,21 @@ function decodeByRuler(px,IW,IH,ruler){
     const cl=sampleChan(n,pad,-1),cr=sampleChan(n,pad,0),cg=sampleChan(n,pad,1),cb=sampleChan(n,pad,2);
     let sameRGB=true;for(let z=0;z<cr.length;z++){if(cr[z]!==cg[z]||cr[z]!==cb[z]){sameRGB=false;break}}
     for(const m of ['oct','quad','half']){
-      {const t=decodeSector(cl,n,m,0);
-       if(t!==null){const chk=fillChannel(t,n,m,null);let same=true;
-         for(let z=0;z<n*n&&same;z++)if((chk.g[z]?1:0)!==cl[z])same=false;
-         if(same)results.push({kind:'one',mode:m,n,pad,res:[t,null,null]});}}
+         /* моно — голосування */
+      {const v=decodeVoted(cl,n,m,0);
+       if(v.text!==null){const chk=fillChannel(v.text,n,m,null);let tot=0,match=0;
+         for(let i=0;i<n*n;i++)if(chk.dm[i]){tot++;if((chk.g[i]?1:0)===cl[i])match++;}
+         if(tot&&match/tot>=0.90)results.push({kind:'one',mode:m,n,pad,res:[v.text,null,null]});}}
       if(!sameRGB){
-        const agree=(g,chk)=>{let ok=0;for(let z=0;z<n*n;z++)if((chk[z]?1:0)===g[z])ok++;return ok/(n*n);};
-        const SOFT=0.93;
-        if(markCell(cr,n,m)===1){const rR=decodeSector(cr,n,m,1),rG=decodeSector(cg,n,m,0),rB=decodeSector(cb,n,m,0);
-          if(rR!==null){const kR=fillChannel(rR,n,m,1),kG=fillChannel(rG||'',n,m,null),kB=fillChannel(rB||'',n,m,null);
-            if(agree(cr,kR.g)>=SOFT&&agree(cg,kG.g)>=SOFT&&agree(cb,kB.g)>=SOFT)
-              results.push({kind:'mono',mode:m,n,pad,res:[(rR||'')+(rG||'')+(rB||''),null,null]});}}
-        const tr=decodeSector(cr,n,m,0),tg=decodeSector(cg,n,m,0),tb=decodeSector(cb,n,m,0);
+        /* моноліт RGB — голосування */
+        if(markCell(cr,n,m)===1){const vR=decodeVoted(cr,n,m,1),vG=decodeVoted(cg,n,m,0),vB=decodeVoted(cb,n,m,0);
+          if(vR.text!==null)results.push({kind:'mono',mode:m,n,pad,res:[(vR.text||'')+(vG.text||'')+(vB.text||''),null,null]});}
+        /* три канали — голосування */
+        const vr=decodeVoted(cr,n,m,0),vg=decodeVoted(cg,n,m,0),vb=decodeVoted(cb,n,m,0);
+        const tr=vr.text,tg=vg.text,tb=vb.text;
         const cnt=[tr,tg,tb].filter(x=>x!==null).length;
         if(cnt>=2){const ne=[tr,tg,tb].filter(x=>x!==null);
-          const kR=fillChannel(tr||'',n,m,null),kG=fillChannel(tg||'',n,m,null),kB=fillChannel(tb||'',n,m,null);
-          if(!ne.every(x=>x===ne[0])&&agree(cr,kR.g)>=SOFT&&agree(cg,kG.g)>=SOFT&&agree(cb,kB.g)>=SOFT)
-            results.push({kind:'three',mode:m,n,pad,res:[tr,tg,tb]});}}}}
+          if(!ne.every(x=>x===ne[0]))results.push({kind:'three',mode:m,n,pad,res:[tr,tg,tb]});}}}}
   if(!results.length){
     for(let pad=2;pad<=8;pad++){const n=T-2*pad; if(n<MINN||n%2===0)continue;
       const cl=sampleChan(n,pad,-1);
