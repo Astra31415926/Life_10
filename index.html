@@ -1529,7 +1529,7 @@ function decodeNewFrame(px,IW,IH,dbg){
       const p=(Y*IW+X)*4;const v=ci<0?lum(p):px[p+ci];g[y*n+x]=v>(ci<0?110:RGBTHR)?1:0;}return g;};
   // фазовый + масштабный поиск: берём тот, где моно-самопроверка даёт максимум (в идеале 100%)
   let bestPh={sc:-1,cell:IW/Tf,ox:0,oy:0};
-  for(const sf of [1.0,0.997,1.003]){const cellS=(IW/Tf)*sf;
+  for(const sf of [1.0,0.994,0.997,1.003,1.006,0.991,1.009]){const cellS=(IW/Tf)*sf;
     for(let ox=-cellS*0.35;ox<=cellS*0.35;ox+=cellS*0.12)for(let oy=-cellS*0.35;oy<=cellS*0.35;oy+=cellS*0.12){
       const gl=sampleAt(-1,cellS,ox,oy);let bs=0;
       for(const m of ['oct','quad','half']){const t=decodeSector(gl,n,m,0);if(t!==null){const chk=fillChannel(t,n,m,null);const a=agree(gl,chk.g);if(a>bs)bs=a;}}
