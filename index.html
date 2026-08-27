@@ -815,20 +815,10 @@ function scanImage(px,IW,IH){
             if(rR!==null)results.push({kind:'mono',mode:m,n,pad,res:[(rR||'')+(rG||'')+(rB||''),null,null]});}
           const tr=decodeSector(cr,n,m,0),tg=decodeSector(cg,n,m,0),tb=decodeSector(cb,n,m,0);
           const cnt=[tr,tg,tb].filter(x=>x!==null).length;
-                 if(cnt>=2){
+          if(cnt>=2){
             const nonEmpty=[tr,tg,tb].filter(x=>x!==null);
             const allSame=nonEmpty.every(x=>x===nonEmpty[0]);
-            if(!allSame)results.push({kind:'three',mode:m,n,pad,res:[tr,tg,tb]});}
-          /* === склеювання розкладеного RGB (байти чергуються R₀G₀B₀R₁G₁B₁…) === */
-          if(tr===null&&tg===null&&tb===null){
-            const bc=baseCells(m,n);
-            const rawCh=(g)=>{const by=[];for(let i=0;i+7<bc.length;i+=8){let v=0;for(let b=0;b<8;b++){const[x,y]=bc[i+b];v=(v<<1)|(g[y*n+x]?1:0)}by.push(v);}return by;};
-            const bR=rawCh(cr),bG=rawCh(cg),bB=rawCh(cb);
-            const merged=[];const len=Math.max(bR.length,bG.length,bB.length);
-            for(let i=0;i<len;i++){if(i<bR.length)merged.push(bR[i]);if(i<bG.length)merged.push(bG[i]);if(i<bB.length)merged.push(bB[i]);}
-            const mt=bytesToText(merged);
-            if(mt)results.push({kind:'mono',mode:m,n,pad,res:[mt,null,null]});}
-          }}}}
+            if(!allSame)results.push({kind:'three',mode:m,n,pad,res:[tr,tg,tb]});}}}}}
 
   for(const pad of [0,1,2])for(const w of [8,16,24,32]){
     const TW=w+pad*2;if(IW%TW)continue;
