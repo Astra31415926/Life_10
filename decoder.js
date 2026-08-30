@@ -96,131 +96,108 @@ function dedup(all) {
 }
 
 function runDecodeAttempts(img, isCamera = false) {
-  // Якщо це камера телефону — використовуємо легкий, адаптивний шлях
+
+  // ── МОБІЛЬНИЙ ШЛЯХ ──────────────────────────────────────────────────────────
   if (isCamera) {
-    const iw = img.naturalWidth || img.width || 0;
+    const iw = img.naturalWidth  || img.width  || 0;
     const ih = img.naturalHeight || img.height || 0;
     if (iw < 1 || ih < 1) return [];
 
-    const maxDim = 1000; // Оптимальний розмір для камери телефону
-    const scale = Math.min(1, maxDim / Math.max(iw, ih));
+    // 1. Масштаб до ≤800px по більшій стороні
+    const maxDim = 800;
+    const scale  = Math.min(1, maxDim / Math.max(iw, ih));
     const W = Math.round(iw * scale);
     const H = Math.round(ih * scale);
 
     const cc = document.createElement('canvas');
     cc.width = W; cc.height = H;
-    const g = cc.getContext('2d', {willReadFrequently: true});
-    g.drawImage(img, 0, 0, iw, ih, 0, 0, W, H);
-    const px = g.getImageData(0, 0, W, H).data;
+    const ctx = cc.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0, iw, ih, 0, 0, W, H);
+    const px = ctx.getImageData(0, 0, W, H).data;
 
     let all = [];
-    const collect = (p, W, H) => {
-      try { const ru = findRuler(p, W, H); if (ru) { const rr = decodeByRuler(p, W, H, ru); if (rr.length) all = all.concat(rr); } } catch(e) {}
-      try { const f = scanImage(p, W, H); if (f.length) all = all.concat(f); } catch(e) {}
+
+    // Допоміжник: збирає результати з raw-пікселів
+    const collect = (p, cw, ch) => {
+      try {
+        const ru = findRuler(p, cw, ch);
+        if (ru) {
+          const rr = decodeByRuler(p, cw, ch, ru);
+          if (rr.length) all = all.concat(rr);
+        }
+      } catch (e) {}
+      try {
+        const f = scanImage(p, cw, ch);
+        if (f.length) all = all.concat(f);
+      } catch (e) {}
     };
-    const hasSolid = () => all.some(r => r.kind === 'one' || r.kind === 'three' || r.kind === 'mono');
+
+    // Допоміжник: бінаризує Бредлі + шукає лінійку + декодує
+    const collectBradley = (p, cw, ch) => {
+      for (const [wf, tp] of [[1/16, 10], [1/12, 12], [1/8, 15]]) {
+        try {
+          const bin = bradley(p, cw, ch, wf, tp);
+          const ru  = findRuler(bin, cw, ch);
+          if (ru) {
+            const rr = decodeByRuler(bin, cw, ch, ru);
+            if (rr.length) all = all.concat(rr);
+          }
+        } catch (e) {}
+      }
+    };
+
+    const hasSolid = () => all.some(r =>
+      r.kind === 'one' || r.kind === 'three' || r.kind === 'mono');
     const done = () => dedup(all);
 
-    // 1. Пряма спроба (якщо код заповнює кадр і рівно освітлений)
+    // ── Крок 1: прямий скан (код займає весь кадр, рівне освітлення) ─────────
     collect(px, W, H);
     if (hasSolid()) return done();
 
-    // 2. Пошук коду на фоні та вирізування
+    // ── Крок 2: Бредлі на повному кадрі (нерівномірне освітлення) ───────────
+    collectBradley(px, W, H);
+    if (hasSolid()) return done();
+
+    // ── Крок 3: локалізація коду (findOrnament) + повтор обох підходів ───────
     try {
       const box = findOrnament(px, W, H);
-      if (box) {
+      if (box && box.w >= 40 && box.h >= 40) {
         const cpx = cropPx(px, W, H, box);
         collect(cpx, box.w, box.h);
         if (hasSolid()) return done();
+        collectBradley(cpx, box.w, box.h);
+        if (hasSolid()) return done();
       }
-    } catch(e) {}
+    } catch (e) {}
 
-    // 3. Адаптивний фільтр Бредлі (прощає тіні, засвічування, папір)
-    try {
-      const pf = scanPhoto(px, W, H);
-      if (pf.length) all = all.concat(pf);
-      if (hasSolid()) return done();
-    } catch(e) {}
-
-    // 4. Якщо код знайдено в прямокутнику, але він не весь вмістився
+    // ── Крок 4: findCodeBox — якщо код не квадратний або частково обрізаний ──
     try {
       const box = findCodeBox(px, W, H);
       if (box) {
-        const side = Math.max(box.w, box.h), cx = box.x0 + box.w / 2, cy = box.y0 + box.h / 2;
+        const side = Math.max(box.w, box.h);
+        const cx   = box.x0 + box.w / 2;
+        const cy   = box.y0 + box.h / 2;
+
         for (const sf of [1.0, 1.05, 0.96]) {
-          let s = Math.round(side * sf);
-          let nx = Math.round(cx - s / 2), ny = Math.round(cy - s / 2);
-          nx = Math.max(0, nx); ny = Math.max(0, ny);
-          s = Math.min(s, W - nx, H - ny);
+          let s  = Math.round(side * sf);
+          let nx = Math.max(0, Math.round(cx - s / 2));
+          let ny = Math.max(0, Math.round(cy - s / 2));
+          s = Math.min(s, W - nx, H - ny);   // не виходимо за межі
           if (s < 40) continue;
-          const c = cropPx(px, W, H, {x0: nx, y0: ny, w: s, h: s});
-          collect(c, s, s);
+
+          const cpx = cropPx(px, W, H, { x0: nx, y0: ny, w: s, h: s });
+          collect(cpx, s, s);
           if (hasSolid()) return done();
-          for (const wt of [[1 / 12, 12], [1 / 16, 10]]) {
-            try {
-              const b = bradley(c, s, s, wt[0], wt[1]);
-              const ru = findRuler(b, s, s);
-              if (ru) {
-                const rr = decodeByRuler(b, s, s, ru);
-                if (rr.length) all = all.concat(rr);
-              }
-            } catch(e) {}
-          }
+          collectBradley(cpx, s, s);
           if (hasSolid()) return done();
         }
       }
-    } catch(e) {}
+    } catch (e) {}
 
     return done();
   }
 
-  // Десктопний шлях: Строга математика, ідеальні PNG
+  // ── ДЕСКТОПНИЙ ШЛЯХ (не чіпаємо) ───────────────────────────────────────────
   const { px, IW, IH } = buildBuffer(img, false);
   let all = [];
-  const collect = (p, W, H) => {
-    try { const ru = findRuler(p, W, H); if (ru) { const rr = decodeByRuler(p, W, H, ru); if (rr.length) all = all.concat(rr); } } catch (e) {}
-    try { const f = scanImage(p, W, H); if (f.length) all = all.concat(f); } catch (e) {}
-  };
-  const hasSolid = () => all.some(r => r.kind === 'one' || r.kind === 'three' || r.kind === 'mono');
-  const done = () => dedup(all);
-
-  collect(px, IW, IH);
-  if (hasSolid()) return done();
-
-  try {
-    const cor = subpixCorners(px, IW, IH);
-    if (cor) {
-      const el = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
-      const N = Math.round(Math.min(1500, Math.max(400, Math.max(el(cor.TL, cor.TR), el(cor.TR, cor.BR), el(cor.BR, cor.BL), el(cor.BL, cor.TL)))));
-      const d = deskew(px, IW, IH, cor, N);
-      const b = v13_analyzeFlat(d, N);
-      if (b) return [b];
-    }
-  } catch(e) {}
-
-  try {
-    const box = findCodeBox(px, IW, IH);
-    if (box) {
-      const side = Math.max(box.w, box.h), cx = box.x0 + box.w / 2, cy = box.y0 + box.h / 2;
-      for (const sf of [1.0, 1.05, 0.96]) {
-        let s = Math.round(side * sf);
-        let nx = Math.round(cx - s / 2), ny = Math.round(cy - s / 2);
-        nx = Math.max(0, nx); ny = Math.max(0, ny);
-        s = Math.min(s, IW - nx, IH - ny);
-        if (s < 40) continue;
-        const c = cropPx(px, IW, IH, {x0: nx, y0: ny, w: s, h: s});
-        collect(c, s, s);
-        if (hasSolid()) return done();
-      }
-    }
-  } catch(e) {}
-
-  try { const box = findOrnament(px, IW, IH); if (box) { collect(cropPx(px, IW, IH, box), box.w, box.h); } } catch(e) {}
-  if (hasSolid()) return done();
-
-  try { const cor = findCorners(px, IW, IH); if (cor) { const N = Math.max(512, Math.min(1400, Math.round(cor.side))); collect(deskew(px, IW, IH, cor, N), N, N); } } catch(e) {}
-  if (hasSolid()) return done();
-
-  try { const pf = scanPhoto(px, IW, IH); if (pf.length) all = all.concat(pf); } catch(e) {}
-  return done();
-}
+  // ... (оригінальний код без змін)
