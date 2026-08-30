@@ -60,7 +60,7 @@ function med(a){const b=[...a].sort((x,y)=>x-y);return b[Math.floor(b.length/2)]
 function runsLine(get,len){let prev=-1,l=0,R=[];for(let i=0;i<len;i++){const c=get(i)>127?1:0;if(c===prev)l++;else{if(prev>=0)R.push(l);prev=c;l=1;}}R.push(l);return R;}
 function decodeNewFrame(px,IW,IH,dbg){if(IW!==IH)return [];const lumf=(x,y)=>{const p=(y*IW+x)*4;return (px[p]+px[p+1]+px[p+2])/3;};const edgeModule=(get,span,depth)=>{const cand=[];for(let i=Math.floor(depth*0.02);i<depth;i++){const rs=runsLine(k=>get(k,i),span).filter(v=>v>=2);if(rs.length<8)continue;const m=med(rs);let reg=0;for(const r of rs)if(r>=m*0.55&&r<=m*1.45)reg++;if(reg/rs.length>=0.8)cand.push(m);}return cand.length?med(cand):null;};const dep=Math.floor(IW*0.18);const mods=[edgeModule((k,i)=>lumf(k,i),IW,dep),edgeModule((k,i)=>lumf(k,IH-1-i),IW,dep),edgeModule((k,i)=>lumf(i,k),IH,dep),edgeModule((k,i)=>lumf(IW-1-i,k),IH,dep)].filter(Boolean);let module;if(mods.length>=2)module=med(mods);else{const ru=findRuler(px,IW,IH);if(!ru)return [];module=ru.cell;}const Tf=Math.round(IW/module);const n=Tf-6;if(n<MINN||n%2===0)return [];const lum=p=>(px[p]+px[p+1]+px[p+2])/3;const RGBTHR=125;const agree=(g,chk)=>{let ok=0;for(let z=0;z<n*n;z++)if((chk[z]?1:0)===g[z])ok++;return ok/(n*n);};const out=[];const SOFT=0.93;const sampleAt=(ci,cell,ox,oy)=>{const g=new Uint8Array(n*n);for(let y=0;y<n;y++)for(let x=0;x<n;x++){const X=Math.min(IW-1,Math.max(0,Math.round((x+3+0.5)*cell+ox))),Y=Math.min(IH-1,Math.max(0,Math.round((y+3+0.5)*cell+oy)));const p=(Y*IW+X)*4;const v=ci<0?lum(p):px[p+ci];g[y*n+x]=v>(ci<0?110:RGBTHR)?1:0;}return g;};let bestPh={sc:0,cell:IW/Tf,ox:0,oy:0};for(const sf of [1.0,0.994,0.997,1.003,1.006,0.991,1.009]){const cellS=(IW/Tf)*sf;for(let ox=-cellS*0.35;ox<=cellS*0.35;ox+=cellS*0.12)for(let oy=-cellS*0.35;oy<=cellS*0.35;oy+=cellS*0.12){const gl=sampleAt(-1,cellS,ox,oy);let bs=0;for(const m of ['oct','quad','half']){const t=decodeSector(gl,n,m,0);if(t!==null){const chk=fillChannel(t,n,m,null);const a=agree(gl,chk.g);if(a>bs)bs=a;}}if(bs>bestPh.sc)bestPh={sc:bs,cell:cellS,ox,oy};}}const cell=bestPh.cell, PX=bestPh.ox, PY=bestPh.oy;const sample=(ci)=>sampleAt(ci,cell,PX,PY);const cl=sample(-1);const _S=RGB_SOFT;const _mix=(r,g,b)=>[Math.min(255,(r?_S.r[0]:0)+(g?_S.g[0]:0)+(b?_S.b[0]:0)),Math.min(255,(r?_S.r[1]:0)+(g?_S.g[1]:0)+(b?_S.b[1]:0)),Math.min(255,(r?_S.r[2]:0)+(g?_S.g[2]:0)+(b?_S.b[2]:0))];const _refs=[[0,0,0],[1,0,0],[0,1,0],[0,0,1],[1,1,0],[1,0,1],[0,1,1],[1,1,1]].map(c=>({b:c,col:_mix(c[0],c[1],c[2])}));const _raw=(cx,cy)=>{var ox=0.5,oy=0.5;if(cx===0)ox=0.7;if(cx===n-1)ox=0.3;if(cy===0)oy=0.7;if(cy===n-1)oy=0.3;const X=Math.min(IW-1,Math.max(0,Math.round((cx+3+ox)*cell+PX)));const Y=Math.min(IH-1,Math.max(0,Math.round((cy+3+oy)*cell+PY)));const p=(Y*IW+X)*4;return [px[p],px[p+1],px[p+2]];};const cr=new Uint8Array(n*n),cg=new Uint8Array(n*n),cb=new Uint8Array(n*n);for(let y=0;y<n;y++)for(let x=0;x<n;x++){const c=_raw(x,y);let bi=0,bd=1e9;for(let i=0;i<_refs.length;i++){const r=_refs[i].col;const dr=c[0]-r[0],dg=c[1]-r[1],db=c[2]-r[2],dd=dr*dr+dg*dg+db*db;if(dd<bd){bd=dd;bi=i;}}const t=_refs[bi].b;cr[y*n+x]=t[0];cg[y*n+x]=t[1];cb[y*n+x]=t[2];}let sameRGB=true;for(let z=0;z<cl.length;z++)if(cr[z]!==cg[z]||cr[z]!==cb[z]){sameRGB=false;break;}for(const m of ['oct','quad','half']){{const t=decodeSector(cl,n,m,0);if(t!==null){const chk=fillChannel(t,n,m,null);if(agree(cl,chk.g)===1)out.push({kind:'one',mode:m,n,res:[t,null,null]});}}if(!out.some(r=>r.kind==='one'||r.kind==='mono'||r.kind==='three')){const rv=recoverVoted(cl,n,m,0,null);if(rv)out.push({kind:'recovered',mode:m,n,res:[rv.text,null,null],agree:rv.agree});}if(!sameRGB){if(markCell(cr,n,m)===1){const rR=decodeSector(cr,n,m,1),rG=decodeSector(cg,n,m,0),rB=decodeSector(cb,n,m,0);if(rR!==null){const kR=fillChannel(rR,n,m,1),kG=fillChannel(rG||'',n,m,null),kB=fillChannel(rB||'',n,m,null);if(agree(cr,kR.g)>=SOFT&&agree(cg,kG.g)>=SOFT&&agree(cb,kB.g)>=SOFT)out.push({kind:'mono',mode:m,n,res:[(rR||'')+(rG||'')+(rB||''),null,null]});}}const tr=decodeSector(cr,n,m,0),tg=decodeSector(cg,n,m,0),tb=decodeSector(cb,n,m,0);if([tr,tg,tb].filter(x=>x!==null).length>=2){const ne=[tr,tg,tb].filter(x=>x);const kR=fillChannel(tr||'',n,m,null),kG=fillChannel(tg||'',n,m,null),kB=fillChannel(tb||'',n,m,null);if(!ne.every(x=>x===ne[0])&&agree(cr,kR.g)>=SOFT&&agree(cg,kG.g)>=SOFT&&agree(cb,kB.g)>=SOFT)out.push({kind:'three',mode:m,n,res:[tr,tg,tb]});}}}out.sort((a,b)=>b.res.filter(x=>x).join('').length-a.res.filter(x=>x).join('').length);return out;}
 
-function buildBuffer(img, runDecodeAttempts){
+function buildBuffer(img, isCamera = false){
   const iw = img.naturalWidth || img.width || 0;
   const ih = img.naturalHeight || img.height || 0;
   if (iw < 1 || ih < 1) throw new Error('Invalid image dimensions');
@@ -96,62 +96,83 @@ function dedup(all) {
 }
 
 function runDecodeAttempts(img, isCamera = false) {
-  const iw = img.naturalWidth || img.width || 0;
-  const ih = img.naturalHeight || img.height || 0;
-  if (iw < 1 || ih < 1) return [];
+  // Якщо це камера телефону — використовуємо легкий, адаптивний шлях
+  if (isCamera) {
+    const iw = img.naturalWidth || img.width || 0;
+    const ih = img.naturalHeight || img.height || 0;
+    if (iw < 1 || ih < 1) return [];
 
-  const maxDim = isCamera ? 1000 : 1500;
-  const scale = Math.min(1, maxDim / Math.max(iw, ih));
-  const W = Math.round(iw * scale);
-  const H = Math.round(ih * scale);
+    const maxDim = 1000; // Оптимальний розмір для камери телефону
+    const scale = Math.min(1, maxDim / Math.max(iw, ih));
+    const W = Math.round(iw * scale);
+    const H = Math.round(ih * scale);
 
-  const cc = document.createElement('canvas');
-  cc.width = W; cc.height = H;
-  const g = cc.getContext('2d', { willReadFrequently: true });
-  g.drawImage(img, 0, 0, iw, ih, 0, 0, W, H);
-  const px = g.getImageData(0, 0, W, H).data;
+    const cc = document.createElement('canvas');
+    cc.width = W; cc.height = H;
+    const g = cc.getContext('2d', {willReadFrequently: true});
+    g.drawImage(img, 0, 0, iw, ih, 0, 0, W, H);
+    const px = g.getImageData(0, 0, W, H).data;
 
-  let all = [];
-  const collect = (p, dw, dh) => {
-    try { const ru = findRuler(p, dw, dh); if (ru) { const rr = decodeByRuler(p, dw, dh, ru); if (rr.length) all = all.concat(rr); } } catch (e) {}
-    try { const f = scanImage(p, dw, dh); if (f.length) all = all.concat(f); } catch (e) {}
-  };
-  const hasSolid = () => all.some(r => r.kind === 'one' || r.kind === 'three' || r.kind === 'mono');
-  const done = () => dedup(all);
+    let all = [];
+    const collect = (p, W, H) => {
+      try { const ru = findRuler(p, W, H); if (ru) { const rr = decodeByRuler(p, W, H, ru); if (rr.length) all = all.concat(rr); } } catch(e) {}
+      try { const f = scanImage(p, W, H); if (f.length) all = all.concat(f); } catch(e) {}
+    };
+    const hasSolid = () => all.some(r => r.kind === 'one' || r.kind === 'three' || r.kind === 'mono');
+    const done = () => dedup(all);
 
-  collect(px, W, H);
-  if (hasSolid()) return done();
-
-  try {
-    const box = findOrnament(px, W, H) || findCodeBox(px, W, H);
-    if (box) {
-      const c = cropPx(px, W, H, { x0: box.x0 || box[0], y0: box.y0 || box[1], w: box.w || (box[2]-box[0]), h: box.h || (box[3]-box[1]) });
-      collect(c, c.w || box.w, c.h || box.h);
-      if (hasSolid()) return done();
-    }
-  } catch (e) {}
-
-  try {
-    const pf = scanPhoto(px, W, H);
-    if (pf.length) all = all.concat(pf);
+    // 1. Пряма спроба (якщо код заповнює кадр і рівно освітлений)
+    collect(px, W, H);
     if (hasSolid()) return done();
-  } catch (e) {}
 
-  if (!isCamera) {
+    // 2. Пошук коду на фоні та вирізування
     try {
-      const cor = subpixCorners(px, W, H) || findCorners(px, W, H);
-      if (cor) {
-        const N = Math.round(Math.min(1500, Math.max(400, cor.side || Math.hypot(cor.TL[0]-cor.TR[0], cor.TL[1]-cor.TR[1]))));
-        const d = deskew(px, W, H, cor, N);
-        const b = v13_analyzeFlat(d, N);
-        if (b) return [b];
-        collect(d, N, N);
+      const box = findOrnament(px, W, H);
+      if (box) {
+        const cpx = cropPx(px, W, H, box);
+        collect(cpx, box.w, box.h);
+        if (hasSolid()) return done();
       }
-    } catch (e) {}
-  }
+    } catch(e) {}
 
-  return done();
-}
+    // 3. Адаптивний фільтр Бредлі (прощає тіні, засвічування, папір)
+    try {
+      const pf = scanPhoto(px, W, H);
+      if (pf.length) all = all.concat(pf);
+      if (hasSolid()) return done();
+    } catch(e) {}
+
+    // 4. Якщо код знайдено в прямокутнику, але він не весь вмістився
+    try {
+      const box = findCodeBox(px, W, H);
+      if (box) {
+        const side = Math.max(box.w, box.h), cx = box.x0 + box.w / 2, cy = box.y0 + box.h / 2;
+        for (const sf of [1.0, 1.05, 0.96]) {
+          let s = Math.round(side * sf);
+          let nx = Math.round(cx - s / 2), ny = Math.round(cy - s / 2);
+          nx = Math.max(0, nx); ny = Math.max(0, ny);
+          s = Math.min(s, W - nx, H - ny);
+          if (s < 40) continue;
+          const c = cropPx(px, W, H, {x0: nx, y0: ny, w: s, h: s});
+          collect(c, s, s);
+          if (hasSolid()) return done();
+          for (const wt of [[1 / 12, 12], [1 / 16, 10]]) {
+            try {
+              const b = bradley(c, s, s, wt[0], wt[1]);
+              const ru = findRuler(b, s, s);
+              if (ru) {
+                const rr = decodeByRuler(b, s, s, ru);
+                if (rr.length) all = all.concat(rr);
+              }
+            } catch(e) {}
+          }
+          if (hasSolid()) return done();
+        }
+      }
+    } catch(e) {}
+
+    return done();
+  }
 
   // Десктопний шлях: Строга математика, ідеальні PNG
   const { px, IW, IH } = buildBuffer(img, false);
