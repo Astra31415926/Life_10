@@ -1025,7 +1025,7 @@ function buildBuffer(img){
   g.imageSmoothingEnabled=true;g.drawImage(img,(AS-w)/2,(AS-h)/2,w,h);
   return {px:g.getImageData(0,0,AS,AS).data,IW:AS,IH:AS};}
 
-function runDecodeAttempts(img){
+function runDecodeAttempts(img){console.log('runDecodeAttempts input:', img && img.width, img && img.height);
   const buf=buildBuffer(img);const {px,IW,IH}=buf;
   let all=[];
   const collect=(p,W,H)=>{
@@ -2500,7 +2500,7 @@ function deskew(px,IW,IH,corners,N){
 }
 
 /* ── subpixCorners: субпіксельні кути рамки (перехід яскравості 50%) ── */
-function subpixCorners(px,IW,IH){
+console.log('subpixCorners input:', IW, IH);function subpixCorners(px,IW,IH){
   const lum=(x,y)=>{const p=(y*IW+x)*4;return(px[p]+px[p+1]+px[p+2])/3;};
   const thr=150;let minx=IW,maxx=0,miny=IH,maxy=0,any=false;
   for(let y=0;y<IH;y+=2)for(let x=0;x<IW;x+=2)if(lum(x,y)<thr){any=true;if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y;}
