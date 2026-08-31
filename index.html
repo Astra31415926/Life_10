@@ -424,17 +424,44 @@ async function startCam(){
   try{camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1920}}});v.srcObject=camStream; v.setAttribute('playsinline','');await v.play();CV.classList.add('hide'); v.classList.remove('hide'); vf.classList.remove('hide');$('stage').classList.add('scanning');btn.textContent='⏹ Зупинити'; $('rt').innerHTML='<span class="w">наведи на код…</span>';camLastText=null; camTimer=0; camBusy=false;startScanSound();camLoop();clearTimeout(window._camTO);clearInterval(window._camTick);window._camTick=setInterval(function(){tone(1200,.03,.03,'sine');},900);window._camTO=setTimeout(function(){if(camStream){stopCam();$('rt').innerHTML='<span class="w">не знайдено — спробуй ще</span>';}},10000);}catch(e){ alert('Камера недоступна: '+e); }
 }
 function stopCam(){const {v,vf,btn}=camEls();clearTimeout(window._camTO);clearInterval(window._camTick);if(camRAF)cancelAnimationFrame(camRAF); camRAF=null;if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}if(v.srcObject)v.srcObject=null;v.classList.add('hide'); vf.classList.add('hide'); CV.classList.remove('hide');$('stage').classList.remove('scanning');stopScanSound();btn.textContent='📷 Камера';}
-function camLoop(){
-  const {v}=camEls();if(!camStream){return;}
-  const now=performance.now();
-  if(!camBusy && v.readyState>=2 && now-camTimer>250){
-    camTimer=now; camBusy=true;
-try{const c=document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight;const cx=c.getContext('2d',{willReadFrequently:true});cx.drawImage(v,0,0);let found=[];try{ found=runDecodeAttempts(c, true); }catch(e){}if(found.length){const txt=found[0].res.filter(x=>x).join('\u0001');if(txt){constshot=document.createElement('canvas');shot.width=shot.height=512;shot.getContext('2d').drawImage(c,0,0,512,512);const url=shot.toDataURL('image/png');stopCam();showCamResult(found,url);camBusy=false; return;}camLastText=txt;}else{ camLastText=null; }}catch(e){}
-    camBusy=false;
+function camLoop(){  
+  const {v}=camEls();  
+  if(!camStream){return;}  
+  const now=performance.now();  
+  if(!camBusy && v.readyState>=2 && now-camTimer>250){    
+    camTimer=now; 
+    camBusy=true;    
+    try{      
+      const c=document.createElement('canvas');      
+      c.width=v.videoWidth; 
+      c.height=v.videoHeight;      
+      const cx=c.getContext('2d',{willReadFrequently:true});      
+      cx.drawImage(v,0,0);      
+      let found=[];      
+      try{ found=runDecodeAttempts(c, true); }catch(e){}      
+      if(found.length){        
+        const txt=found[0].res.filter(x=>x).join('\u0001');        
+        if(txt){          
+          const shot=document.createElement('canvas');          
+          shot.width=shot.height=512;          
+          shot.getContext('2d').drawImage(c,0,0,512,512);          
+          const url=shot.toDataURL('image/png');          
+          stopCam();          
+          showCamResult(found,url);          
+          camBusy=false;          
+          return;        
+        }        
+        camLastText=txt;      
+      }else{        
+        camLastText=null;      
+      }    
+    }catch(e){}    
+    camBusy=false;  
   }
   camRAF=requestAnimationFrame(camLoop);
 }
- $('cam-btn').onclick=()=>{ camStream?stopCam():startCam(); };
+
+$('cam-btn').onclick = () => { camStream ? stopCam() : startCam(); };
 
 async function showCamResult(found,shotURL){
   flash();const best=found[0];mode=best.mode;syncSeg('sym','m',mode);scannedImg=shotURL;
