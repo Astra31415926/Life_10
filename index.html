@@ -438,7 +438,7 @@ function camLoop(){
       const cx=c.getContext('2d',{willReadFrequently:true});      
       cx.drawImage(v,0,0);      
       let found=[];      
-  try{ found=runDecodeAttempts(c); }catch(e){}
+      try{ found=runDecodeAttempts(c, true); }catch(e){}      
       if(found.length){        
         const txt=found[0].res.filter(x=>x).join('\u0001');        
         if(txt){          
