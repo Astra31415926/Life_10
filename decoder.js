@@ -45,9 +45,9 @@ function cropPx(px,IW,IH,box){const {x0,y0,w,h}=box;const out=new Uint8ClampedAr
 
 function findCorners(px,IW,IH){const corners4=[[0,0],[IW-1,0],[0,IH-1],[IW-1,IH-1]];const bgSamples=corners4.map(([x,y])=>{const p=(y*IW+x)*4;return [px[p],px[p+1],px[p+2]];});const bg=[0,1,2].map(c=>Math.round(bgSamples.reduce((s,v)=>s+v[c],0)/bgSamples.length));const isPat=(x,y)=>{const p=(y*IW+x)*4;const dr=px[p]-bg[0],dg=px[p+1]-bg[1],db=px[p+2]-bg[2];return Math.sqrt(dr*dr+dg*dg+db*db)>60;};let top=null,bot=null,left=null,right=null;const step=Math.max(1,Math.floor(IW/500));for(let y=0;y<IH;y+=step)for(let x=0;x<IW;x+=step){if(!isPat(x,y))continue;if(!top||y<top[1])top=[x,y];if(!bot||y>bot[1])bot=[x,y];if(!left||x<left[0])left=[x,y];if(!right||x>right[0])right=[x,y];}if(!top||!bot||!left||!right)return null;const d=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);const s=[d(top,right),d(right,bot),d(bot,left),d(left,top)];const avg=(s[0]+s[1]+s[2]+s[3])/4;if(avg<30)return null;if((Math.max(...s)-Math.min(...s))/avg>0.35)return null;return {TL:top,TR:right,BR:bot,BL:left,side:avg};}
 
-function findCodeBox(px,IW,IH){const GX=120, GY=Math.max(20,Math.round(120*IH/IW));const cw=IW/GX, ch=IH/GY;const avg=new Float64Array(GX*GY*3);for(let gy=0;gy<GY;gy++)for(let gx=0;gx<GX;gx++){let r=0,g=0,b=0,cnt=0;const x0=Math.floor(gx*cw),x1=Math.floor((gx+1)*cw),y0=Math.floor(gy*ch),y1=Math.floor((gy+1)*ch);for(let y=y0;y<y1;y+=2)for(let x=x0;x<x1;x+=2){const p=(y*IW+x)*4;r+=px[p];g+=px[p+1];b+=px[p+2];cnt++;}const i=(gy*GX+gx)*3;avg[i]=cnt?r/cnt:0;avg[i+1]=cnt?g/cnt:0;avg[i+2]=cnt?b/cnt:0;}const edge=[];for(let gx=0;gx<GX;gx++){edge.push([gx,0]);edge.push([gx,GY-1]);}for(let gy=0;gy<GY;gy++){edge.push([0,gy]);edge.push([GX-1,gy]);}const compMed=k=>{const a=edge.map(([gx,gy])=>avg[(gy*GX+gx)*3+k]).sort((x,y)=>x-y);return a[Math.floor(a.length/2)];};const bg=[compMed(0),compMed(1),compMed(2)];const fg=new Uint8Array(GX*GY);for(let i=0;i<GX*GY;i++){const dr=avg[i*3]-bg[0],dg=avg[i*3+1]-bg[1],db=avg[i*3+2]-bg[2];if(Math.sqrt(dr*dr+dg*dg+db*db)>55)fg[i]=1;}const lab=new Int32Array(GX*GY);let cur=0,best=0,bestBox=null;const stack=[];for(let s=0;s<GX*GY;s++){if(!fg[s]||lab[s])continue;cur++;let cnt=0,minx=GX,miny=GY,maxx=0,maxy=0;stack.push(s);lab[s]=cur;while(stack.length){const p=stack.pop();const gx=p%GX,gy=(p/GX)|0;cnt++;if(gx<minx)minx=gx;if(gx>maxx)maxx=gx;if(gy<miny)miny=gy;if(gy>maxy)maxy=gy;const gxs=[gx-1,gx+1,gx,gx],gys=[gy,gy,gy-1,gy+1];for(let k=0;k<4;k++){const nx=gxs[k],ny=gys[k];if(nx<0||ny<0||nx>=GX||ny>=GY)continue;const q=ny*GX+nx;if(fg[q]&&!lab[q]){lab[q]=cur;stack.push(q);}}}if(cnt>best){best=cnt;bestBox=[minx,miny,maxx,maxy];}}if(!bestBox)return null;let x0=Math.floor(bestBox[0]*cw),y0=Math.floor(bestBox[1]*ch),x1=Math.ceil((bestBox[2]+1)*cw),y1=Math.ceil((bestBox[3]+1)*ch);const padX=cw*0.5,padY=ch*0.5;x0=Math.max(0,Math.floor(x0-padX));y0=Math.max(0,Math.floor(y0-padY));x1=Math.min(IW,Math.ceil(x1+padX));y1=Math.min(IH,Math.ceil(y1+padY));return {x0,y0,w:x1-x0,h:y1-y0};}
+function findCodeBox(px,IW,IH){const GX=120, GY=Math.max(20,Math.round(120*IH/IW));const cw=IW/GX, ch=IH/GY;const avg=new Float64Array(GX*GY*3);for(let gy=0;gy<GY;gy++)for(let gx=0;gx<GX;gx++){let r=0,g=0,b=0,cnt=0;const x0=Math.floor(gx*cw),x1=Math.floor((gx+1)*cw),y0=Math.floor(gy*ch),y1=Math.floor((gy+1)*ch);for(let y=y0;y<y1;y+=2)for(let x=x0;x<x1;x+=2){const p=(y*IW+x)*4;r+=px[p];g+=px[p+1];b+=px[p+2];cnt++;}const i=(gy*GX+gx)*3;avg[i]=r/cnt;avg[i+1]=g/cnt;avg[i+2]=b/cnt;}const edge=[];for(let gx=0;gx<GX;gx++){edge.push([gx,0]);edge.push([gx,GY-1]);}for(let gy=0;gy<GY;gy++){edge.push([0,gy]);edge.push([GX-1,gy]);}const compMed=k=>{const a=edge.map(([gx,gy])=>avg[(gy*GX+gx)*3+k]).sort((x,y)=>x-y);return a[Math.floor(a.length/2)];};const bg=[compMed(0),compMed(1),compMed(2)];const fg=new Uint8Array(GX*GY);for(let i=0;i<GX*GY;i++){const dr=avg[i*3]-bg[0],dg=avg[i*3+1]-bg[1],db=avg[i*3+2]-bg[2];if(Math.sqrt(dr*dr+dg*dg+db*db)>55)fg[i]=1;}const lab=new Int32Array(GX*GY);let cur=0,best=0,bestBox=null;const stack=[];for(let s=0;s<GX*GY;s++){if(!fg[s]||lab[s])continue;cur++;let cnt=0,minx=GX,miny=GY,maxx=0,maxy=0;stack.push(s);lab[s]=cur;while(stack.length){const p=stack.pop();const gx=p%GX,gy=(p/GX)|0;cnt++;if(gx<minx)minx=gx;if(gx>maxx)maxx=gx;if(gy<miny)miny=gy;if(gy>maxy)maxy=gy;const gxs=[gx-1,gx+1,gx,gx],gys=[gy,gy,gy-1,gy+1];for(let k=0;k<4;k++){const nx=gxs[k],ny=gys[k];if(nx<0||ny<0||nx>=GX||ny>=GY)continue;const q=ny*GX+nx;if(fg[q]&&!lab[q]){lab[q]=cur;stack.push(q);}}}if(cnt>best){best=cnt;bestBox=[minx,miny,maxx,maxy];}}if(!bestBox)return null;let x0=Math.floor(bestBox[0]*cw),y0=Math.floor(bestBox[1]*ch),x1=Math.ceil((bestBox[2]+1)*cw),y1=Math.ceil((bestBox[3]+1)*ch);const padX=cw*0.5,padY=ch*0.5;x0=Math.max(0,Math.floor(x0-padX));y0=Math.max(0,Math.floor(y0-padY));x1=Math.min(IW,Math.ceil(x1+padX));y1=Math.min(IH,Math.ceil(y1+padY));return {x0,y0,w:x1-x0,h:y1-y0};}
 
-function bradley(px,IW,IH,winFrac,tPct){const lum=i=>(px[i*4]+px[i*4+1]+px[i*4+2])/3;const integ=new Float64Array(IW*IH);for(let y=0;y<IH;y++){let s=0;for(let x=0;x<IW;x++){s+=lum(y*IW+x);integ[y*IW+x]=(y>0?integ[(y-1)*IW+x]:0)+s;}}const S=Math.max(2,Math.floor(IW*winFrac)),t=tPct;const out=new Uint8ClampedArray(IW*IH*4);for(let y=0;y<IH;y++)for(let x=0;x<IW;x++){const x1=Math.max(x-S,0),x2=Math.min(x+S,IW-1),y1=Math.max(y-S,0),y2=Math.min(y+S,IH-1);const count=(x2-x1)*(y2-y1);const sum=integ[y2*IW+x2]-integ[y1*IW+x2]-integ[y2*IW+x1]+integ[y1*IW+x1];const v=lum(y*IW+x);const res=(count>0&&v*count<=sum*(100-t)/100)?0:255;const d=(y*IW+x)*4;out[d]=out[d+1]=out[d+2]=res;out[d+3]=255;}return out;}
+function bradley(px,IW,IH,winFrac,tPct){const lum=i=>(px[i*4]+px[i*4+1]+px[i*4+2])/3;const integ=new Float64Array(IW*IH);for(let y=0;y<IH;y++){let s=0;for(let x=0;x<IW;x++){s+=lum(y*IW+x);integ[y*IW+x]=(y>0?integ[(y-1)*IW+x]:0)+s;}}const S=Math.max(2,Math.floor(IW*winFrac)),t=tPct;const out=new Uint8ClampedArray(IW*IH*4);for(let y=0;y<IH;y++)for(let x=0;x<IW;x++){const x1=Math.max(x-S,0),x2=Math.min(x+S,IW-1),y1=Math.max(y-S,0),y2=Math.min(y+S,IH-1);const count=(x2-x1)*(y2-y1);const sum=integ[y2*IW+x2]-integ[y1*IW+x2]-integ[y2*IW+x1]+integ[y1*IW+x1];const v=lum(y*IW+x);const res=(v*count<=sum*(100-t)/100)?0:255;const d=(y*IW+x)*4;out[d]=out[d+1]=out[d+2]=res;out[d+3]=255;}return out;}
 function pbox_runs(get,len){let p=-1,r=[],s=0;for(let i=0;i<len;i++){const c=get(i)>127?1:0;if(c!==p){if(p>=0)r.push([s,i-1]);s=i;p=c;}}r.push([s,len-1]);return r;}
 function pbox_med(a){const b=[...a].sort((x,y)=>x-y);return b[Math.floor(b.length/2)];}
 function pbox_reg(rs){if(rs.length<7)return 0;const L=rs.map(s=>s[1]-s[0]+1);const m=pbox_med(L);if(m<3)return 0;let g=0;for(const l of L)if(l>=m*.55&&l<=m*1.45)g++;return g/rs.length;}
@@ -96,107 +96,76 @@ function dedup(all) {
 }
 
 function runDecodeAttempts(img, isCamera = false) {
-
-  // ── МОБІЛЬНИЙ ШЛЯХ ──────────────────────────────────────────────────────────
+  // Якщо це камера телефону — використовуємо легкий, адаптивний шлях
   if (isCamera) {
     const iw = img.naturalWidth || img.width || 0;
     const ih = img.naturalHeight || img.height || 0;
     if (iw < 1 || ih < 1) return [];
 
-    // Масштаб до ≤800px — мобільні процесори не тягнуть більше
-    const maxDim = 800;
-    const scale  = Math.min(1, maxDim / Math.max(iw, ih));
+    const maxDim = 1000; // Оптимальний розмір для камери телефону
+    const scale = Math.min(1, maxDim / Math.max(iw, ih));
     const W = Math.round(iw * scale);
     const H = Math.round(ih * scale);
 
     const cc = document.createElement('canvas');
     cc.width = W; cc.height = H;
-    const ctx = cc.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(img, 0, 0, iw, ih, 0, 0, W, H);
-    const px = ctx.getImageData(0, 0, W, H).data;
+    const g = cc.getContext('2d', {willReadFrequently: true});
+    g.drawImage(img, 0, 0, iw, ih, 0, 0, W, H);
+    const px = g.getImageData(0, 0, W, H).data;
 
     let all = [];
-
-    // Збирає результати з raw-пікселів (ruler + scanImage)
-    const collect = (p, cw, ch) => {
-      try {
-        const ru = findRuler(p, cw, ch);
-        if (ru) {
-          const rr = decodeByRuler(p, cw, ch, ru);
-          if (rr.length) all = all.concat(rr);
-        }
-      } catch(e) {}
-      try {
-        const f = scanImage(p, cw, ch);
-        if (f.length) all = all.concat(f);
-      } catch(e) {}
+    const collect = (p, W, H) => {
+      try { const ru = findRuler(p, W, H); if (ru) { const rr = decodeByRuler(p, W, H, ru); if (rr.length) all = all.concat(rr); } } catch(e) {}
+      try { const f = scanImage(p, W, H); if (f.length) all = all.concat(f); } catch(e) {}
     };
-
-    // Бредлі з трьома наборами параметрів + ruler на бінаризованому
-    // [winFrac, tPct]: дрібне вікно = дрібні клітинки; велике = засвічення/тінь
-    const collectBradley = (p, cw, ch) => {
-      for (const [wf, tp] of [[1/16, 10], [1/12, 12], [1/8, 15]]) {
-        try {
-          const bin = bradley(p, cw, ch, wf, tp);
-          const ru  = findRuler(bin, cw, ch);
-          if (ru) {
-            const rr = decodeByRuler(bin, cw, ch, ru);
-            if (rr.length) all = all.concat(rr);
-          }
-          // scanImage теж пробуємо на бінаризованому — він може знайти
-          // те, що ruler пропустив (нестандартний розмір клітинки)
-          const f = scanImage(bin, cw, ch);
-          if (f.length) all = all.concat(f);
-        } catch(e) {}
-      }
-    };
-
-    const hasSolid = () =>
-      all.some(r => r.kind === 'one' || r.kind === 'three' || r.kind === 'mono');
+    const hasSolid = () => all.some(r => r.kind === 'one' || r.kind === 'three' || r.kind === 'mono');
     const done = () => dedup(all);
 
-    // ── Крок 1: прямий скан повного кадру ────────────────────────────────────
-    // Спрацює, якщо камера добре сфокусована і освітлення рівномірне
+    // 1. Пряма спроба (якщо код заповнює кадр і рівно освітлений)
     collect(px, W, H);
     if (hasSolid()) return done();
 
-    // ── Крок 2: Бредлі на повному кадрі ──────────────────────────────────────
-    // Рятує при тінях, засвіченні, жовтому/синьому підсвічуванні
-    collectBradley(px, W, H);
-    if (hasSolid()) return done();
-
-    // ── Крок 3: локалізація коду через findOrnament + обидва підходи ─────────
-    // Код займає частину кадру, решта — фон
+    // 2. Пошук коду на фоні та вирізування
     try {
       const box = findOrnament(px, W, H);
-      if (box && box.w >= 40 && box.h >= 40) {
+      if (box) {
         const cpx = cropPx(px, W, H, box);
         collect(cpx, box.w, box.h);
-        if (hasSolid()) return done();
-        collectBradley(cpx, box.w, box.h);
         if (hasSolid()) return done();
       }
     } catch(e) {}
 
-    // ── Крок 4: findCodeBox — якщо код не квадратний або частково обрізаний ──
-    // Пробуємо три масштаби: точний, +5%, -4%
+    // 3. Адаптивний фільтр Бредлі (прощає тіні, засвічування, папір)
+    try {
+      const pf = scanPhoto(px, W, H);
+      if (pf.length) all = all.concat(pf);
+      if (hasSolid()) return done();
+    } catch(e) {}
+
+    // 4. Якщо код знайдено в прямокутнику, але він не весь вмістився
     try {
       const box = findCodeBox(px, W, H);
       if (box) {
-        const side = Math.max(box.w, box.h);
-        const cx   = box.x0 + box.w / 2;
-        const cy   = box.y0 + box.h / 2;
+        const side = Math.max(box.w, box.h), cx = box.x0 + box.w / 2, cy = box.y0 + box.h / 2;
         for (const sf of [1.0, 1.05, 0.96]) {
-          let s  = Math.round(side * sf);
-          let nx = Math.max(0, Math.round(cx - s / 2));
-          let ny = Math.max(0, Math.round(cy - s / 2));
-          // гарантуємо, що квадрат не виходить за межі кадру
+          let s = Math.round(side * sf);
+          let nx = Math.round(cx - s / 2), ny = Math.round(cy - s / 2);
+          nx = Math.max(0, nx); ny = Math.max(0, ny);
           s = Math.min(s, W - nx, H - ny);
           if (s < 40) continue;
-          const cpx = cropPx(px, W, H, { x0: nx, y0: ny, w: s, h: s });
-          collect(cpx, s, s);
+          const c = cropPx(px, W, H, {x0: nx, y0: ny, w: s, h: s});
+          collect(c, s, s);
           if (hasSolid()) return done();
-          collectBradley(cpx, s, s);
+          for (const wt of [[1 / 12, 12], [1 / 16, 10]]) {
+            try {
+              const b = bradley(c, s, s, wt[0], wt[1]);
+              const ru = findRuler(b, s, s);
+              if (ru) {
+                const rr = decodeByRuler(b, s, s, ru);
+                if (rr.length) all = all.concat(rr);
+              }
+            } catch(e) {}
+          }
           if (hasSolid()) return done();
         }
       }
@@ -205,7 +174,7 @@ function runDecodeAttempts(img, isCamera = false) {
     return done();
   }
 
-  // ── ДЕСКТОПНИЙ ШЛЯХ — НЕ ЗМІНЕНО ────────────────────────────────────────────
+  // Десктопний шлях: Строга математика, ідеальні PNG
   const { px, IW, IH } = buildBuffer(img, false);
   let all = [];
   const collect = (p, W, H) => {
