@@ -1423,25 +1423,35 @@ function camLoop(){
   }
  scannedImg=null;build();
 }
+
 /* ═══════════════════════════════════════════════════════════════════════════
-   TAINA · ДЕКОДЕР v5 — під НОВУ 3-шарову рамку
+   TAINA · ДЕКОДЕР v5 — под НОВУЮ 3-слойную рамку (тёмный/светлый/зебра).
+   Читает: прямые коды, повёрнутые и с перспективой (по сплошной рамке),
+   моно и RGB, с фазовой подгонкой сетки и soft-match для цвета.
+   Требует уже существующие в index.html функции: buildBuffer, cropPx, deskew,
+   findRuler, decodeSector, fillChannel, markCell, recoverVoted, MINN.
+   替 Замените СТАРУЮ функцию runDecodeAttempts на этот блок целиком.
    ═══════════════════════════════════════════════════════════════════════════ */
 function findCodeBox(px,IW,IH){
-  const GX=120, GY=Math.max(20,Math.round(120*IH/IW));
+  const GX=120, GY=Math.max(20,Math.round(120*IH/IW));  // груба сітка
   const cw=IW/GX, ch=IH/GY;
+  // середній колір кожної комірки
   const avg=new Float64Array(GX*GY*3);
   for(let gy=0;gy<GY;gy++)for(let gx=0;gx<GX;gx++){
     let r=0,g=0,b=0,cnt=0;const x0=Math.floor(gx*cw),x1=Math.floor((gx+1)*cw),y0=Math.floor(gy*ch),y1=Math.floor((gy+1)*ch);
     for(let y=y0;y<y1;y+=2)for(let x=x0;x<x1;x+=2){const p=(y*IW+x)*4;r+=px[p];g+=px[p+1];b+=px[p+2];cnt++;}
     const i=(gy*GX+gx)*3;avg[i]=r/cnt;avg[i+1]=g/cnt;avg[i+2]=b/cnt;}
+  // фон = медіана крайових комірок
   const edge=[];
   for(let gx=0;gx<GX;gx++){edge.push([gx,0]);edge.push([gx,GY-1]);}
   for(let gy=0;gy<GY;gy++){edge.push([0,gy]);edge.push([GX-1,gy]);}
   const comp=k=>{const a=edge.map(([gx,gy])=>avg[(gy*GX+gx)*3+k]).sort((x,y)=>x-y);return a[Math.floor(a.length/2)];};
   const bg=[comp(0),comp(1),comp(2)];
+  // «різнокольорість» комірки всередині (щоб фон-однотонний інтерфейс не рахувати)
   const fg=new Uint8Array(GX*GY);
   for(let i=0;i<GX*GY;i++){const dr=avg[i*3]-bg[0],dg=avg[i*3+1]-bg[1],db=avg[i*3+2]-bg[2];
     if(Math.sqrt(dr*dr+dg*dg+db*db)>55)fg[i]=1;}
+  // найбільша зв'язна компонента (4-зв'язність)
   const lab=new Int32Array(GX*GY).fill(0);let cur=0,best=0,bestBox=null;
   const stack=[];
   for(let s=0;s<GX*GY;s++){if(!fg[s]||lab[s])continue;cur++;let cnt=0,minx=GX,miny=GY,maxx=0,maxy=0;
@@ -1452,11 +1462,11 @@ function findCodeBox(px,IW,IH){
       for(let k=0;k<4;k++){const nx=gxs[k],ny=gys[k];if(nx<0||ny<0||nx>=GX||ny>=GY)continue;const q=ny*GX+nx;if(fg[q]&&!lab[q]){lab[q]=cur;stack.push(q);}}}
     if(cnt>best){best=cnt;bestBox=[minx,miny,maxx,maxy];}}
   if(!bestBox)return null;
+  // назад у пікселі, трохи розширити
   let x0=Math.floor(bestBox[0]*cw),y0=Math.floor(bestBox[1]*ch),x1=Math.ceil((bestBox[2]+1)*cw),y1=Math.ceil((bestBox[3]+1)*ch);
   const padX=cw*0.5,padY=ch*0.5;x0=Math.max(0,Math.floor(x0-padX));y0=Math.max(0,Math.floor(y0-padY));
   x1=Math.min(IW,Math.ceil(x1+padX));y1=Math.min(IH,Math.ceil(y1+padY));
-  return {x0,y0,w:x1-x0,h:y1-y0};
-}
+  return {x0,y0,w:x1-x0,h:y1-y0};}
 
 function gradCorners(px,IW,IH,G){
   const lum=p=>(px[p*4]+px[p*4+1]+px[p*4+2])/3;
@@ -1466,35 +1476,36 @@ function gradCorners(px,IW,IH,G){
     gr[gy*G+gx]=c?s/c:0;}
   const mx=Math.max(...gr),thr=mx*0.18;
   const fg=gr.map(v=>v>=thr?1:0);
+  // морфология: закрыть дыры (dilate 1) чтобы компонент был цельным
   const dil=new Uint8Array(G*G);
   for(let gy=0;gy<G;gy++)for(let gx=0;gx<G;gx++){let any=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const nx=gx+dx,ny=gy+dy;if(nx>=0&&ny>=0&&nx<G&&ny<G&&fg[ny*G+nx])any=1;}dil[gy*G+gx]=any;}
+  // крупнейшая компонента
   const lab=new Int32Array(G*G);let cur=0,best=0,bestPts=null;const st=[];
   for(let s=0;s<G*G;s++){if(!dil[s]||lab[s])continue;cur++;const pts=[];st.push(s);lab[s]=cur;
     while(st.length){const p=st.pop();pts.push(p);const gx=p%G,gy=(p/G)|0;
       for(const [nx,ny] of [[gx-1,gy],[gx+1,gy],[gx,gy-1],[gx,gy+1]]){if(nx<0||ny<0||nx>=G||ny>=G)continue;const q=ny*G+nx;if(dil[q]&&!lab[q]){lab[q]=cur;st.push(q);}}}
     if(pts.length>best){best=pts.length;bestPts=pts;}}
   if(!bestPts||best<8)return null;
+  // 4 экстремальных угла компоненты (в пикселях, центры ячеек)
   let TL,TR,BR,BL;for(const p of bestPts){const gx=p%G,gy=(p/G)|0;const X=(gx+0.5)*cw,Y=(gy+0.5)*ch;const s=X+Y,d=X-Y;
     if(!TL||s<TL.s)TL={X,Y,s};if(!BR||s>BR.s)BR={X,Y,s};if(!TR||d>TR.d)TR={X,Y,d};if(!BL||d<BL.d)BL={X,Y,d};}
   const dd=(a,b)=>Math.hypot(a.X-b.X,a.Y-b.Y);const side=(dd(TL,TR)+dd(TR,BR)+dd(BR,BL)+dd(BL,TL))/4;
-  return {TL:[TL.X,TL.Y],TR:[TR.X,TR.Y],BR:[BR.X,BR.Y],BL:[BL.X,BL.Y],side};
-}
+  return {TL:[TL.X,TL.Y],TR:[TR.X,TR.Y],BR:[BR.X,BR.Y],BL:[BL.X,BL.Y],side};}
 
 function med(a){const b=[...a].sort((x,y)=>x-y);return b[Math.floor(b.length/2)];}
 function runsLine(get,len){let prev=-1,l=0,R=[];for(let i=0;i<len;i++){const c=get(i)>127?1:0;if(c===prev)l++;else{if(prev>=0)R.push(l);prev=c;l=1;}}R.push(l);return R;}
-
-function moduleFromZebra(px,IW,IH){
-  const lum=(x,y)=>{const p=(y*IW+x)*4;return (px[p]+px[p+1]+px[p+2])/3;};
+// оцінка модуля: медіана довжин серій у смузі зебри (рядок ~inset 2.5 модулів від краю — знайдемо перебором)
+function moduleFromZebra(px,IW,IH){const lum=(x,y)=>{const p=(y*IW+x)*4;return (px[p]+px[p+1]+px[p+2])/3;};
+  // спочатку груба оцінка модуля з будь-якого рядка ближче до краю
   let best=null;
   for(let frac=0.03;frac<0.16;frac+=0.01){const y=Math.floor(IH*frac);
     const rs=runsLine(x=>lum(x,y),IW).filter(v=>v>=2);if(rs.length<8)continue;
     const m=med(rs);let reg=0;for(const r of rs)if(r>=m*0.55&&r<=m*1.45)reg++;const frac2=reg/rs.length;
     if(!best||frac2>best.frac)best={m,frac:frac2,y};}
-  return best;
-}
-
+  return best;}
 function decodeNewFrame(px,IW,IH,dbg){
   if(IW!==IH)return [];
+  // модуль: медіана довжин серій по зебрі, голосування по 4 краях (глибина до 18%)
   const lumf=(x,y)=>{const p=(y*IW+x)*4;return (px[p]+px[p+1]+px[p+2])/3;};
   const edgeModule=(get,span,depth)=>{const cand=[];
     for(let i=Math.floor(depth*0.02);i<depth;i++){const rs=runsLine(k=>get(k,i),span).filter(v=>v>=2);
@@ -1516,7 +1527,8 @@ function decodeNewFrame(px,IW,IH,dbg){
   const sampleAt=(ci,cell,ox,oy)=>{const g=new Uint8Array(n*n);
     for(let y=0;y<n;y++)for(let x=0;x<n;x++){const X=Math.min(IW-1,Math.max(0,Math.round((x+3+0.5)*cell+ox))),Y=Math.min(IH-1,Math.max(0,Math.round((y+3+0.5)*cell+oy)));
       const p=(Y*IW+X)*4;const v=ci<0?lum(p):px[p+ci];g[y*n+x]=v>(ci<0?110:RGBTHR)?1:0;}return g;};
-  let bestPh={sc:0,cell:IW/Tf,ox:0,oy:0};
+  // фазовый + масштабный поиск: берём тот, где моно-самопроверка даёт максимум (в идеале 100%)
+let bestPh={sc:0,cell:IW/Tf,ox:0,oy:0};
   for(const sf of [1.0,0.994,0.997,1.003,1.006,0.991,1.009]){const cellS=(IW/Tf)*sf;
     for(let ox=-cellS*0.35;ox<=cellS*0.35;ox+=cellS*0.12)for(let oy=-cellS*0.35;oy<=cellS*0.35;oy+=cellS*0.12){
       const gl=sampleAt(-1,cellS,ox,oy);let bs=0;
@@ -1524,8 +1536,9 @@ function decodeNewFrame(px,IW,IH,dbg){
       if(bs>bestPh.sc)bestPh={sc:bs,cell:cellS,ox,oy};}}
   const cell=bestPh.cell, PX=bestPh.ox, PY=bestPh.oy;
   const sample=(ci)=>sampleAt(ci,cell,PX,PY);
-  const cl=sample(-1);
-  const _S=RGB_SOFT;
+    const cl=sample(-1);
+  /* === SCI · класифікація клітини по 8 відомих кольорах === */
+   const _S=RGB_SOFT;
   const _mix=(r,g,b)=>[Math.min(255,(r?_S.r[0]:0)+(g?_S.g[0]:0)+(b?_S.b[0]:0)),
                        Math.min(255,(r?_S.r[1]:0)+(g?_S.g[1]:0)+(b?_S.b[1]:0)),
                        Math.min(255,(r?_S.r[2]:0)+(g?_S.g[2]:0)+(b?_S.b[2]:0))];
@@ -1544,8 +1557,9 @@ function decodeNewFrame(px,IW,IH,dbg){
     const t=_refs[bi].b;cr[y*n+x]=t[0];cg[y*n+x]=t[1];cb[y*n+x]=t[2];}
   let sameRGB=true;for(let z=0;z<cl.length;z++)if(cr[z]!==cg[z]||cr[z]!==cb[z]){sameRGB=false;break;}
   for(const m of ['oct','quad','half']){
+    // моно (по яскравості) — точна звірка
     {const t=decodeSector(cl,n,m,0);if(t!==null){const chk=fillChannel(t,n,m,null);if(agree(cl,chk.g)===1)out.push({kind:'one',mode:m,n,res:[t,null,null]});}}
-    if(!out.some(r=>r.kind==='one'||r.kind==='mono'||r.kind==='three')){const rv=recoverVoted(cl,n,m,0,null);if(rv)out.push({kind:'recovered',mode:m,n,res:[rv.text,null,null],agree:rv.agree});}
+      if(!out.some(r=>r.kind==='one'||r.kind==='mono'||r.kind==='three')){const rv=recoverVoted(cl,n,m,0,null);if(rv)out.push({kind:'recovered',mode:m,n,res:[rv.text,null,null],agree:rv.agree});}
     if(!sameRGB){
       if(markCell(cr,n,m)===1){const rR=decodeSector(cr,n,m,1),rG=decodeSector(cg,n,m,0),rB=decodeSector(cb,n,m,0);
         if(rR!==null){const kR=fillChannel(rR,n,m,1),kG=fillChannel(rG||'',n,m,null),kB=fillChannel(rB||'',n,m,null);
@@ -1554,8 +1568,7 @@ function decodeNewFrame(px,IW,IH,dbg){
       if([tr,tg,tb].filter(x=>x!==null).length>=2){const ne=[tr,tg,tb].filter(x=>x);
         const kR=fillChannel(tr||'',n,m,null),kG=fillChannel(tg||'',n,m,null),kB=fillChannel(tb||'',n,m,null);
         if(!ne.every(x=>x===ne[0])&&agree(cr,kR.g)>=SOFT&&agree(cg,kG.g)>=SOFT&&agree(cb,kB.g)>=SOFT)out.push({kind:'three',mode:m,n,res:[tr,tg,tb]});}}}
-  out.sort((a,b)=>b.res.filter(x=>x).join('').length-a.res.filter(x=>x).join('').length);return out;
-}
+  out.sort((a,b)=>b.res.filter(x=>x).join('').length-a.res.filter(x=>x).join('').length);return out;}
 
 function runDecodeAttempts(img){
   const b=buildBuffer(img);const {px,IW,IH}=b;
