@@ -1401,16 +1401,34 @@ function camLoop(){
   const best=found[0];
   mode=best.mode;syncSeg('sym','m',mode);
   scannedImg=shotURL;
-  if(best.kind==='three'){
-    setLayers(3);monoMark=0;
-    D.ch=[best.res[0]||'',best.res[1]||'',best.res[2]||''];
+  if(best.kind==='three' || best.kind==='mono'){
+    setLayers(3);
+    let parts, monoText;
+    if(best.kind==='mono'){
+      monoMark=1;
+      monoText=best.res[0]||'';
+      parts=splitThree(monoText);
+    } else {
+      monoMark=0;
+      parts=[best.res[0]||'',best.res[1]||'',best.res[2]||''];
+      monoText=parts.filter(Boolean).join(' ');
+    }
+    D.ch=parts;
     okChime();
     for(let i=0;i<3;i++)$('t-'+i).value='';
-    for(let i=0;i<3;i++)if(best.res[i]){await typeOut($('t-'+i),best.res[i],22);grow($('t-'+i),120);}
-        document.body.classList.add('rgb-solo');
-    $('txt').value=[best.res[0],best.res[1],best.res[2]].filter(Boolean).join(' ');
+    for(let i=0;i<3;i++)if(parts[i]){await typeOut($('t-'+i),parts[i],22);grow($('t-'+i),120);}
+    document.body.classList.add('rgb-solo');
+    if(best.kind==='mono'){
+      $('txt').value='';
+      await typeOut($('txt'),monoText,26);
+      grow($('txt'),200);
+      const el=$('txt');el.scrollTop=el.scrollHeight;el.selectionStart=el.selectionEnd=el.value.length;
+    } else {
+      $('txt').value=monoText;
+    }
     D.single=$('txt').value;
-    showResult('✓ прочитано · камера',null);
+    showResult('✓ прочитано · камера'+(best.kind==='mono'?' · моноліт':''),best.kind==='mono'?monoText:null);
+    if(typeof updateColorPreview==='function') updateColorPreview(parts[0],parts[1],parts[2]);
   }else{
     setLayers(1);monoMark=0;
     const txt=best.res[0]||'';
@@ -1421,7 +1439,7 @@ function camLoop(){
     const el=$('txt');el.scrollTop=el.scrollHeight;
     showResult('✓ прочитано · камера',txt);
   }
- scannedImg=null;build();
+  scannedImg=null;build();
 }
 /* ═══════════════════════════════════════════════════════════════════════════
    TAINA · ДЕКОДЕР v5 — під НОВУ 3-шарову рамку
@@ -1579,8 +1597,7 @@ function runDecodeAttempts(img){
     im.onload=()=>{OFF.width=OFF.height=512;OCTX.imageSmoothingEnabled=false;
       OCTX.drawImage(im,0,0,512,512);blit();res()};
     im.onerror=()=>res();im.src=url;});}
-
- $('file').onchange=e=>{
+$('file').onchange=e=>{
   const f=e.target.files[0];if(!f)return;
   const url=URL.createObjectURL(f),im=new Image();
   im.onload=async()=>{
@@ -1600,7 +1617,7 @@ function runDecodeAttempts(img){
     st.classList.add('scanning');startScanSound();
     $('rt').innerHTML='<span class="w">сканування…</span>';
     const [found]=await Promise.all([
- (async()=>{await sleep(30);return runDecodeAttempts(im)})(),
+  (async()=>{await sleep(30);return runDecodeAttempts(im)})(),
       sleep(1600)]);
     stopScanSound();st.classList.remove('scanning');
 
@@ -1615,18 +1632,36 @@ function runDecodeAttempts(img){
     const best=found[0];
     mode=best.mode;syncSeg('sym','m',mode);
     scannedImg=shotURL;   /* зберігаємо оригінал, не перемальовуємо поки не редагують */
-
-    if(best.kind==='three'){
-      setLayers(3);monoMark=0;
-      D.ch=[best.res[0]||'',best.res[1]||'',best.res[2]||''];
+       if(best.kind==='three' || best.kind==='mono'){
+      setLayers(3);
+      let parts, monoText;
+      if(best.kind==='mono'){
+        monoMark=1;
+        monoText=best.res[0]||'';
+        parts=splitThree(monoText);
+      } else {
+        monoMark=0;
+        parts=[best.res[0]||'',best.res[1]||'',best.res[2]||''];
+        monoText=parts.filter(Boolean).join(' ');
+      }
+      D.ch=parts;
       okChime();
       /* спорожнюємо поля перед друком — щоб текст не блимав цілим */
       for(let i=0;i<3;i++)$('t-'+i).value='';
-      for(let i=0;i<3;i++)if(best.res[i]){await typeOut($('t-'+i),best.res[i],22);grow($('t-'+i),120);}
+      for(let i=0;i<3;i++)if(parts[i]){await typeOut($('t-'+i),parts[i],22);grow($('t-'+i),120);}
             document.body.classList.add('rgb-solo');
-      $('txt').value=[best.res[0],best.res[1],best.res[2]].filter(Boolean).join(' ');
-      D.single=$('txt').value;
-      showResult('✓ прочитано · три канали',null);
+      if(best.kind==='mono'){
+        $('txt').value='';
+        await typeOut($('txt'),monoText,26);
+        grow($('txt'),200);
+        const el=$('txt');el.scrollTop=el.scrollHeight;el.selectionStart=el.selectionEnd=el.value.length;
+        prevLen=monoText.length;pushHist();
+        showResult('✓ прочитано · монолітний текст',monoText);
+      } else {
+        $('txt').value=monoText;
+        D.single=$('txt').value;
+        showResult('✓ прочитано · три канали',null);
+      }
     }else{
       setLayers(1);monoMark=0;
       const txt=best.res[0]||'';
@@ -1637,8 +1672,7 @@ function runDecodeAttempts(img){
       /* прокрутка в кінець: видно фінал тексту */
       const el=$('txt');el.scrollTop=el.scrollHeight;el.selectionStart=el.selectionEnd=el.value.length;
       prevLen=txt.length;pushHist();
-      showResult('✓ прочитано'+(best.kind==='mono'?' · монолітний текст':''),txt);}
-
+      showResult('✓ прочитано',txt);}
    /* адмін-звіт */
     $('report').innerHTML='<div style="margin-bottom:4px;color:var(--acc-dim)">Варіантів: '+found.length+'</div>'+
       found.slice(0,6).map(f=>{
