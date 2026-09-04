@@ -1333,7 +1333,7 @@ function scanPhoto(px,IW,IH){
     const ru=findRuler(sq.px,sq.N,sq.N);if(!ru)continue;
     const rr=decodeByRuler(sq.px,sq.N,sq.N,ru);if(rr.length)out=out.concat(rr);}
   return out;}
-// ═══ КАМЕРА (живе відео + підтвердження 2 кадрами: краще не прочитати, ніж збрехати) ═══
+// ═══ КАМЕРА / СКАНУВАННЯ ═══
 let camStream=null, camRAF=null, camBusy=false, camLastText=null, camTimer=0;
 function camEls(){return {v:$('cam-video'),vf:$('vf'),btn:$('cam-btn')};}
 async function startCam(){
@@ -1345,7 +1345,7 @@ async function startCam(){
     await v.play();
     CV.classList.add('hide'); v.classList.remove('hide'); vf.classList.remove('hide');
     $('stage').classList.add('scanning');
-    btn.textContent='⏹ Зупинити'; $('rt').innerHTML='<span class="w">наведи на код…</span>';
+    btn.textContent='⏹ Зупинити сканування'; $('rt').innerHTML='<span class="w">наведи на код…</span>';
     camLastText=null; camTimer=0; camBusy=false;
    startScanSound();
     camLoop();
@@ -1363,7 +1363,7 @@ function stopCam(){
   v.classList.add('hide'); vf.classList.add('hide'); CV.classList.remove('hide');
   $('stage').classList.remove('scanning');
   stopScanSound();
-  btn.textContent='📷 Камера';
+  btn.textContent='📷 Сканувати';
 }
 function camLoop(){
   const {v}=camEls();
@@ -1396,7 +1396,7 @@ function camLoop(){
 }
  $('cam-btn').onclick=()=>{ camStream?stopCam():startCam(); };
 
-  async function showCamResult(found,shotURL){
+ async function showCamResult(found,shotURL){
   flash();
   const best=found[0];
   mode=best.mode;syncSeg('sym','m',mode);
