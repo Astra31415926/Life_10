@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   decoder.js — TAINA Bytecode Ornament decoder (pure JS, no OpenCV)
+   decoder.js — TAINA Bytecode Ornament decoder (pure JS + OpenCV scanner)
    Exports: window.runDecodeAttempts(imgElement) → [{kind,mode,n,res}]
 
    Маркер (від краю PNG до даних):
@@ -17,6 +17,15 @@ const MINN=7, MAXN=145, RGBTHR=125;
 const RGB_SOFT={r:[220,50,60], g:[65,195,65], b:[60,70,215]};
 const enc=new TextEncoder();
 const dec=new TextDecoder('utf-8',{fatal:true});
+
+/* ── Динамічне підключення OpenCV (якщо ще не підключено) ── */
+if (!window.cv && !window._cvLoadingScript) {
+  window._cvLoadingScript = true;
+  const s = document.createElement('script');
+  s.src = 'https://docs.opencv.org/4.8.0/opencv.js';
+  s.async = true;
+  document.head.appendChild(s);
+}
 
 /* ═══ CORE: текст ↔ біти ═══ */
 function isClean(t){
@@ -144,7 +153,7 @@ function rulerEdge(lumFn,W,depth){
 function findRuler(px,IW,IH){
   if(IW!==IH)return null;
   const lumFn=(x,y)=>{const p=(y*IW+x)*4;return(px[p]+px[p+1]+px[p+2])/3;};
-  const depth=Math.max(20,Math.floor(IW*0.22));  /* збільшено для QZ */
+  const depth=Math.max(20,Math.floor(IW*0.22));
   const edges=[
     rulerEdge((x,y)=>lumFn(x,y),IW,depth),
     rulerEdge((x,y)=>lumFn(x,IH-1-y),IW,depth),
@@ -173,14 +182,12 @@ function decodeByRuler(px,IW,IH,ruler){
     return g;
   };
 
-  /* Пробуємо pad=2..8: охоплює старий формат (pad=3) і новий з QZ (pad=5) */
   for(let pad=2;pad<=8;pad++){
     const n=T-2*pad;if(n<MINN||n%2===0)continue;
     const cl=sampleChan(n,pad,-1),cr=sampleChan(n,pad,0),cg=sampleChan(n,pad,1),cb=sampleChan(n,pad,2);
     let sameRGB=true;for(let z=0;z<cr.length;z++){if(cr[z]!==cg[z]||cr[z]!==cb[z]){sameRGB=false;break;}}
 
     for(const m of['oct','quad','half']){
-      /* моно */
       const t=decodeSector(cl,n,m,0);
       if(t!==null){
         const chk=fillChannel(t,n,m,null);let same=true;
@@ -188,12 +195,10 @@ function decodeByRuler(px,IW,IH,ruler){
         if(same)results.push({kind:'one',mode:m,n,pad,res:[t,null,null]});
       }
       if(!sameRGB){
-        /* монолітний RGB */
         if(markCell(cr,n,m)===1){
           const rR=decodeSector(cr,n,m,1),rG=decodeSector(cg,n,m,0),rB=decodeSector(cb,n,m,0);
           if(rR!==null)results.push({kind:'mono',mode:m,n,pad,res:[(rR||'')+(rG||'')+(rB||''),null,null]});
         }
-        /* три канали */
         const tr=decodeSector(cr,n,m,0),tg=decodeSector(cg,n,m,0),tb=decodeSector(cb,n,m,0);
         const cnt=[tr,tg,tb].filter(x=>x!==null).length;
         if(cnt>=2){
@@ -208,7 +213,6 @@ function decodeByRuler(px,IW,IH,ruler){
 
 /* ═══ SCAN: базовий pixel-scan ═══ */
 function scanImage(px,IW,IH){
-  /* Визначення кандидатів T */
   const runs=[];
   for(const f of[.15,.25,.35,.5,.65,.75,.85]){
     const y=Math.floor(IH*f);let prev=-1,len2=0;
@@ -232,7 +236,6 @@ function scanImage(px,IW,IH){
 
   const results=[];
   if(IW===IH)for(const T of Tset){
-    /* Пробуємо pad 0..8, охоплює QZ */
     for(let pad=0;pad<=8;pad++){
       const n=T-2*pad;if(n<MINN||n%2===0)continue;
       const cr=readChan(px,IW,T,pad,n,0),cg=readChan(px,IW,T,pad,n,1),cb=readChan(px,IW,T,pad,n,2);
@@ -252,7 +255,6 @@ function scanImage(px,IW,IH){
     }
   }
 
-  /* row-режим */
   for(let pad=0;pad<=8;pad++)for(const w of[8,16,24,32]){
     const TW=w+pad*2;if(IW%TW)continue;
     const cell=IW/TW;if(IH%cell)continue;
@@ -456,14 +458,150 @@ function collect(all,px,IW,IH){
 }
 function hasSolid(all){return all.some(r=>r.kind==='one'||r.kind==='three'||r.kind==='mono');}
 
-/* ═══ ГОЛОВНА ФУНКЦІЯ ═══ */
-function runDecodeAttempts(img){
-  /* img: HTMLImageElement або HTMLCanvasElement */
-  const isCanvas=img instanceof HTMLCanvasElement;
-  const buf=isCanvas?buildBufferFromCanvas(img):buildBuffer(img);
-  const{px,IW,IH}=buf;
-  const all=[];
 
+/* ═══════════════════════════════════════════════════════════════
+   ZEBRA V9 SCANNER CORE (OpenCV)
+   ═══════════════════════════════════════════════════════════════ */
+const CROP_SIZE = 500;
+const CROP_MARGIN = 35;
+
+function orderCorners(pts){
+  const cx=pts.reduce((s,p)=>s+p.x,0)/4;
+  const cy=pts.reduce((s,p)=>s+p.y,0)/4;
+  const withAngle=pts.map(p=>({...p,a:Math.atan2(p.y-cy,p.x-cx)}));
+  withAngle.sort((a,b)=>a.a-b.a);
+  let startIdx=0,bestD=Infinity;
+  withAngle.forEach((p,i)=>{let d=Math.abs(p.a-(-3*Math.PI/4));if(d>Math.PI)d=2*Math.PI-d;if(d<bestD){bestD=d;startIdx=i;}});
+  const out=[];
+  for(let i=0;i<4;i++)out.push(withAngle[(startIdx+i)%4]);
+  return out.map(p=>({x:p.x,y:p.y}));
+}
+function squareness(p){
+  const d=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const sides=[d(p[0],p[1]),d(p[1],p[2]),d(p[2],p[3]),d(p[3],p[0])];
+  const mn=Math.min(...sides),mx=Math.max(...sides);
+  if(mx===0)return 0;
+  const d1=d(p[0],p[2]),d2=d(p[1],p[3]);
+  return (mn/mx)*(Math.min(d1,d2)/Math.max(d1,d2));
+}
+function readRing(px,inset,SZ){
+  const a=inset,b=SZ-1-inset;
+  if(b-a<40)return null;
+  const top=[],bottom=[],left=[],right=[];
+  for(let x=a;x<=b;x++){top.push(px(x,a));bottom.push(px(x,b));}
+  for(let y=a;y<=b;y++){left.push(px(a,y));right.push(px(b,y));}
+  const sides=[top,bottom,left,right];
+  let alt=0,tot=0;
+  for(const s of sides)for(let i=0;i<s.length-1;i++){if(s[i]!==s[i+1])alt++;tot++;}
+  const altRatio=tot?alt/tot:0;
+  let dark=0,cnt=0;
+  for(const s of sides)for(const v of s){dark+=v;cnt++;}
+  const darkRatio=cnt?dark/cnt:0;
+  const balance=1-Math.abs(darkRatio-0.5)*2;
+  function countCells(arr){const runs=[];let cur=arr[0],c2=1;for(let i=1;i<arr.length;i++){if(arr[i]===cur)c2++;else{runs.push(c2);cur=arr[i];c2=1;}}runs.push(c2);if(runs.length<5)return null;const inner=runs.slice(1,-1).filter(r=>r>=1);if(inner.length<3)return null;const sorted=[...inner].sort((a,b)=>a-b);const unit=sorted[Math.floor(sorted.length/2)];if(unit<2)return null;return Math.round(arr.length/unit);}
+  const counts=sides.map(s=>countCells(s)).filter(c=>c);
+  if(counts.length<4)return null;
+  const mn=Math.min(...counts),mx=Math.max(...counts);
+  const agr=mx>0?mn/mx:0;
+  const totalCells=Math.round(counts.reduce((x,y)=>x+y,0)/counts.length);
+  const cornersDark=[px(a+2,a+2),px(b-2,a+2),px(b-2,b-2),px(a+2,b-2)].reduce((s,v)=>s+v,0)/4;
+  if(totalCells<6||totalCells>120)return null;
+  return{score:altRatio*0.35+balance*0.2+agr*0.25+cornersDark*0.2,totalCells};
+}
+function analyseQuad(gray,pts){
+  const SZ=CROP_SIZE;
+  let srcTri,dstTri,M,warped,wbin;
+  try{
+    srcTri=cv.matFromArray(4,1,cv.CV_32FC2,[pts[0].x,pts[0].y,pts[1].x,pts[1].y,pts[2].x,pts[2].y,pts[3].x,pts[3].y]);
+    dstTri=cv.matFromArray(4,1,cv.CV_32FC2,[0,0,SZ,0,SZ,SZ,0,SZ]);
+    M=cv.getPerspectiveTransform(srcTri,dstTri);
+    warped=new cv.Mat();
+    cv.warpPerspective(gray,warped,M,new cv.Size(SZ,SZ),cv.INTER_LINEAR,cv.BORDER_CONSTANT,new cv.Scalar(127));
+    wbin=new cv.Mat();
+    cv.threshold(warped,wbin,0,255,cv.THRESH_BINARY_INV|cv.THRESH_OTSU);
+    const d=wbin.data;
+    const px=(x,y)=>{x=Math.round(x);y=Math.round(y);if(x<0||x>=SZ||y<0||y>=SZ)return 0;return d[y*SZ+x]>0?1:0;};
+    let bestRing=null;
+    for(const inset of[2,4,6,9,12,16,22,30]){const ring=readRing(px,inset,SZ);if(!ring)continue;if(!bestRing||ring.score>bestRing.score)bestRing={...ring,inset};}
+    if(!bestRing)return null;
+    return{score:bestRing.score,totalCells:bestRing.totalCells,gridN:Math.max(1,bestRing.totalCells-2)};
+  }catch(e){return null;}
+  finally{[srcTri,dstTri,M,warped,wbin].forEach(m=>{try{if(m)m.delete();}catch(e){}});}
+}
+
+function scannerLocate(srcCanvas,quiet){
+  if(!window.cv || !window.cv.Mat) return null;
+  let src,gray,blur,bin,contours,hier;
+  const mats=[];
+  try{
+    src=cv.imread(srcCanvas);mats.push(src);
+    const W=src.cols,H=src.rows;
+    gray=new cv.Mat();mats.push(gray);
+    cv.cvtColor(src,gray,cv.COLOR_RGBA2GRAY);
+    blur=new cv.Mat();mats.push(blur);
+    cv.GaussianBlur(gray,blur,new cv.Size(5,5),0);
+    bin=new cv.Mat();mats.push(bin);
+    const blockSize=(Math.floor(Math.min(W,H)/20)*2+1);
+    cv.adaptiveThreshold(blur,bin,255,cv.ADAPTIVE_THRESH_MEAN_C,cv.THRESH_BINARY_INV,Math.max(11,Math.min(151,blockSize)),7);
+    contours=new cv.MatVector();mats.push(contours);
+    hier=new cv.Mat();mats.push(hier);
+    cv.findContours(bin,contours,hier,cv.RETR_LIST,cv.CHAIN_APPROX_SIMPLE);
+
+    const minArea=W*H*0.004,maxArea=W*H*0.98;
+    const quads=[];
+    for(let i=0;i<contours.size();i++){
+      const cnt=contours.get(i);
+      const area=cv.contourArea(cnt);
+      if(area<minArea||area>maxArea){cnt.delete();continue;}
+      const peri=cv.arcLength(cnt,true);
+      const approx=new cv.Mat();
+      cv.approxPolyDP(cnt,approx,0.04*peri,true);
+      if(approx.rows===4&&cv.isContourConvex(approx)){
+        const pts=[];
+        for(let p=0;p<4;p++)pts.push({x:approx.data32S[p*2],y:approx.data32S[p*2+1]});
+        const ord=orderCorners(pts);
+        if(squareness(ord)>0.55)quads.push({pts:ord,area});
+      }
+      approx.delete();cnt.delete();
+    }
+    if(!quads.length)return null;
+
+    quads.sort((a,b)=>b.area-a.area);
+    let best=null;
+    for(const q of quads.slice(0,25)){
+      const res=analyseQuad(gray,q.pts);
+      if(!res)continue;
+      if(!best||res.score>best.score)best={...res,pts:q.pts};
+    }
+    if(!best||best.score<0.35)return null;
+
+    // ── Вирізка з БІЛИМ ПОЛЕМ ──
+    const P=best.pts,M0=CROP_MARGIN,E=CROP_SIZE-CROP_MARGIN;
+    let src2,dst,st,dt,M2;
+    try{
+      src2=cv.imread(srcCanvas);
+      dst=new cv.Mat();
+      st=cv.matFromArray(4,1,cv.CV_32FC2,[P[0].x,P[0].y,P[1].x,P[1].y,P[2].x,P[2].y,P[3].x,P[3].y]);
+      dt=cv.matFromArray(4,1,cv.CV_32FC2,[M0,M0,E,M0,E,E,M0,E]);
+      M2=cv.getPerspectiveTransform(st,dt);
+      cv.warpPerspective(src2,dst,M2,new cv.Size(CROP_SIZE,CROP_SIZE),
+        cv.INTER_LINEAR,cv.BORDER_CONSTANT,new cv.Scalar(255,255,255,255));
+      const out=document.createElement('canvas');out.width=CROP_SIZE;out.height=CROP_SIZE;
+      cv.imshow(out,dst);
+      return{canvas:out,totalCells:best.totalCells};
+    }finally{[src2,dst,st,dt,M2].forEach(m=>{try{if(m)m.delete();}catch(e){}});}
+  }catch(e){
+    return null;
+  }finally{
+    mats.forEach(m=>{try{m.delete();}catch(e){}});
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RAW DECODE PIPELINE (Існуюча логіка Life_10)
+   ═══════════════════════════════════════════════════════════════ */
+function decodeRawPx(px,IW,IH){
+  const all=[];
   const done=()=>{if(!all.length)return[];const u=dedup(all);return sortResults(u);};
 
   /* Шлях 1: пряме читання */
@@ -510,6 +648,37 @@ function runDecodeAttempts(img){
   }catch(e){}
 
   return done();
+}
+
+/* ═══ ГОЛОВНА ФУНКЦІЯ ═══ */
+function runDecodeAttempts(img){
+  const isCanvas=img instanceof HTMLCanvasElement;
+
+  // Спроба 1: Використання нового OpenCV сканера для локалізації, вирізки та корекції перспективи
+  if (window.cv && window.cv.Mat && window.cv.imread) {
+    try {
+      let srcCanvas = img;
+      if (!isCanvas) {
+        srcCanvas = document.createElement('canvas');
+        srcCanvas.width = img.naturalWidth || img.width;
+        srcCanvas.height = img.naturalHeight || img.height;
+        srcCanvas.getContext('2d').drawImage(img, 0, 0);
+      }
+      
+      const located = scannerLocate(srcCanvas, true); 
+      if (located && located.canvas) {
+        const buf = buildBufferFromCanvas(located.canvas);
+        const results = decodeRawPx(buf.px, buf.IW, buf.IH);
+        if (results.length > 0) return results;
+      }
+    } catch(e) {
+      console.warn("OpenCV scanner failed, falling back to standard decode:", e);
+    }
+  }
+
+  // Спроба 2: Стандартний декодер (якщо OpenCV недоступний або сканер нічого не знайшов)
+  const buf = isCanvas ? buildBufferFromCanvas(img) : buildBuffer(img);
+  return decodeRawPx(buf.px, buf.IW, buf.IH);
 }
 
 /* ── публічний API ── */
