@@ -186,24 +186,27 @@ function renderBytecode(cv,rec){
       grid[k]=r.g;dmask[k]=r.dm;});
   }
   const FRAME_A='#0a0806', FRAME_B='#f4efe6';
-const pad=3,tw=W+pad*2,th=H+pad*2;  /* всі коди галереї — нова рамка з лінійкою */
+const qz=2; /* зовнішня біла рамка QZ=2 (quiet zone) */
+const pad=3,tw=W+pad*2+qz*2,th=H+pad*2+qz*2;  /* всі коди галереї — нова рамка з лінійкою + QZ */
 const cell=Math.max(1,Math.floor(cv.width/Math.max(tw,th)));
 const ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;
 const ox=Math.floor((cv.width-tw*cell)/2),oy=Math.floor((cv.height-th*cell)/2);
 ctx.fillStyle='#0a0806';ctx.fillRect(0,0,cv.width,cv.height);
+ctx.fillStyle='#ffffff';ctx.fillRect(ox,oy,tw*cell,th*cell); /* QZ */
 if(pad>=3){
-  const CW=tw, CHc=th;
-  const cellAt=(cx,cy,col)=>{ctx.fillStyle=col;ctx.fillRect(ox+cx*cell,oy+cy*cell,cell,cell);};
-  ctx.fillStyle=colZero;ctx.fillRect(ox,oy,tw*cell,th*cell);
+  const CW=W+pad*2, CHc=H+pad*2;
+  const fox=ox+qz*cell,foy=oy+qz*cell;
+  const cellAt=(cx,cy,col)=>{ctx.fillStyle=col;ctx.fillRect(fox+cx*cell,foy+cy*cell,cell,cell);};
+  ctx.fillStyle=colZero;ctx.fillRect(fox,foy,CW*cell,CHc*cell);
   for(let cx=0;cx<CW;cx++){cellAt(cx,0,FRAME_A);cellAt(cx,CHc-1,FRAME_A);}
   for(let cy=1;cy<CHc-1;cy++){cellAt(0,cy,FRAME_A);cellAt(CW-1,cy,FRAME_A);}
   for(let cx=1;cx<CW-1;cx++){cellAt(cx,1,FRAME_B);cellAt(cx,CHc-2,FRAME_B);}
   for(let cy=2;cy<CHc-2;cy++){cellAt(1,cy,FRAME_B);cellAt(CW-2,cy,FRAME_B);}
   for(let cx=2;cx<CW-2;cx++){cellAt(cx,2,((cx+2)%2===0)?FRAME_A:FRAME_B);cellAt(cx,CHc-3,((cx+CHc-3)%2===0)?FRAME_A:FRAME_B);}
   for(let cy=3;cy<CHc-3;cy++){cellAt(2,cy,((2+cy)%2===0)?FRAME_A:FRAME_B);cellAt(CW-3,cy,((CW-3+cy)%2===0)?FRAME_A:FRAME_B);}
-}else if(pad>0){ctx.fillStyle='#8f8f8f';ctx.fillRect(ox,oy,tw*cell,th*cell);}
-ctx.fillStyle=colZero;ctx.fillRect(ox+pad*cell,oy+pad*cell,W*cell,H*cell);
-  ctx.fillStyle=colZero;ctx.fillRect(ox+pad*cell,oy+pad*cell,W*cell,H*cell);
+}else if(pad>0){ctx.fillStyle='#8f8f8f';ctx.fillRect(ox+qz*cell,oy+qz*cell,(W+pad*2)*cell,(H+pad*2)*cell);}
+ctx.fillStyle=colZero;ctx.fillRect(ox+(pad+qz)*cell,oy+(pad+qz)*cell,W*cell,H*cell);
+  ctx.fillStyle=colZero;ctx.fillRect(ox+(pad+qz)*cell,oy+(pad+qz)*cell,W*cell,H*cell);
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
     const i=y*W+x;
     if(layers===3){
@@ -214,11 +217,11 @@ ctx.fillStyle=colZero;ctx.fillRect(ox+pad*cell,oy+pad*cell,W*cell,H*cell);
       if(on.g){R+=RGB_SOFT.g[0];G+=RGB_SOFT.g[1];B+=RGB_SOFT.g[2]}
       if(on.b){R+=RGB_SOFT.b[0];G+=RGB_SOFT.b[1];B+=RGB_SOFT.b[2]}
       ctx.fillStyle=`rgb(${Math.min(255,R)},${Math.min(255,G)},${Math.min(255,B)})`;
-      ctx.fillRect(ox+(x+pad)*cell,oy+(y+pad)*cell,cell,cell);
+      ctx.fillRect(ox+(x+pad+qz)*cell,oy+(y+pad+qz)*cell,cell,cell);
     }else{
       if(!dmask.r[i]||!grid.r[i])continue;
       ctx.fillStyle=colOne;
-      ctx.fillRect(ox+(x+pad)*cell,oy+(y+pad)*cell,cell,cell);
+      ctx.fillRect(ox+(x+pad+qz)*cell,oy+(y+pad+qz)*cell,cell,cell);
     }
   }
 }
@@ -288,9 +291,9 @@ function closeModal(){
   history.replaceState(null,'',location.pathname);
   document.title='Галерея читабельних орнаментів · taina';
 }
-$('modal-close').onclick=closeModal;
-$('modal').onclick=e=>{if(e.target===$('modal'))closeModal();};
-$('share-link').onclick=()=>{var m=location.search.match(/id=([^&]+)/);var u=m?location.origin+'/item/'+m[1]:location.href;navigator.clipboard.writeText(u).then(()=>toast('Посилання скопійовано'));};
+ $('modal-close').onclick=closeModal;
+ $('modal').onclick=e=>{if(e.target===$('modal'))closeModal();};
+ $('share-link').onclick=()=>{var m=location.search.match(/id=([^&]+)/);var u=m?location.origin+'/item/'+m[1]:location.href;navigator.clipboard.writeText(u).then(()=>toast('Посилання скопійовано'));};
 
 /* ═══════ ПОДІЛИТИСЯ ═══════ */
 async function copyLinkFallback(){
@@ -309,7 +312,7 @@ async function copyLinkFallback(){
     }catch(_){}
   }
 }
-$('share-btn').onclick=async()=>{
+ $('share-btn').onclick=async()=>{
   const word=curRec?currec.title||rec.word:'taina';
   const shareData={
     title:'taina',
