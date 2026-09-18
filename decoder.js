@@ -5,7 +5,7 @@
    Маркер (від краю PNG до даних):
      QZ(2) → чорна(1) → біла(1) → зебра(1) → дані → зебра(1) → біла(1) → чорна(1) → QZ(2)
 
-   Детектор знаходить кут ЧОРНОЇ рамки (не QZ), тому у warp-і:
+   Детектор знаходить кут ЧОРНОї рамки (не QZ), тому у warp-і:
      чорна(1)+біла(1)+зебра(1) = pad=3 з кожного боку → n = T - 6.
    Якщо вся картинка включає QZ — пробуємо також pad=5 (n = T - 10).
    ═══════════════════════════════════════════════════════════════ */
@@ -417,7 +417,7 @@ function findOrnament(px,IW,IH){
 
 /* ═══ БУФЕР ═══ */
 function buildBuffer(img){
-  const AS=Math.max(512,Math.min(1500,Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height)));
+  const AS=Math.max(512,Math.min(1200,Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height)));
   const cc=document.createElement('canvas');cc.width=AS;cc.height=AS;
   const g=cc.getContext('2d',{willReadFrequently:true});
   const tmp=document.createElement('canvas');tmp.width=img.naturalWidth||img.width;tmp.height=img.naturalHeight||img.height;
@@ -429,11 +429,19 @@ function buildBuffer(img){
   g.imageSmoothingEnabled=true;g.drawImage(img,(AS-w)/2,(AS-h)/2,w,h);
   return{px:g.getImageData(0,0,AS,AS).data,IW:AS,IH:AS};
 }
+
+/* ВИПРАВЛЕНО: Тепер зберігає пропорції (не розтягує прямокутний кадр камери) */
 function buildBufferFromCanvas(canvas){
-  const AS=Math.max(512,Math.min(1500,Math.max(canvas.width,canvas.height)));
+  const AS=Math.max(512,Math.min(1000,Math.max(canvas.width,canvas.height)));
   const cc=document.createElement('canvas');cc.width=AS;cc.height=AS;
   const g=cc.getContext('2d',{willReadFrequently:true});
-  g.imageSmoothingEnabled=true;g.drawImage(canvas,0,0,AS,AS);
+  const tmp=document.createElement('canvas');tmp.width=canvas.width;tmp.height=canvas.height;
+  const tg=tmp.getContext('2d',{willReadFrequently:true});tg.drawImage(canvas,0,0);
+  const cp=tg.getImageData(0,0,1,1).data;
+  g.fillStyle='rgb('+cp[0]+','+cp[1]+','+cp[2]+')';g.fillRect(0,0,AS,AS);
+  const scale=Math.min(AS/canvas.width,AS/canvas.height);
+  const w=canvas.width*scale,h=canvas.height*scale;
+  g.imageSmoothingEnabled=true;g.drawImage(canvas,(AS-w)/2,(AS-h)/2,w,h);
   return{px:g.getImageData(0,0,AS,AS).data,IW:AS,IH:AS};
 }
 
@@ -597,6 +605,25 @@ function scannerLocate(srcCanvas,quiet){
   }
 }
 
+/* ДОДАНО: Допоміжна функція для зменшення розміру canvas (критично для мобільних) */
+function getDownscaledCanvas(sourceCanvas, maxSide) {
+  const w = sourceCanvas.width;
+  const h = sourceCanvas.height;
+  if (Math.max(w, h) <= maxSide) return sourceCanvas;
+  
+  const scale = maxSide / Math.max(w, h);
+  const nw = Math.round(w * scale);
+  const nh = Math.round(h * scale);
+  
+  const c = document.createElement('canvas');
+  c.width = nw;
+  c.height = nh;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(sourceCanvas, 0, 0, nw, nh);
+  return c;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    RAW DECODE PIPELINE (Існуюча логіка Life_10)
    ═══════════════════════════════════════════════════════════════ */
@@ -665,6 +692,10 @@ function runDecodeAttempts(img){
         srcCanvas.getContext('2d').drawImage(img, 0, 0);
       }
       
+      // КРИТИЧНЕ ВИПРАВЛЕННЯ 1: Зменшуємо розмір кадру до 800px перед OpenCV, 
+      // щоб уникнути зависання мобільних пристроїв на великих кадрах з камери.
+      srcCanvas = getDownscaledCanvas(srcCanvas, 800);
+      
       const located = scannerLocate(srcCanvas, true); 
       if (located && located.canvas) {
         const buf = buildBufferFromCanvas(located.canvas);
@@ -676,7 +707,8 @@ function runDecodeAttempts(img){
     }
   }
 
-  // Спроба 2: Стандартний декодер (якщо OpenCV недоступний або сканер нічого не знайшов)
+  // Спроба 2: Стандартний декодер 
+  // КРИТИЧНЕ ВИПРАВЛЕННЯ 2: buildBufferFromCanvas більше не розтягує прямокутні кадри
   const buf = isCanvas ? buildBufferFromCanvas(img) : buildBuffer(img);
   return decodeRawPx(buf.px, buf.IW, buf.IH);
 }
