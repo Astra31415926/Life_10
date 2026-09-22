@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>taina · Послуги</title>
+<meta name="description" content="Фізичне втілення закодованих орнаментів. Замовте мерч з вашим унікальним кодом.">
+<link rel="canonical" href="https://astra31415926.github.io/Life_10/services.html">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0d0a08;--panel:#15100b;--panel2:#1d1610;
+  --acc:#c9a876;--acc-hot:#e8c890;--acc-dim:#8f7451;
+  --parchment:#ede3d0;--muted:#94836a;--line:rgba(201,168,118,.22);
+  --ok:#58d668;--bad:#e5705a;
+  --mono:'JetBrains Mono',monospace;--sans:'Inter',system-ui,sans-serif;
+}
+body.room-rgb{--acc:#5ec8e8;--acc-hot:#8fe4ff;--acc-dim:#3f7f96;--line:rgba(94,200,232,.24)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--ink);color:var(--parchment);font-family:var(--sans);line-height:1.5;
+  background-image:radial-gradient(ellipse 80% 50% at 50% -10%,color-mix(in srgb,var(--acc) 8%,transparent),transparent);
+  display:flex;flex-direction:column;min-height:100vh;transition:background-image .5s}
+
+button{font-family:inherit}
+button:focus-visible{outline:2px solid var(--acc-hot);outline-offset:2px}
+
+/* Шапка */
+header{border-bottom:1px solid var(--line);flex:0 0 auto;background:rgba(13,10,8,.9);
+  backdrop-filter:blur(10px);position:sticky;top:0;z-index:60;transition:border-color .4s}
+.nav{display:flex;align-items:center;gap:14px;height:54px;max-width:1560px;margin:0 auto;padding:0 20px}
+.mark{font-family:var(--mono);font-weight:700;font-size:18px;letter-spacing:.07em;color:var(--parchment);display:flex;align-items:center;gap:8px;text-decoration:none}
+.mark::after{content:'';width:7px;height:7px;background:var(--acc);transition:background .4s}
+.navbtns{margin-left:auto;display:flex;gap:6px}
+.roomnav{display:flex;gap:6px;margin-left:6px}
+.roomtab{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--muted);padding:8px 14px;border:1px solid var(--line);border-radius:9px;text-transform:uppercase;transition:.15s;text-decoration:none;white-space:nowrap;background:transparent;cursor:pointer}
+.roomtab:hover{color:var(--acc-hot);border-color:var(--acc-dim)}
+.roomtab.on{color:var(--acc-hot);border-color:rgba(201,162,103,.5);background:color-mix(in srgb,var(--acc) 12%,transparent);cursor:default}
+
+/* Контент */
+.services-container{max-width:1200px;width:100%;margin:0 auto;padding:40px 20px 80px;flex:1 1 auto}
+
+/* Hero */
+.hero{text-align:center;padding:60px 0 50px;}
+.hero h1{font-family:var(--sans);font-size:clamp(28px, 5vw, 44px);font-weight:600;color:var(--parchment);margin-bottom:16px;line-height:1.2}
+.hero p{font-size:clamp(15px, 2vw, 18px);color:var(--muted);max-width:600px;margin:0 auto 30px;line-height:1.6}
+.btn-main{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:.06em;
+  padding:14px 24px;border-radius:12px;cursor:pointer;transition:.18s;border:1px solid color-mix(in srgb,var(--acc) 60%,transparent);
+  background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 30%,transparent),color-mix(in srgb,var(--acc) 12%,transparent));
+  color:var(--acc-hot);text-decoration:none;text-transform:uppercase}
+.btn-main:hover{border-color:var(--acc-hot);box-shadow:0 0 30px color-mix(in srgb,var(--acc) 30%,transparent)}
+
+/* Сітка товарів */
+.catalog{display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:24px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;transition:transform .2s, border-color .2s, box-shadow .2s}
+.card:hover{transform:translateY(-5px);border-color:var(--acc-dim);box-shadow:0 12px 30px rgba(0,0,0,.4)}
+.card-img{width:100%;height:240px;object-fit:cover;border-bottom:1px solid var(--line);background:#0a0806}
+.card-body{padding:20px;display:flex;flex-direction:column;flex:1}
+.card-body h3{font-family:var(--mono);font-size:18px;color:var(--acc-hot);margin-bottom:10px;font-weight:700}
+.card-body p{font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:20px;flex:1}
+.card-actions{display:flex;flex-direction:column;gap:10px}
+.action-btn{width:100%;font-family:var(--mono);font-size:13px;font-weight:600;padding:12px;border-radius:10px;cursor:pointer;transition:.15s;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:transparent;color:var(--parchment)}
+.action-btn:hover{border-color:var(--acc);color:var(--acc-hot);background:color-mix(in srgb,var(--acc) 8%,transparent)}
+.action-btn.tg{background:color-mix(in srgb,var(--acc) 15%,transparent);border-color:color-mix(in srgb,var(--acc) 40%,transparent);color:var(--acc-hot)}
+.action-btn.tg:hover{background:color-mix(in srgb,var(--acc) 25%,transparent)}
+
+/* Toast повідомлення */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--panel2);border:1px solid var(--acc);color:var(--parchment);padding:16px 24px;border-radius:12px;font-size:14px;font-family:var(--sans);box-shadow:0 10px 40px rgba(0,0,0,.6);z-index:1000;opacity:0;transition:transform .3s ease-out, opacity .3s;max-width:90%;text-align:center}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast b{color:var(--acc-hot)}
+
+/* Адаптивність */
+@media(max-width:768px){
+  .hero{padding:40px 0 30px}
+  .services-container{padding:20px 16px 60px}
+  .roomtab{padding:8px 10px;font-size:10px}
+}
+</style>
+</head>
+<body class="room-mono">
+
+<header><div class="nav">
+ <a href="index.html" class="mark">taina</a>
+  <div class="roomnav">
+    <a href="index.html" class="roomtab">Лабораторія</a>
+    <a href="services.html" class="roomtab on">Послуги</a>
+    <a href="gallery.html" class="roomtab">Галерея</a>
+  </div>
+</div></header>
+
+<div class="services-container">
+  <section class="hero">
+    <h1>Фізичне втілення закодованих орнаментів</h1>
+    <p>Перетворіть зашифроване текстове послання на унікальний мерч, аксесуар або декор.</p>
+    <a href="index.html" class="btn-main">Створити свій орнамент</a>
+  </section>
+
+  <section class="catalog" id="catalog">
+    <!-- Карточки згенеруються JavaScript -->
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const products = [
+  {
+    img: "футболка.png",
+    title: "Футболка",
+    desc: "Пряма цифрова печать (DTF/DTG), плотний бавовняний матеріал."
+  },
+  {
+    img: "8f6746130d60b91d12a0b03d948e184a.jpg",
+    title: "Керамічна кружка",
+    desc: "Преміум сублімаційний друк найвищої якості."
+  },
+  {
+    img: "шопер.png",
+    title: "Еко-шопер",
+    desc: "Тканева сумка з чорним геометричним принтом."
+  },
+  {
+    img: "180cdf29-0d5f-4fbc-acab-8f36ad7de959.jfif",
+    title: "Силіконовий браслет",
+    desc: "Лазерна гравировка або шовкографія."
+  },
+  {
+    img: "для пина.png",
+    title: "Чохол для смартфона",
+    desc: "Об'ємна УФ-друк на силіконі."
+  },
+  {
+    img: "кулон.png",
+    title: "Медальон / Кулон",
+    desc: "Металевий щит/кулон з лазерною гравировкою."
+  }
+];
+
+const catalog = document.getElementById('catalog');
+
+products.forEach(product => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <img src="${product.img}" alt="${product.title}" class="card-img" onerror="this.style.display='none'">
+    <div class="card-body">
+      <h3>${product.title}</h3>
+      <p>${product.desc}</p>
+      <div class="card-actions">
+        <a href="https://t.me/forpost_art_techno" target="_blank" class="action-btn tg" data-platform="tg">Замовити в Telegram</a>
+        <a href="tel:+380635058292" class="action-btn" data-platform="tel">Зателефонувати (063) 505-82-92</a>
+        <a href="tel:+380682752859" class="action-btn" data-platform="tel">Зателефонувати (068) 275-28-59</a>
+      </div>
+    </div>
+  `;
+  catalog.appendChild(card);
+});
+
+// Логіка завантаження/копіювання орнаменту
+const toast = document.getElementById('toast');
+let toastTimeout;
+
+function showToast(msg) {
+  clearTimeout(toastTimeout);
+  toast.innerHTML = msg;
+  toast.classList.add('show');
+  toastTimeout = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 5000);
+}
+
+function downloadDataUrl(dataUrl, filename) {
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = filename || 'taina_ornament.png';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+async function copyToClipboard(blob) {
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    return true;
+  } catch (e) {
+    console.error('Clipboard copy failed', e);
+    return false;
+  }
+}
+
+async function handleOrderClick(e) {
+  e.preventDefault(); // Запобігаємо миттєвому переходу по посиланню
+  const target = e.currentTarget;
+  const platform = target.dataset.platform;
+  const href = target.href;
+
+  const ornamentData = localStorage.getItem('taina_last_ornament');
+  const hint = "<b>Збережіть картинку орнаменту</b> та надішліть її майстру в Telegram.";
+
+  if (!ornamentData) {
+    // Якщо орнаменту немає в пам'яті
+    showToast("Спершу створіть та збережіть орнамент у <a href='index.html' style='color:var(--acc-hot)'>Лабораторії</a>.");
+    setTimeout(() => { window.location.href = 'index.html'; }, 2500);
+    return;
+  }
+
+  let copied = false;
+  try {
+    // Намагаємося отримати Blob з base64 (dataURL)
+    const response = await fetch(ornamentData);
+    const blob = await response.blob();
+    copied = await copyToClipboard(blob);
+  } catch (err) {
+    console.error("Error processing image", err);
+  }
+
+  if (copied) {
+    showToast("✓ Орнамент скопійовано в буфер обміну! " + hint);
+  } else {
+    // Якщо копіювання не вдалося (наприклад, на iOS Safari або старих браузерах) - завантажуємо файл
+    downloadDataUrl(ornamentData, 'taina_ornament.png');
+    showToast("✓ Орнамент збережено у завантаження. " + hint);
+  }
+
+  // Даємо користувачу час прочитати підказку (3 секунди) перед тим, як відкрити Telegram/Телефон
+  setTimeout(() => {
+    window.open(href, '_blank');
+  }, 3000);
+}
+
+// Прив'язуємо обробник до всіх кнопок замовлення
+document.querySelectorAll('.action-btn').forEach(btn => {
+  btn.addEventListener('click', handleOrderClick);
+});
+</script>
+</body>
+</html>
