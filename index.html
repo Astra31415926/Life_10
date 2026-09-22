@@ -373,7 +373,6 @@ function build(){
 
   $('s-ch').textContent=nch;$('s-by').textContent=nby;$('s-bits').textContent=maxBits;$('s-warn').style.display=ovf?'block':'none';render();
 
- try { localStorage.setItem('taina_last_ornament', OFF.toDataURL('image/png')); } catch(e) {}
   let ok;
   if(mode==='row'){const got=CH.map(k=>rowDecode(grid[k],W,H));ok=CH.every((k,i)=>(got[i]||'')===(T[i]||''));}
   else if(layers===1){ok=decodeSector(grid.r,W,mode,0)===D.single;}
