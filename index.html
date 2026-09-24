@@ -376,14 +376,15 @@ function build(){
     $('s-fld').textContent=n+'×'+n;$('s-cap').textContent=bc.length;$('s-fill').textContent=Math.round((maxBits+extraR)/bc.length*100)+'%';}
 
   $('s-ch').textContent=nch;$('s-by').textContent=nby;$('s-bits').textContent=maxBits;$('s-warn').style.display=ovf?'block':'none';render();
-
-  let ok;
+let ok;
   if(mode==='row'){const got=CH.map(k=>rowDecode(grid[k],W,H));ok=CH.every((k,i)=>(got[i]||'')===(T[i]||''));}
   else if(layers===1){ok=decodeSector(grid.r,W,mode,0)===D.single;}
   else if(monoMark===1){const rR=decodeSector(grid.r,W,mode,1),rG=decodeSector(grid.g,W,mode,0),rB=decodeSector(grid.b,W,mode,0);ok=((rR||'')+(rG||'')+(rB||''))===T.join('');}
   else{const got=CH.map(k=>decodeSector(grid[k],W,mode,0));ok=CH.every((k,i)=>(got[i]||'')===(T[i]||''));}
   $('rt').innerHTML=ok?'<span class="g">✓ цей орнамент декодується</span>':'<span class="w">перевір текст</span>';
-  hasImage=true;syncMain();for(let i=0;i<3;i++)$('d-'+i).classList.toggle('filled',(D.ch[i]||'').length>0);}
+  hasImage=true;syncMain();for(let i=0;i<3;i++)$('d-'+i).classList.toggle('filled',(D.ch[i]||'').length>0);
+  try{localStorage.setItem('taina_last_ornament',document.getElementById('cv').toDataURL());}catch(e){}
+}
 
 const FRAME_COL='#8f8f8f';const FRAME_A='#0a0806';const FRAME_B='#f4efe6';
 function paint(ctx,cell,pad,qz){
