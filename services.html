@@ -44,20 +44,35 @@ header{border-bottom:1px solid var(--line);flex:0 0 auto;background:rgba(13,10,8
 .services-container{max-width:1200px;width:100%;margin:0 auto;padding:40px 20px 80px;flex:1 1 auto}
 
 /* Hero */
-.hero{text-align:center;padding:60px 0 50px;}
-.hero h1{font-family:var(--sans);font-size:clamp(28px, 5vw, 44px);font-weight:600;color:var(--parchment);margin-bottom:16px;line-height:1.2}
-.hero p{font-size:clamp(15px, 2vw, 18px);color:var(--muted);max-width:600px;margin:0 auto 30px;line-height:1.6}
+.hero{text-align:center;padding:60px 0 40px}
+.hero h1{font-family:var(--sans);font-size:clamp(28px,5vw,44px);font-weight:600;color:var(--parchment);margin-bottom:16px;line-height:1.2}
+.hero p{font-size:clamp(15px,2vw,18px);color:var(--muted);max-width:600px;margin:0 auto 30px;line-height:1.6}
 .btn-main{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:.06em;
   padding:14px 24px;border-radius:12px;cursor:pointer;transition:.18s;border:1px solid color-mix(in srgb,var(--acc) 60%,transparent);
   background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 30%,transparent),color-mix(in srgb,var(--acc) 12%,transparent));
   color:var(--acc-hot);text-decoration:none;text-transform:uppercase}
 .btn-main:hover{border-color:var(--acc-hot);box-shadow:0 0 30px color-mix(in srgb,var(--acc) 30%,transparent)}
 
+/* Стан-чіп орнаменту */
+.orn-status{max-width:680px;margin:0 auto 36px;text-align:center;font-family:var(--mono);font-size:12.5px;color:var(--muted);
+  display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:11px 16px;
+  border:1px dashed var(--line);border-radius:11px;background:color-mix(in srgb,var(--acc) 4%,transparent)}
+.orn-status .dot{width:8px;height:8px;border-radius:50%;background:var(--bad);box-shadow:0 0 6px currentColor;color:var(--bad);flex:0 0 auto}
+.orn-status.ok{color:var(--parchment)}
+.orn-status.ok .dot{background:var(--ok);color:var(--ok)}
+.orn-status b{color:var(--acc-hot);font-weight:600}
+.orn-status a{color:var(--acc-hot);text-decoration:underline;text-underline-offset:3px}
+
 /* Сітка товарів */
-.catalog{display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:24px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;transition:transform .2s, border-color .2s, box-shadow .2s}
+.catalog{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:24px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;transition:transform .2s,border-color .2s,box-shadow .2s}
 .card:hover{transform:translateY(-5px);border-color:var(--acc-dim);box-shadow:0 12px 30px rgba(0,0,0,.4)}
-.card-img{width:100%;height:240px;object-fit:cover;border-bottom:1px solid var(--line);background:#0a0806}
+.card-img-wrap{position:relative;width:100%;height:240px;background:#0a0806;border-bottom:1px solid var(--line);overflow:hidden}
+.card-img{width:100%;height:100%;object-fit:cover;display:block}
+.orn-overlay{position:absolute;right:12px;bottom:12px;width:84px;height:84px;border:2px solid var(--acc-hot);border-radius:11px;overflow:hidden;background:#0a0806;box-shadow:0 6px 18px rgba(0,0,0,.6),0 0 14px color-mix(in srgb,var(--acc) 30%,transparent);display:none;pointer-events:none}
+.orn-overlay img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;display:block}
+.card.has-orn .orn-overlay{display:block;animation:ornIn .4s ease-out}
+@keyframes ornIn{from{opacity:0;transform:translateY(8px) scale(.92)}to{opacity:1;transform:translateY(0) scale(1)}}
 .card-body{padding:20px;display:flex;flex-direction:column;flex:1}
 .card-body h3{font-family:var(--mono);font-size:18px;color:var(--acc-hot);margin-bottom:10px;font-weight:700}
 .card-body p{font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:20px;flex:1}
@@ -67,16 +82,25 @@ header{border-bottom:1px solid var(--line);flex:0 0 auto;background:rgba(13,10,8
 .action-btn.tg{background:color-mix(in srgb,var(--acc) 15%,transparent);border-color:color-mix(in srgb,var(--acc) 40%,transparent);color:var(--acc-hot)}
 .action-btn.tg:hover{background:color-mix(in srgb,var(--acc) 25%,transparent)}
 
-/* Toast повідомлення */
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--panel2);border:1px solid var(--acc);color:var(--parchment);padding:16px 24px;border-radius:12px;font-size:14px;font-family:var(--sans);box-shadow:0 10px 40px rgba(0,0,0,.6);z-index:1000;opacity:0;transition:transform .3s ease-out, opacity .3s;max-width:90%;text-align:center}
+/* Єдиний блок контактів */
+.contacts-block{margin:60px auto 0;max-width:760px;text-align:center;padding:42px 28px;border:1px solid var(--line);border-radius:18px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--acc) 7%,transparent),transparent 70%),var(--panel);
+  box-shadow:0 10px 40px rgba(0,0,0,.4)}
+.contacts-block h2{font-family:var(--sans);font-size:clamp(20px,3vw,26px);font-weight:600;color:var(--parchment);margin-bottom:12px;line-height:1.3}
+.contacts-block .sub{font-size:14.5px;color:var(--muted);margin-bottom:26px;line-height:1.6}
+.contacts-block .btn-main{font-size:15px;padding:16px 32px}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--panel2);border:1px solid var(--acc);color:var(--parchment);padding:16px 24px;border-radius:12px;font-size:14px;font-family:var(--sans);box-shadow:0 10px 40px rgba(0,0,0,.6);z-index:1000;opacity:0;transition:transform .3s ease-out,opacity .3s;max-width:90%;text-align:center}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 .toast b{color:var(--acc-hot)}
 
-/* Адаптивність */
 @media(max-width:768px){
-  .hero{padding:40px 0 30px}
+  .hero{padding:40px 0 28px}
   .services-container{padding:20px 16px 60px}
   .roomtab{padding:8px 10px;font-size:10px}
+  .orn-overlay{width:70px;height:70px}
+  .contacts-block{padding:30px 20px;margin-top:44px}
 }
 </style>
 </head>
@@ -98,8 +122,19 @@ header{border-bottom:1px solid var(--line);flex:0 0 auto;background:rgba(13,10,8
     <a href="index.html" class="btn-main">Створити свій орнамент</a>
   </section>
 
+  <div class="orn-status" id="ornStatus">
+    <span class="dot"></span>
+    <span id="ornStatusText">Орнамент ще не створено. <a href="index.html">Згенерувати →</a></span>
+  </div>
+
   <section class="catalog" id="catalog">
     <!-- Карточки згенеруються JavaScript -->
+  </section>
+
+  <section class="contacts-block">
+    <h2>Бажаєте зробити індивідуальне замовлення або виникли запитання?</h2>
+    <p class="sub">Напишіть нам — обговоримо матеріали, тираж та підготовку вашого коду до друку.</p>
+    <a href="https://t.me/forpost_art_techno" target="_blank" rel="noopener" class="btn-main" id="contactTg">Написати в Telegram</a>
   </section>
 </div>
 
@@ -107,36 +142,12 @@ header{border-bottom:1px solid var(--line);flex:0 0 auto;background:rgba(13,10,8
 
 <script>
 const products = [
-  {
-    img: "футболка.png",
-    title: "Футболка",
-    desc: "Пряма цифрова печать (DTF/DTG), плотний бавовняний матеріал."
-  },
-  {
-    img: "8f6746130d60b91d12a0b03d948e184a.jpg",
-    title: "Керамічна кружка",
-    desc: "Преміум сублімаційний друк найвищої якості."
-  },
-  {
-    img: "шопер.png",
-    title: "Еко-шопер",
-    desc: "Тканева сумка з чорним геометричним принтом."
-  },
-  {
-    img: "180cdf29-0d5f-4fbc-acab-8f36ad7de959.jfif",
-    title: "Силіконовий браслет",
-    desc: "Лазерна гравировка або шовкографія."
-  },
-  {
-    img: "для пина.png",
-    title: "Чохол для смартфона",
-    desc: "Об'ємна УФ-друк на силіконі."
-  },
-  {
-    img: "кулон.png",
-    title: "Медальон / Кулон",
-    desc: "Металевий щит/кулон з лазерною гравировкою."
-  }
+  { img:"tshirt.png",   title:"Футболка",            desc:"Прямий цифровий друк (DTF/DTG), щільна бавовна." },
+  { img:"mug.png",      title:"Керамічна кружка",     desc:"Преміум сублімаційний друк найвищої якості." },
+  { img:"bag.png",      title:"Еко-шопер",           desc:"Тканинна сумка з унікальним геометричним принтом." },
+  { img:"bracelet.png", title:"Силіконовий браслет", desc:"Лазерне гравіювання або шовкографія." },
+  { img:"case.png",     title:"Чохол для смартфона", desc:"Об'ємний УФ-друк на силіконі." },
+  { img:"pendant.png",  title:"Медальйон / Кулон",    desc:"Металевий щит з лазерним гравіюванням." }
 ];
 
 const catalog = document.getElementById('catalog');
@@ -145,94 +156,104 @@ products.forEach(product => {
   const card = document.createElement('div');
   card.className = 'card';
   card.innerHTML = `
-    <img src="${product.img}" alt="${product.title}" class="card-img" onerror="this.style.display='none'">
+    <div class="card-img-wrap">
+      <img src="${product.img}" alt="${product.title}" class="card-img" onerror="this.style.opacity=0">
+      <div class="orn-overlay"><img alt="Ваш орнамент"></div>
+    </div>
     <div class="card-body">
       <h3>${product.title}</h3>
       <p>${product.desc}</p>
       <div class="card-actions">
-        <a href="https://t.me/forpost_art_techno" target="_blank" class="action-btn tg" data-platform="tg">Замовити в Telegram</a>
-        <a href="tel:+380635058292" class="action-btn" data-platform="tel">Зателефонувати (063) 505-82-92</a>
-        <a href="tel:+380682752859" class="action-btn" data-platform="tel">Зателефонувати (068) 275-28-59</a>
+        <a href="https://t.me/forpost_art_techno" target="_blank" rel="noopener" class="action-btn tg" data-platform="tg">Замовити</a>
       </div>
-    </div>
-  `;
+    </div>`;
   catalog.appendChild(card);
 });
 
-// Логіка завантаження/копіювання орнаменту
+/* ===== Підстановка збереженого орнаменту в макети ===== */
+const ornStatus = document.getElementById('ornStatus');
+const ornStatusText = document.getElementById('ornStatusText');
+
+function applyOrnamentToMockups(){
+  let data = null;
+  try { data = localStorage.getItem('taina_last_ornament'); } catch(e){}
+
+  const cards = document.querySelectorAll('.card');
+  if(data){
+    ornStatus.classList.add('ok');
+    ornStatusText.innerHTML = '<b>✓ Ваш орнамент готовий.</b> Він підставлено у прев\'ю товарів.';
+    cards.forEach(card=>{
+      card.classList.add('has-orn');
+      const img = card.querySelector('.orn-overlay img');
+      if(img) img.src = data;
+    });
+  } else {
+    ornStatus.classList.remove('ok');
+    ornStatusText.innerHTML = 'Орнамент ще не створено. <a href="index.html">Згенерувати →</a>';
+    cards.forEach(card=>card.classList.remove('has-orn'));
+  }
+}
+applyOrnamentToMockups();
+
+window.addEventListener('storage', e=>{
+  if(e.key === 'taina_last_ornament') applyOrnamentToMockups();
+});
+
+/* ===== Toast ===== */
 const toast = document.getElementById('toast');
 let toastTimeout;
-
-function showToast(msg) {
+function showToast(msg){
   clearTimeout(toastTimeout);
   toast.innerHTML = msg;
   toast.classList.add('show');
-  toastTimeout = setTimeout(() => {
-    toast.classList.remove('show');
-  }, 5000);
+  toastTimeout = setTimeout(()=>toast.classList.remove('show'), 5000);
 }
 
-function downloadDataUrl(dataUrl, filename) {
+/* ===== Копіювання/завантаження орнаменту при замовленні ===== */
+function downloadDataUrl(dataUrl, filename){
   const a = document.createElement('a');
-  a.href = dataUrl;
-  a.download = filename || 'taina_ornament.png';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  a.href = dataUrl; a.download = filename || 'taina_ornament.png';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
-
-async function copyToClipboard(blob) {
-  try {
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+async function copyToClipboard(blob){
+  try{
+    await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
     return true;
-  } catch (e) {
-    console.error('Clipboard copy failed', e);
-    return false;
-  }
+  }catch(e){ console.error('Clipboard copy failed', e); return false; }
 }
 
-async function handleOrderClick(e) {
-  e.preventDefault(); // Запобігаємо миттєвому переходу по посиланню
+async function handleOrderClick(e){
+  e.preventDefault();
   const target = e.currentTarget;
-  const platform = target.dataset.platform;
   const href = target.href;
-
-  const ornamentData = localStorage.getItem('taina_last_ornament');
+  let ornamentData = null;
+  try { ornamentData = localStorage.getItem('taina_last_ornament'); } catch(err){}
   const hint = "<b>Збережіть картинку орнаменту</b> та надішліть її майстру в Telegram.";
 
-  if (!ornamentData) {
-    // Якщо орнаменту немає в пам'яті
+  if(!ornamentData){
     showToast("Спершу створіть та збережіть орнамент у <a href='index.html' style='color:var(--acc-hot)'>Лабораторії</a>.");
-    setTimeout(() => { window.location.href = 'index.html'; }, 2500);
+    setTimeout(()=>{ window.location.href = 'index.html'; }, 2500);
     return;
   }
 
   let copied = false;
-  try {
-    // Намагаємося отримати Blob з base64 (dataURL)
+  try{
     const response = await fetch(ornamentData);
     const blob = await response.blob();
     copied = await copyToClipboard(blob);
-  } catch (err) {
-    console.error("Error processing image", err);
-  }
+  }catch(err){ console.error("Error processing image", err); }
 
-  if (copied) {
+  if(copied){
     showToast("✓ Орнамент скопійовано в буфер обміну! " + hint);
   } else {
-    // Якщо копіювання не вдалося (наприклад, на iOS Safari або старих браузерах) - завантажуємо файл
     downloadDataUrl(ornamentData, 'taina_ornament.png');
     showToast("✓ Орнамент збережено у завантаження. " + hint);
   }
 
-  // Даємо користувачу час прочитати підказку (3 секунди) перед тим, як відкрити Telegram/Телефон
-  setTimeout(() => {
-    window.open(href, '_blank');
-  }, 3000);
+  setTimeout(()=>{ window.open(href, '_blank'); }, 3000);
 }
 
-// Прив'язуємо обробник до всіх кнопок замовлення
-document.querySelectorAll('.action-btn').forEach(btn => {
+document.querySelectorAll('.action-btn[data-platform="tg"]').forEach(btn=>{
   btn.addEventListener('click', handleOrderClick);
 });
 </script>
