@@ -67,20 +67,23 @@ header{border-bottom:1px solid var(--line);flex:0 0 auto;background:rgba(13,10,8
 .catalog{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:24px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;transition:transform .2s,border-color .2s,box-shadow .2s}
 .card:hover{transform:translateY(-5px);border-color:var(--acc-dim);box-shadow:0 12px 30px rgba(0,0,0,.4)}
-.card-img-wrap{position:relative;width:100%;height:240px;background:#0a0806;border-bottom:1px solid var(--line);overflow:hidden}
+.card-img-wrap{position:relative;width:100%;height:280px;background:#ffffff;border-bottom:1px solid var(--line);overflow:hidden;display:flex;align-items:center;justify-content:center}
 .card-img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* Накладання орнаменту прямо на предмет */
 .orn-overlay{
   position:absolute;
-  top:50%; left:50%;
   transform:translate(-50%, -50%);
-  width:90px; height:90px;
-  display:none; pointer-events:none;
-  mix-blend-mode:multiply; /* органично вписывает принт на белые/светлые макеты */
-  opacity:.9;
+  display:none;
+  pointer-events:none;
+  mix-blend-mode:multiply;
+  opacity:0.85;
+  filter:contrast(1.1);
 }
 .orn-overlay img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;display:block}
 .card.has-orn .orn-overlay{display:block;animation:ornIn .4s ease-out}
-@keyframes ornIn{from{opacity:0;transform:translateY(8px) scale(.92)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes ornIn{from{opacity:0;transform:translate(-50%, -45%) scale(.92)}to{opacity:0.85;transform:translate(-50%, -50%) scale(1)}}
+
 .card-body{padding:20px;display:flex;flex-direction:column;flex:1}
 .card-body h3{font-family:var(--mono);font-size:18px;color:var(--acc-hot);margin-bottom:10px;font-weight:700}
 .card-body p{font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:20px;flex:1}
@@ -107,7 +110,6 @@ header{border-bottom:1px solid var(--line);flex:0 0 auto;background:rgba(13,10,8
   .hero{padding:40px 0 28px}
   .services-container{padding:20px 16px 60px}
   .roomtab{padding:8px 10px;font-size:10px}
-  .orn-overlay{width:70px;height:70px}
   .contacts-block{padding:30px 20px;margin-top:44px}
 }
 </style>
@@ -148,8 +150,9 @@ header{border-bottom:1px solid var(--line);flex:0 0 auto;background:rgba(13,10,8
 
 <div class="toast" id="toast"></div>
 
+<script>
 const products = [
-  { img:"tshirt.png",   title:"Футболка",            desc:"Прямий цифровий друк (DTF/DTG), щільна бавовна.", ornPos:"top:46%;left:50%;width:80px;height:80px;" },
+  { img:"tshirt.png",   title:"Футболка",            desc:"Прямий цифровий друк (DTF/DTG), щільна бавовна.", ornPos:"top:44%;left:50%;width:80px;height:80px;" },
   { img:"mug.png",      title:"Керамічна кружка",     desc:"Преміум сублімаційний друк найвищої якості.", ornPos:"top:52%;left:48%;width:65px;height:65px;" },
   { img:"bag.png",      title:"Еко-шопер",           desc:"Тканинна сумка з унікальним геометричним принтом.", ornPos:"top:58%;left:50%;width:85px;height:85px;" },
   { img:"bracelet.png", title:"Силіконовий браслет", desc:"Лазерне гравіювання або шовкографія.", ornPos:"top:50%;left:50%;width:50px;height:50px;" },
