@@ -165,7 +165,7 @@ products.forEach(product => {
   card.innerHTML = `
     <div class="card-img-wrap">
       <img src="${product.img}" alt="${product.title}" class="card-img" onerror="this.style.opacity=0">
-      <div class="orn-overlay"><img alt="Ваш орнамент"></div>
+      <div class="orn-overlay" style="${product.ornPos || ''}"><img alt="Ваш орнамент"></div>
     </div>
     <div class="card-body">
       <h3>${product.title}</h3>
