@@ -148,14 +148,13 @@ header{border-bottom:1px solid var(--line);flex:0 0 auto;background:rgba(13,10,8
 
 <div class="toast" id="toast"></div>
 
-<script>
 const products = [
-  { img:"tshirt.png",   title:"Футболка",            desc:"Прямий цифровий друк (DTF/DTG), щільна бавовна." },
-  { img:"mug.png",      title:"Керамічна кружка",     desc:"Преміум сублімаційний друк найвищої якості." },
-  { img:"bag.png",      title:"Еко-шопер",           desc:"Тканинна сумка з унікальним геометричним принтом." },
-  { img:"bracelet.png", title:"Силіконовий браслет", desc:"Лазерне гравіювання або шовкографія." },
-  { img:"case.png",     title:"Чохол для смартфона", desc:"Об'ємний УФ-друк на силіконі." },
-  { img:"pendant.png",  title:"Медальйон / Кулон",    desc:"Металевий щит з лазерним гравіюванням." }
+  { img:"tshirt.png",   title:"Футболка",            desc:"Прямий цифровий друк (DTF/DTG), щільна бавовна.", ornPos:"top:46%;left:50%;width:80px;height:80px;" },
+  { img:"mug.png",      title:"Керамічна кружка",     desc:"Преміум сублімаційний друк найвищої якості.", ornPos:"top:52%;left:48%;width:65px;height:65px;" },
+  { img:"bag.png",      title:"Еко-шопер",           desc:"Тканинна сумка з унікальним геометричним принтом.", ornPos:"top:58%;left:50%;width:85px;height:85px;" },
+  { img:"bracelet.png", title:"Силіконовий браслет", desc:"Лазерне гравіювання або шовкографія.", ornPos:"top:50%;left:50%;width:50px;height:50px;" },
+  { img:"case.png",     title:"Чохол для смартфона", desc:"Об'ємний УФ-друк на силіконі.", ornPos:"top:45%;left:50%;width:70px;height:70px;" },
+  { img:"pendant.png",  title:"Медальйон / Кулон",    desc:"Металевий щит з лазерним гравіюванням.", ornPos:"top:50%;left:50%;width:55px;height:55px;" }
 ];
 
 const catalog = document.getElementById('catalog');
