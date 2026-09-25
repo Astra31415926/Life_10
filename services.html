@@ -236,12 +236,36 @@ header{border-bottom:1px solid var(--line);flex:0 0 auto;background:rgba(13,10,8
 
 <script>
 const products = [
-  { img:"tshirt.png",   title:"Футболка",            ornPos:"top:44%;left:50%;width:80px;height:80px;" },
-  { img:"mug.png",      title:"Кружка керамічна",     ornPos:"top:52%;left:48%;width:65px;height:65px;" },
-  { img:"bag.png",      title:"Еко-шопер",           ornPos:"top:58%;left:50%;width:85px;height:85px;" },
-  { img:"bracelet.png", title:"Силіконовий браслет", ornPos:"top:50%;left:50%;width:50px;height:50px;" },
-  { img:"case.png",     title:"Чохол для смартфона", ornPos:"top:45%;left:50%;width:70px;height:70px;" },
-  { img:"pendant.png",  title:"Медальйон",            ornPos:"top:50%;left:50%;width:55px;height:55px;" }
+  { 
+    img: "tshirt.png", 
+    title: "Футболка", 
+    ornPos: "top:48%; left:50%; width:28%; height:auto;" 
+  },
+  { 
+    img: "mug.png", 
+    title: "Кружка керамічна", 
+    ornPos: "top:48%; left:46%; width:34%; height:auto;" 
+  },
+  { 
+    img: "bag.png", 
+    title: "Еко-шопер", 
+    ornPos: "top:52%; left:50%; width:36%; height:auto;" 
+  },
+  { 
+    img: "bracelet.png", 
+    title: "Силіконовий браслет", 
+    ornPos: "top:58%; left:52%; width:16%; height:auto; transform: translate(-50%, -50%) rotate(-32deg) skewX(12deg);" 
+  },
+  { 
+    img: "case.png", 
+    title: "Чохол для смартфона", 
+    ornPos: "top:62%; left:50%; width:38%; height:auto;" 
+  },
+  { 
+    img: "pendant.png", 
+    title: "Медальйон", 
+    ornPos: "top:50%; left:50%; width:32%; height:auto;" 
+  }
 ];
 
 const catalog = document.getElementById('catalog');
