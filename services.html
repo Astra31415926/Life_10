@@ -46,28 +46,19 @@ header{border-bottom:1px solid var(--line);flex:0 0 auto;background:rgba(13,10,8
 /* Hero */
 .hero{text-align:center;padding:60px 0 40px}
 .hero h1{font-family:var(--sans);font-size:clamp(28px,5vw,44px);font-weight:600;color:var(--parchment);margin-bottom:16px;line-height:1.2}
-.hero p{font-size:clamp(15px,2vw,18px);color:var(--muted);max-width:600px;margin:0 auto 30px;line-height:1.6}
-.btn-main{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:.06em;
-  padding:14px 24px;border-radius:12px;cursor:pointer;transition:.18s;border:1px solid color-mix(in srgb,var(--acc) 60%,transparent);
-  background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 30%,transparent),color-mix(in srgb,var(--acc) 12%,transparent));
-  color:var(--acc-hot);text-decoration:none;text-transform:uppercase}
-.btn-main:hover{border-color:var(--acc-hot);box-shadow:0 0 30px color-mix(in srgb,var(--acc) 30%,transparent)}
-
-/* Стан-чіп орнаменту */
-.orn-status{max-width:680px;margin:0 auto 36px;text-align:center;font-family:var(--mono);font-size:12.5px;color:var(--muted);
-  display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:11px 16px;
-  border:1px dashed var(--line);border-radius:11px;background:color-mix(in srgb,var(--acc) 4%,transparent)}
-.orn-status .dot{width:8px;height:8px;border-radius:50%;background:var(--bad);box-shadow:0 0 6px currentColor;color:var(--bad);flex:0 0 auto}
-.orn-status.ok{color:var(--parchment)}
-.orn-status.ok .dot{background:var(--ok);color:var(--ok)}
-.orn-status b{color:var(--acc-hot);font-weight:600}
-.orn-status a{color:var(--acc-hot);text-decoration:underline;text-underline-offset:3px}
 
 /* Сітка товарів */
-.catalog{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:24px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;transition:transform .2s,border-color .2s,box-shadow .2s}
+.catalog{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
+.card{
+  position:relative;
+  aspect-ratio:1/1;
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--panel);
+  transition:transform .2s,border-color .2s,box-shadow .2s;
+}
 .card:hover{transform:translateY(-5px);border-color:var(--acc-dim);box-shadow:0 12px 30px rgba(0,0,0,.4)}
-.card-img-wrap{position:relative;width:100%;height:280px;background:#ffffff;border-bottom:1px solid var(--line);overflow:hidden;display:flex;align-items:center;justify-content:center}
 .card-img{width:100%;height:100%;object-fit:cover;display:block}
 
 /* Накладання орнаменту прямо на предмет */
@@ -79,19 +70,59 @@ header{border-bottom:1px solid var(--line);flex:0 0 auto;background:rgba(13,10,8
   mix-blend-mode:multiply;
   opacity:0.85;
   filter:contrast(1.1);
+  z-index:2;
 }
 .orn-overlay img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;display:block}
 .card.has-orn .orn-overlay{display:block;animation:ornIn .4s ease-out}
 @keyframes ornIn{from{opacity:0;transform:translate(-50%, -45%) scale(.92)}to{opacity:0.85;transform:translate(-50%, -50%) scale(1)}}
 
-.card-body{padding:20px;display:flex;flex-direction:column;flex:1}
-.card-body h3{font-family:var(--mono);font-size:18px;color:var(--acc-hot);margin-bottom:10px;font-weight:700}
-.card-body p{font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:20px;flex:1}
-.card-actions{display:flex;flex-direction:column;gap:10px}
-.action-btn{width:100%;font-family:var(--mono);font-size:13px;font-weight:600;padding:12px;border-radius:10px;cursor:pointer;transition:.15s;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:transparent;color:var(--parchment)}
-.action-btn:hover{border-color:var(--acc);color:var(--acc-hot);background:color-mix(in srgb,var(--acc) 8%,transparent)}
-.action-btn.tg{background:color-mix(in srgb,var(--acc) 15%,transparent);border-color:color-mix(in srgb,var(--acc) 40%,transparent);color:var(--acc-hot)}
-.action-btn.tg:hover{background:color-mix(in srgb,var(--acc) 25%,transparent)}
+/* Нижня плашка з назвою та кнопкою */
+.card-bottom{
+  position:absolute;
+  bottom:0;
+  left:0;
+  right:0;
+  padding:16px;
+  background:linear-gradient(transparent, rgba(0,0,0,0.85));
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  z-index:3;
+}
+.card-bottom h3{
+  font-family:var(--mono);
+  font-size:16px;
+  color:#fff;
+  font-weight:700;
+  margin:0;
+  text-shadow:0 1px 3px rgba(0,0,0,0.5);
+}
+.card-bottom .action-btn{
+  width:auto;
+  flex-shrink:0;
+  font-family:var(--mono);
+  font-size:12px;
+  font-weight:600;
+  padding:8px 14px;
+  border-radius:8px;
+  cursor:pointer;
+  transition:.15s;
+  text-decoration:none;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  border:1px solid rgba(255,255,255,0.3);
+  background:rgba(255,255,255,0.15);
+  color:#fff;
+  backdrop-filter:blur(4px);
+}
+.card-bottom .action-btn:hover{
+  background:rgba(255,255,255,0.25);
+  border-color:rgba(255,255,255,0.5);
+  color:#fff;
+}
 
 /* Єдиний блок контактів */
 .contacts-block{margin:60px auto 0;max-width:760px;text-align:center;padding:42px 28px;border:1px solid var(--line);border-radius:18px;
@@ -100,6 +131,13 @@ header{border-bottom:1px solid var(--line);flex:0 0 auto;background:rgba(13,10,8
 .contacts-block h2{font-family:var(--sans);font-size:clamp(20px,3vw,26px);font-weight:600;color:var(--parchment);margin-bottom:12px;line-height:1.3}
 .contacts-block .sub{font-size:14.5px;color:var(--muted);margin-bottom:26px;line-height:1.6}
 .contacts-block .btn-main{font-size:15px;padding:16px 32px}
+
+/* Кнопка main */
+.btn-main{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:.06em;
+  padding:14px 24px;border-radius:12px;cursor:pointer;transition:.18s;border:1px solid color-mix(in srgb,var(--acc) 60%,transparent);
+  background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 30%,transparent),color-mix(in srgb,var(--acc) 12%,transparent));
+  color:var(--acc-hot);text-decoration:none;text-transform:uppercase}
+.btn-main:hover{border-color:var(--acc-hot);box-shadow:0 0 30px color-mix(in srgb,var(--acc) 30%,transparent)}
 
 /* Модальне вікно замовлення */
 .modal-overlay{position:fixed;inset:0;z-index:1500;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(8,6,4,.78);backdrop-filter:blur(6px)}
@@ -154,14 +192,7 @@ header{border-bottom:1px solid var(--line);flex:0 0 auto;background:rgba(13,10,8
 <div class="services-container">
   <section class="hero">
     <h1>Фізичне втілення закодованих орнаментів</h1>
-    <p>Перетворіть зашифроване текстове послання на унікальний мерч, аксесуар або декор.</p>
-    <a href="index.html" class="btn-main">Створити свій орнамент</a>
   </section>
-
-  <div class="orn-status" id="ornStatus">
-    <span class="dot"></span>
-    <span id="ornStatusText">Орнамент ще не створено. <a href="index.html">Згенерувати →</a></span>
-  </div>
 
   <section class="catalog" id="catalog">
     <!-- Карточки згенеруються JavaScript -->
@@ -205,12 +236,12 @@ header{border-bottom:1px solid var(--line);flex:0 0 auto;background:rgba(13,10,8
 
 <script>
 const products = [
-  { img:"tshirt.png",   title:"Футболка",            desc:"Прямий цифровий друк (DTF/DTG), щільна бавовна.", ornPos:"top:44%;left:50%;width:80px;height:80px;" },
-  { img:"mug.png",      title:"Керамічна кружка",     desc:"Преміум сублімаційний друк найвищої якості.", ornPos:"top:52%;left:48%;width:65px;height:65px;" },
-  { img:"bag.png",      title:"Еко-шопер",           desc:"Тканинна сумка з унікальним геометричним принтом.", ornPos:"top:58%;left:50%;width:85px;height:85px;" },
-  { img:"bracelet.png", title:"Силіконовий браслет", desc:"Лазерне гравіювання або шовкографія.", ornPos:"top:50%;left:50%;width:50px;height:50px;" },
-  { img:"case.png",     title:"Чохол для смартфона", desc:"Об'ємний УФ-друк на силіконі.", ornPos:"top:45%;left:50%;width:70px;height:70px;" },
-  { img:"pendant.png",  title:"Медальйон / Кулон",    desc:"Металевий щит з лазерним гравіюванням.", ornPos:"top:50%;left:50%;width:55px;height:55px;" }
+  { img:"tshirt.png",   title:"Футболка",            ornPos:"top:44%;left:50%;width:80px;height:80px;" },
+  { img:"mug.png",      title:"Кружка керамічна",     ornPos:"top:52%;left:48%;width:65px;height:65px;" },
+  { img:"bag.png",      title:"Еко-шопер",           ornPos:"top:58%;left:50%;width:85px;height:85px;" },
+  { img:"bracelet.png", title:"Силіконовий браслет", ornPos:"top:50%;left:50%;width:50px;height:50px;" },
+  { img:"case.png",     title:"Чохол для смартфона", ornPos:"top:45%;left:50%;width:70px;height:70px;" },
+  { img:"pendant.png",  title:"Медальйон",            ornPos:"top:50%;left:50%;width:55px;height:55px;" }
 ];
 
 const catalog = document.getElementById('catalog');
@@ -219,40 +250,28 @@ products.forEach(product => {
   const card = document.createElement('div');
   card.className = 'card';
   card.innerHTML = `
-    <div class="card-img-wrap">
-      <img src="${product.img}" alt="${product.title}" class="card-img" onerror="this.style.opacity=0">
-      <div class="orn-overlay" style="${product.ornPos || ''}"><img alt="Ваш орнамент"></div>
-    </div>
-    <div class="card-body">
+    <img src="${product.img}" alt="${product.title}" class="card-img" onerror="this.style.opacity=0">
+    <div class="orn-overlay" style="${product.ornPos || ''}"><img alt="Ваш орнамент"></div>
+    <div class="card-bottom">
       <h3>${product.title}</h3>
-      <p>${product.desc}</p>
-      <div class="card-actions">
-        <button type="button" class="action-btn tg" data-platform="tg" data-title="${product.title}">Замовити</button>
-      </div>
+      <button type="button" class="action-btn" data-platform="tg" data-title="${product.title}">Замовити</button>
     </div>`;
   catalog.appendChild(card);
 });
 
 /* ===== Підстановка збереженого орнаменту в макети ===== */
-const ornStatus = document.getElementById('ornStatus');
-const ornStatusText = document.getElementById('ornStatusText');
-
 function applyOrnamentToMockups(){
   let data = null;
   try { data = localStorage.getItem('taina_last_ornament'); } catch(e){}
 
   const cards = document.querySelectorAll('.card');
   if(data){
-    ornStatus.classList.add('ok');
-    ornStatusText.innerHTML = '<b>✓ Ваш орнамент готовий.</b> Він підставлено у прев\'ю товарів.';
     cards.forEach(card=>{
       card.classList.add('has-orn');
       const img = card.querySelector('.orn-overlay img');
       if(img) img.src = data;
     });
   } else {
-    ornStatus.classList.remove('ok');
-    ornStatusText.innerHTML = 'Орнамент ще не створено. <a href="index.html">Згенерувати →</a>';
     cards.forEach(card=>card.classList.remove('has-orn'));
   }
 }
@@ -302,7 +321,7 @@ function openModal(productTitle){
   modalTitle.textContent = 'Замовити: ' + productTitle;
   modalStep1.classList.remove('hidden');
   modalStep2.classList.add('hidden');
-  // Підставляємо збережений контакт, якщо він already вводився раніше
+  // Підставляємо збережений контакт, якщо він вже вводився раніше
   try {
     const saved = localStorage.getItem('taina_last_contact');
     if(saved) userContact.value = saved;
