@@ -227,36 +227,8 @@ products.forEach(product => {
     <div class="orn-overlay" style="${product.ornPos || ''}"><img alt="Ваш орнамент"></div>
     <div class="card-bottom">
       <h3>${product.title}</h3>
-      <a href="${tgUrl}" target="_blank" rel="noopener" class="action-btn" data-title="${product.title}">Замовити</a>
+      <a href="${tgUrl}" target="_blank" rel="noopener" class="action-btn">Замовити</a>
     </div>`;
-
-  const orderBtn = card.querySelector('.action-btn');
-  orderBtn.addEventListener('click', async () => {
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const inputWord = document.getElementById('userText') || document.querySelector('input[type="text"]');
-    const word = inputWord ? inputWord.value.trim() : '';
-
-    if (isMobile) {
-      const mainCanvas = document.getElementById('ornamentCanvas') || document.querySelector('canvas');
-      if (mainCanvas && mainCanvas.toBlob) {
-        mainCanvas.toBlob(async (blob) => {
-          if (blob && navigator.clipboard && navigator.clipboard.write) {
-            try {
-              await navigator.clipboard.write([
-                new ClipboardItem({ 'image/png': blob })
-              ]);
-            } catch (e) {
-              navigator.clipboard.writeText(`Замовлення: ${product.title}\nСлово: "${word}"`);
-            }
-          }
-        }, 'image/png');
-      } else {
-        navigator.clipboard.writeText(`Замовлення: ${product.title}\nСлово: "${word}"`);
-      }
-    } else {
-      navigator.clipboard.writeText(`Замовлення: ${product.title}\nСлово: "${word}"`);
-    }
-  });
 
   catalog.appendChild(card);
 });
