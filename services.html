@@ -220,7 +220,7 @@ products.forEach(product => {
   const card = document.createElement('div');
   card.className = 'card';
 
-const tgUrl = `https://t.me/+hmCY-X-wZjgzZmMy`;
+  const tgUrl = `https://t.me/+hmCY-X-wZjgzZmMy`;
 
   card.innerHTML = `
     <img src="${product.img}" alt="${product.title}" class="card-img" onerror="this.style.opacity=0">
@@ -235,16 +235,22 @@ const tgUrl = `https://t.me/+hmCY-X-wZjgzZmMy`;
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     const inputWord = document.getElementById('userText') || document.querySelector('input[type="text"]');
     const word = inputWord ? inputWord.value.trim() : '';
-    const ornImg = card.querySelector('.orn-overlay img');
 
-    if (isMobile && ornImg && ornImg.src) {
-      try {
-        const response = await fetch(ornImg.src);
-        const blob = await response.blob();
-        await navigator.clipboard.write([
-          new ClipboardItem({ [blob.type || 'image/png']: blob })
-        ]);
-      } catch (err) {
+    if (isMobile) {
+      const mainCanvas = document.getElementById('ornamentCanvas') || document.querySelector('canvas');
+      if (mainCanvas && mainCanvas.toBlob) {
+        mainCanvas.toBlob(async (blob) => {
+          if (blob && navigator.clipboard && navigator.clipboard.write) {
+            try {
+              await navigator.clipboard.write([
+                new ClipboardItem({ 'image/png': blob })
+              ]);
+            } catch (e) {
+              navigator.clipboard.writeText(`Замовлення: ${product.title}\nСлово: "${word}"`);
+            }
+          }
+        }, 'image/png');
+      } else {
         navigator.clipboard.writeText(`Замовлення: ${product.title}\nСлово: "${word}"`);
       }
     } else {
