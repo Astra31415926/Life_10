@@ -220,8 +220,6 @@ products.forEach(product => {
   const card = document.createElement('div');
   card.className = 'card';
 
- // Формуємо текст та посилання для кожної картки
-const message = `Вітаю! Хочу замовити: ${product.title}. Орнамент додаю до повідомлення.`;
 const tgUrl = `https://t.me/+hmCY-X-wZjgzZmMy`;
 
   card.innerHTML = `
@@ -231,6 +229,29 @@ const tgUrl = `https://t.me/+hmCY-X-wZjgzZmMy`;
       <h3>${product.title}</h3>
       <a href="${tgUrl}" target="_blank" rel="noopener" class="action-btn" data-title="${product.title}">Замовити</a>
     </div>`;
+
+  const orderBtn = card.querySelector('.action-btn');
+  orderBtn.addEventListener('click', async () => {
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const inputWord = document.getElementById('userText') || document.querySelector('input[type="text"]');
+    const word = inputWord ? inputWord.value.trim() : '';
+    const ornImg = card.querySelector('.orn-overlay img');
+
+    if (isMobile && ornImg && ornImg.src) {
+      try {
+        const response = await fetch(ornImg.src);
+        const blob = await response.blob();
+        await navigator.clipboard.write([
+          new ClipboardItem({ [blob.type || 'image/png']: blob })
+        ]);
+      } catch (err) {
+        navigator.clipboard.writeText(`Замовлення: ${product.title}\nСлово: "${word}"`);
+      }
+    } else {
+      navigator.clipboard.writeText(`Замовлення: ${product.title}\nСлово: "${word}"`);
+    }
+  });
+
   catalog.appendChild(card);
 });
 
