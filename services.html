@@ -220,14 +220,11 @@ products.forEach(product => {
   const card = document.createElement('div');
   card.className = 'card';
 
-  const tgUrl = `https://t.me/+hmCY-X-wZjgzZmMy`;
-
   card.innerHTML = `
     <img src="${product.img}" alt="${product.title}" class="card-img" onerror="this.style.opacity=0">
     <div class="orn-overlay" style="${product.ornPos || ''}"><img alt="Ваш орнамент"></div>
     <div class="card-bottom">
       <h3>${product.title}</h3>
-      <a href="${tgUrl}" target="_blank" rel="noopener" class="action-btn">Замовити</a>
     </div>`;
 
   catalog.appendChild(card);
