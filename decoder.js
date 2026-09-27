@@ -1,719 +1,1027 @@
-/* ═══════════════════════════════════════════════════════════════
-   decoder.js — TAINA Bytecode Ornament decoder (pure JS + OpenCV scanner)
-   Exports: window.runDecodeAttempts(imgElement) → [{kind,mode,n,res}]
+/* ═══════════════════════════════════════════════════════════════════════════
+   decoder.js — TAINA Decoder v1.0
+   Новый декодер, написанный с нуля под камеру мобильного телефона.
 
-   Маркер (від краю PNG до даних):
-     QZ(2) → чорна(1) → біла(1) → зебра(1) → дані → зебра(1) → біла(1) → чорна(1) → QZ(2)
+   НОТАЦИЯ РАЗМЕРА (стандарт проекта):
+     T = внешняя рамка(1) + зебра(1) + данные(n) + зебра(1) + внешняя рамка(1)
+     T = n + 4        n = T - 4        Tz (кольцо зебры) = T - 2
 
-   Детектор знаходить кут ЧОРНОї рамки (не QZ), тому у warp-і:
-     чорна(1)+біла(1)+зебра(1) = pad=3 з кожного боку → n = T - 6.
-   Якщо вся картинка включає QZ — пробуємо також pad=5 (n = T - 10).
-   ═══════════════════════════════════════════════════════════════ */
+   КОНВЕЙЕР:
+     кадр → уменьшенная копия → контуры → 4-угольники → гипотезы стиска
+          → зебра → структура внешней рамки → warp ИЗ ОРИГИНАЛА
+          → выборка клеток → RGB/каналы → TAINA decode → обратная сверка
+
+   ДВА ПРАВИЛА, НА КОТОРЫХ ДЕРЖИТСЯ НАДЁЖНОСТЬ:
+     1. Уменьшенная копия кадра используется ТОЛЬКО для поиска контуров.
+        Любая выборка пикселей идёт из оригинального кадра. Пересэмплинг
+        убивает и мелкие коды (T=11), и крупные (T=61).
+     2. Результат выдаётся, только если пройдены ОБЕ проверки:
+        структура внешней рамки ≥ 0.95  И  обратная сверка ≥ 0.90.
+        Иначе NO CODE.
+
+   ПУБЛИЧНОЕ API — в конце файла.
+   ═══════════════════════════════════════════════════════════════════════════ */
 'use strict';
-(function(){
+(function () {
 
-/* ── Константи ── */
-const MINN=7, MAXN=145, RGBTHR=125;
-const RGB_SOFT={r:[220,50,60], g:[65,195,65], b:[60,70,215]};
-const enc=new TextEncoder();
-const dec=new TextDecoder('utf-8',{fatal:true});
+/* ───────────────────────────── НАСТРОЙКИ ───────────────────────────── */
 
-/* ── Динамічне підключення OpenCV (якщо ще не підключено) ── */
-if (!window.cv && !window._cvLoadingScript) {
-  window._cvLoadingScript = true;
-  const s = document.createElement('script');
-  s.src = 'https://docs.opencv.org/4.8.0/opencv.js';
-  s.async = true;
-  document.head.appendChild(s);
-}
+const CFG = {
+  DETECT_MAX:      900,    // макс. сторона уменьшенной копии для поиска контуров
+  PROBE_SIZE:      360,    // размер дешёвого warp-а для проверки гипотез
+  FINAL_MIN:       240,    // границы размера финального warp-а
+  FINAL_MAX:      1100,
+  SQUARENESS_MIN:  0.55,   // минимальная «квадратность» кандидата
+  INSETS:   [1, 0.5, 1.5, 0, 2, 2.5, 3],  // гипотезы стиска, в модулях
+  /* Долевые гипотезы — на случай, когда контур поймал чёрную обводку или белое
+     поле и Tz по такому квадрату вообще не читается (характерно для мелких
+     кодов, где один модуль занимает десятую часть стороны). */
+  INSETS_FRAC: [0, 0.015, 0.03, 0.045, 0.06, 0.08, 0.105, 0.13],
+  FRAME_MIN:       0.95,   // порог структуры внешней рамки
+  AGREE_MIN:       0.90,   // порог обратной сверки
+  T_MIN:           9,      // T = 9 → n = 5
+  T_MAX:          201,
+  MIN_CONTRAST:    50,     // минимальный контраст строки для анализа зебры
+  IMAGE:  { maxQuads: 14, timeBudgetMs: 2500 },
+  CAMERA: { maxQuads:  6, timeBudgetMs:  500 }
+};
 
-/* ═══ CORE: текст ↔ біти ═══ */
-function isClean(t){
-  for(const ch of t){const o=ch.codePointAt(0);if(o===0||o<32&&ch!=='\n'&&ch!=='\t')return false;}
+const MODES = ['oct', 'quad', 'half'];
+const RGB_MAIN = { r: [255, 0, 0],    g: [0, 255, 0],    b: [0, 0, 255]   };
+const RGB_GAL  = { r: [220, 50, 60],  g: [65, 195, 65],  b: [60, 70, 215] };
+const REFBITS  = [[0,0,0],[1,0,0],[0,1,0],[0,0,1],[1,1,0],[1,0,1],[0,1,1],[1,1,1]];
+
+const _enc = new TextEncoder();
+const _dec = new TextDecoder('utf-8', { fatal: true });
+
+/* ═════════════════════ ЧАСТЬ 1. ЯДРО ФОРМАТА TAINA ═════════════════════
+   Перенесено из рабочего декодера проекта без изменения логики.
+   Формат не меняется — меняется только то, как мы до него добираемся.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function isClean(t) {
+  for (const ch of t) {
+    const o = ch.codePointAt(0);
+    if (o === 0 || (o < 32 && ch !== '\n' && ch !== '\t')) return false;
+  }
   return true;
 }
-function bytesToText(by){
-  by=Array.from(by);
-  while(by.length&&by[by.length-1]===0)by.pop();
-  if(!by.length)return null;
-  try{const t=dec.decode(new Uint8Array(by));return isClean(t)?t:null;}catch{return null;}
+
+function bytesToText(by) {
+  by = by.slice();
+  while (by.length && by[by.length - 1] === 0) by.pop();
+  if (!by.length) return null;
+  try {
+    const t = _dec.decode(new Uint8Array(by));
+    return isClean(t) ? t : null;
+  } catch (e) { return null; }
 }
-function textBits(t){
-  const d=enc.encode(t),b=new Uint8Array(d.length*8);
-  for(let i=0;i<d.length;i++)for(let k=0;k<8;k++)b[i*8+k]=(d[i]>>(7-k))&1;
+
+function textBits(t) {
+  const d = _enc.encode(t), b = new Uint8Array(d.length * 8);
+  for (let i = 0; i < d.length; i++)
+    for (let k = 0; k < 8; k++) b[i * 8 + k] = (d[i] >> (7 - k)) & 1;
   return b;
 }
 
-/* ═══ CORE: симетрія ═══ */
-function Rof(n){return(n-1)/2;}
-function baseCells(m,n){
-  const c=Rof(n),o=[];
-  if(m==='oct'){for(let i=0;i<=c;i++)for(let j=0;j<=i;j++)o.push([c+i,c+j]);}
-  else if(m==='quad'){for(let i=0;i<=c;i++)for(let j=0;j<=c;j++)o.push([c+i,c+j]);}
-  else{for(let y=0;y<n;y++)for(let i=0;i<=c;i++)o.push([c+i,y]);}
-  return o;
-}
-function mirrors(m,n,x,y){
-  const c=Rof(n),i=x-c,j=y-c;let p;
-  if(m==='oct')p=[[i,j],[j,i],[-i,j],[-j,i],[i,-j],[j,-i],[-i,-j],[-j,-i]];
-  else if(m==='quad')p=[[i,j],[-i,j],[i,-j],[-i,-j]];
-  else p=[[i,j],[-i,j]];
-  const o=[];
-  for(const[a,b]of p){const X=c+a,Y=c+b;if(X>=0&&Y>=0&&X<n&&Y<n)o.push([X,Y]);}
-  return o;
-}
-function capacity(m,n){const R=Rof(n);if(m==='oct')return(R+1)*(R+2)/2;if(m==='quad')return(R+1)*(R+1);if(m==='half')return(R+1)*n;return 0;}
-function pickN(m,need){for(let n=MINN;n<=MAXN;n+=2)if(capacity(m,n)>=need)return n;return MAXN;}
+function Rof(n) { return (n - 1) / 2; }
 
-/* ═══ CORE: декодування сектору ═══ */
-function decodeSector(g,n,m,offset){
-  const bc=baseCells(m,n),by=[];const start=offset||0;
-  for(let i=start;i+7<bc.length;i+=8){
-    let v=0;
-    for(let b=0;b<8;b++){const[x,y]=bc[i+b];v=(v<<1)|(g[y*n+x]?1:0);}
+const _bcCache = new Map();
+function baseCells(m, n) {
+  const key = m + ':' + n;
+  if (_bcCache.has(key)) return _bcCache.get(key);
+  const c = Rof(n), o = [];
+  if (m === 'oct') {
+    for (let i = 0; i <= c; i++) for (let j = 0; j <= i; j++) o.push([c + i, c + j]);
+  } else if (m === 'quad') {
+    for (let i = 0; i <= c; i++) for (let j = 0; j <= c; j++) o.push([c + i, c + j]);
+  } else {
+    for (let y = 0; y < n; y++) for (let i = 0; i <= c; i++) o.push([c + i, y]);
+  }
+  _bcCache.set(key, o);
+  return o;
+}
+
+function mirrors(m, n, x, y) {
+  const c = Rof(n), i = x - c, j = y - c;
+  let p;
+  if (m === 'oct')       p = [[i,j],[j,i],[-i,j],[-j,i],[i,-j],[j,-i],[-i,-j],[-j,-i]];
+  else if (m === 'quad') p = [[i,j],[-i,j],[i,-j],[-i,-j]];
+  else                   p = [[i,j],[-i,j]];
+  const o = [];
+  for (const [a, b] of p) {
+    const X = c + a, Y = c + b;
+    if (X >= 0 && Y >= 0 && X < n && Y < n) o.push([X, Y]);
+  }
+  return o;
+}
+
+function fillChannel(t, n, m, markBit) {
+  const g = new Uint8Array(n * n), bc = baseCells(m, n);
+  let seq = textBits(t);
+  if (markBit != null) {
+    const s2 = new Uint8Array(seq.length + 1);
+    s2[0] = markBit; s2.set(seq, 1); seq = s2;
+  }
+  const lim = Math.min(seq.length, bc.length);
+  for (let i = 0; i < lim; i++) {
+    const [x, y] = bc[i];
+    if (seq[i]) for (const [X, Y] of mirrors(m, n, x, y)) g[Y * n + X] = 1;
+  }
+  return g;
+}
+
+function markCell(g, n, m) {
+  const [x, y] = baseCells(m, n)[0];
+  return g[y * n + x] ? 1 : 0;
+}
+
+/* обратная сверка: доля совпавших клеток между снятой и перестроенной матрицей */
+function agreeOf(g, chk, n) {
+  let ok = 0;
+  for (let z = 0; z < n * n; z++) ok += ((chk[z] ? 1 : 0) === g[z]) ? 1 : 0;
+  return ok / (n * n);
+}
+
+/* декод с голосованием по зеркалам — избыточность орнамента как error correction */
+function decodeVoted(g, n, m, off, conf) {
+  const bc = baseCells(m, n), by = [];
+  for (let i = off || 0; i + 7 < bc.length; i += 8) {
+    let v = 0;
+    for (let b = 0; b < 8; b++) {
+      const [x, y] = bc[i + b], cells = mirrors(m, n, x, y);
+      let bit;
+      if (conf) {
+        let w1 = 0, w0 = 0;
+        for (const [X, Y] of cells) {
+          const cv = conf[Y * n + X];
+          if (cv < 0.15) continue;           // серая клякса — клетка исключается
+          if (g[Y * n + X]) w1 += cv; else w0 += cv;
+        }
+        bit = (w1 === 0 && w0 === 0) ? (g[y * n + x] ? 1 : 0) : (w1 > w0 ? 1 : 0);
+      } else {
+        let ones = 0;
+        for (const [X, Y] of cells) ones += g[Y * n + X] ? 1 : 0;
+        const cnt = cells.length;
+        bit = ones * 2 > cnt ? 1 : (ones * 2 < cnt ? 0 : (g[y * n + x] ? 1 : 0));
+      }
+      v = (v << 1) | bit;
+    }
     by.push(v);
   }
   return bytesToText(by);
 }
-function markCell(g,n,m){const[x,y]=baseCells(m,n)[0];return g[y*n+x]?1:0;}
-function fillChannel(t,n,m,markBit){
-  const g=new Uint8Array(n*n),bc=baseCells(m,n);
-  let seq=textBits(t);
-  if(markBit!=null){const s2=new Uint8Array(seq.length+1);s2[0]=markBit;s2.set(seq,1);seq=s2;}
-  const lim=Math.min(seq.length,bc.length);
-  for(let i=0;i<lim;i++){const[x,y]=bc[i];for(const[X,Y]of mirrors(m,n,x,y))if(seq[i])g[Y*n+X]=1;}
-  return g;
+
+function refsFor(S) {
+  const mix = (r, g, b) => [
+    Math.min(255, (r ? S.r[0] : 0) + (g ? S.g[0] : 0) + (b ? S.b[0] : 0)),
+    Math.min(255, (r ? S.r[1] : 0) + (g ? S.g[1] : 0) + (b ? S.b[1] : 0)),
+    Math.min(255, (r ? S.r[2] : 0) + (g ? S.g[2] : 0) + (b ? S.b[2] : 0))
+  ];
+  return REFBITS.map(c => ({ bits: c, col: mix(c[0], c[1], c[2]) }));
 }
 
-/* ═══ CORE: row-режим ═══ */
-function rowBuild(text,maxB){
-  const chars=[...text],w=maxB*8,h=Math.max(chars.length,1);
-  const g=new Uint8Array(w*h);
-  chars.forEach((c,r)=>{const bs=enc.encode(c);for(let i=0;i<maxB;i++){const v=i<bs.length?bs[i]:0;for(let b=0;b<8;b++)g[r*w+i*8+b]=(v>>(7-b))&1;}});
-  return{g,w,h};
-}
-function rowDecode(g,w,h){
-  if(w%8)return null;const maxB=w/8;if(maxB<1||maxB>4)return null;
-  let out='';
-  for(let r=0;r<h;r++){
-    const bs=[];
-    for(let i=0;i<maxB;i++){let v=0;for(let b=0;b<8;b++)v=(v<<1)|g[r*w+i*8+b];bs.push(v);}
-    while(bs.length&&bs[bs.length-1]===0)bs.pop();
-    if(!bs.length)continue;
-    try{out+=dec.decode(new Uint8Array(bs));}catch{return null;}
-  }
-  return(out&&isClean(out))?out:null;
-}
-
-/* ═══ SCAN: пікселі ═══ */
-function lum(px,p){return(px[p]+px[p+1]+px[p+2])/3;}
-
-function readChan(px,IW,T,pad,n,ci){
-  const g=new Uint8Array(n*n),s=IW/T;
-  for(let y=0;y<n;y++)for(let x=0;x<n;x++){
-    const p=(Math.floor((y+pad+.5)*s)*IW+Math.floor((x+pad+.5)*s))*4;
-    const v=ci<0?lum(px,p):px[p+ci];
-    g[y*n+x]=v>(ci<0?110:RGBTHR)?1:0;
-  }
-  return g;
-}
-function readRow(px,IW,IH,TW,pad,w,h,ci){
-  const g=new Uint8Array(w*h),s=IW/TW;
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-    const p=(Math.floor((y+pad+.5)*s)*IW+Math.floor((x+pad+.5)*s))*4;
-    const v=ci<0?lum(px,p):px[p+ci];
-    g[y*w+x]=v>110?1:0;
-  }
-  return g;
-}
-
-/* ═══ SCAN: визначення розміру клітини ═══ */
-function runsLine(getFn,len){
-  let prev=-1,l=0,R=[];
-  for(let i=0;i<len;i++){const c=getFn(i)>127?1:0;if(c===prev)l++;else{if(prev>=0)R.push(l);prev=c;l=1;}}
-  R.push(l);return R;
-}
-function medianOf(a){const b=[...a].sort((x,y)=>x-y);return b[b.length>>1];}
-
-function rulerEdge(lumFn,W,depth){
-  const rows=[];
-  for(let y=1;y<depth;y++){
-    const rs=runsLine(x=>lumFn(x,y),W);if(rs.length<5)continue;
-    const m=medianOf(rs);if(m<3)continue;
-    let reg=0;for(const r of rs)if(r>=m*0.55&&r<=m*1.45)reg++;
-    const frac=reg/rs.length;const count=rs.length;
-    if(frac>=0.85&&count>=7&&count<=200&&m>=4)rows.push({m,frac,count});
-  }
-  if(rows.length<2)return null;
-  const freq=new Map();for(const r of rows)freq.set(r.count,(freq.get(r.count)||0)+1);
-  let T=null,fb=0;for(const[k,v]of freq)if(v>fb){fb=v;T=k;}
-  return{T,cell:medianOf(rows.filter(r=>r.count===T).map(r=>r.m)),votes:fb};
-}
-
-function findRuler(px,IW,IH){
-  if(IW!==IH)return null;
-  const lumFn=(x,y)=>{const p=(y*IW+x)*4;return(px[p]+px[p+1]+px[p+2])/3;};
-  const depth=Math.max(20,Math.floor(IW*0.22));
-  const edges=[
-    rulerEdge((x,y)=>lumFn(x,y),IW,depth),
-    rulerEdge((x,y)=>lumFn(x,IH-1-y),IW,depth),
-    rulerEdge((x,y)=>lumFn(y,x),IH,depth),
-    rulerEdge((x,y)=>lumFn(IW-1-y,x),IH,depth),
-  ].filter(Boolean);
-  if(!edges.length)return null;
-  const freq=new Map();for(const e of edges)freq.set(e.T,(freq.get(e.T)||0)+e.votes);
-  let T=null,fb=0;for(const[k,v]of freq)if(v>fb){fb=v;T=k;}
-  return{T,cell:medianOf(edges.filter(e=>e.T===T).map(e=>e.cell)),edges:edges.length};
-}
-
-/* ═══ SCAN: декод через лінійку ═══ */
-function decodeByRuler(px,IW,IH,ruler){
-  if(IW!==IH)return[];
-  const T=ruler.T,cell=IW/T;const results=[];
-
-  const sampleChan=(n,pad,ci)=>{
-    const g=new Uint8Array(n*n);
-    for(let y=0;y<n;y++)for(let x=0;x<n;x++){
-      const X=Math.min(IW-1,Math.floor((x+pad+.5)*cell));
-      const Y=Math.min(IH-1,Math.floor((y+pad+.5)*cell));
-      const p=(Y*IW+X)*4;const v=ci<0?lum(px,p):px[p+ci];
-      g[y*n+x]=v>(ci<0?110:RGBTHR)?1:0;
-    }
-    return g;
-  };
-
-  for(let pad=2;pad<=8;pad++){
-    const n=T-2*pad;if(n<MINN||n%2===0)continue;
-    const cl=sampleChan(n,pad,-1),cr=sampleChan(n,pad,0),cg=sampleChan(n,pad,1),cb=sampleChan(n,pad,2);
-    let sameRGB=true;for(let z=0;z<cr.length;z++){if(cr[z]!==cg[z]||cr[z]!==cb[z]){sameRGB=false;break;}}
-
-    for(const m of['oct','quad','half']){
-      const t=decodeSector(cl,n,m,0);
-      if(t!==null){
-        const chk=fillChannel(t,n,m,null);let same=true;
-        for(let z=0;z<n*n&&same;z++)if((chk[z]?1:0)!==cl[z])same=false;
-        if(same)results.push({kind:'one',mode:m,n,pad,res:[t,null,null]});
+function classifyCells(cells, n) {
+  let best = null;
+  for (const [name, S] of [['насичена', RGB_MAIN], ['галерейна', RGB_GAL]]) {
+    const refs = refsFor(S);
+    let err = 0;
+    const cr = new Uint8Array(n * n), cg = new Uint8Array(n * n), cb = new Uint8Array(n * n);
+    for (let i = 0; i < n * n; i++) {
+      const R = cells[i * 3], G = cells[i * 3 + 1], B = cells[i * 3 + 2];
+      let bi = 0, bd = 1e9;
+      for (let k = 0; k < refs.length; k++) {
+        const q = refs[k].col;
+        const dr = R - q[0], dg = G - q[1], db = B - q[2];
+        const dd = dr * dr + dg * dg + db * db;
+        if (dd < bd) { bd = dd; bi = k; }
       }
-      if(!sameRGB){
-        if(markCell(cr,n,m)===1){
-          const rR=decodeSector(cr,n,m,1),rG=decodeSector(cg,n,m,0),rB=decodeSector(cb,n,m,0);
-          if(rR!==null)results.push({kind:'mono',mode:m,n,pad,res:[(rR||'')+(rG||'')+(rB||''),null,null]});
-        }
-        const tr=decodeSector(cr,n,m,0),tg=decodeSector(cg,n,m,0),tb=decodeSector(cb,n,m,0);
-        const cnt=[tr,tg,tb].filter(x=>x!==null).length;
-        if(cnt>=2){
-          const ne=[tr,tg,tb].filter(x=>x!==null);
-          if(!ne.every(x=>x===ne[0]))results.push({kind:'three',mode:m,n,pad,res:[tr,tg,tb]});
-        }
-      }
+      err += bd;
+      const t = refs[bi].bits;
+      cr[i] = t[0]; cg[i] = t[1]; cb[i] = t[2];
+    }
+    if (!best || err < best.err) best = { name, err, cr, cg, cb };
+  }
+  return best;
+}
+
+/**
+ * Декод снятых клеток.
+ * @param cells Float64Array длиной n*n*3 — средний RGB каждой клетки
+ * @param Tz    размер кольца зебры (Tz = T - 2)
+ */
+function decodeCells(cells, Tz) {
+  const n = Tz - 2;
+  if (n < 5 || n % 2 === 0) return null;
+  const N = n * n;
+
+  const L = new Float64Array(N);
+  let lmin = 1e9, lmax = -1e9;
+  for (let i = 0; i < N; i++) {
+    const v = (cells[i*3] + cells[i*3+1] + cells[i*3+2]) / 3;
+    L[i] = v; if (v < lmin) lmin = v; if (v > lmax) lmax = v;
+  }
+  const thr = (lmin + lmax) / 2;
+  const gl = new Uint8Array(N), confM = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    gl[i] = L[i] > thr ? 1 : 0;
+    confM[i] = Math.min(1, Math.abs(L[i] - thr) / (thr / 2 + 1));
+  }
+
+  const sats = new Float64Array(N);
+  let coloredCnt = 0;
+  for (let i = 0; i < N; i++) {
+    const r = cells[i*3], g = cells[i*3+1], b = cells[i*3+2];
+    sats[i] = Math.max(r, g, b) - Math.min(r, g, b);
+    if (sats[i] > 60) coloredCnt++;
+  }
+  const sorted = Array.from(sats).sort((a, b) => a - b);
+  const medSat = sorted[N >> 1];
+  const isColored = medSat > 25 || coloredCnt >= Math.max(3, n * 0.15);
+
+  if (!isColored) {
+    let best = null;
+    for (const m of MODES) {
+      const txt = decodeVoted(gl, n, m, 0, confM);
+      if (txt === null) continue;
+      const a = agreeOf(gl, fillChannel(txt, n, m, null), n);
+      if (!best || a > best.agree) best = { text: txt, agree: a, mode: m };
+    }
+    if (!best) return { kind: 'mono', text: null, agree: 0, n, colored: false };
+    return { kind: 'mono', text: best.text, parts: [best.text], agree: best.agree,
+             mode: best.mode, n, colored: false, palette: null };
+  }
+
+  const cls = classifyCells(cells, n);
+  const cR = new Float64Array(N), cG = new Float64Array(N), cB = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    cR[i] = Math.min(1, Math.abs(cells[i*3]   - 128) / 90);
+    cG[i] = Math.min(1, Math.abs(cells[i*3+1] - 128) / 90);
+    cB[i] = Math.min(1, Math.abs(cells[i*3+2] - 128) / 90);
+  }
+
+  let best = null;
+  for (const m of MODES) {
+    const rmark = markCell(cls.cr, n, m);
+    let vr = decodeVoted(cls.cr, n, m, rmark ? 1 : 0, cR);
+    if (rmark && vr === null) vr = decodeVoted(cls.cr, n, m, 0, cR);
+    const vg = decodeVoted(cls.cg, n, m, 0, cG);
+    const vb = decodeVoted(cls.cb, n, m, 0, cB);
+    const nn = [vr, vg, vb].filter(t => t !== null);
+    if (!nn.length) continue;
+    const sc = nn.length * 1000 + nn.reduce((a, t) => a + t.length, 0);
+    if (!best || sc > best.sc) best = { vr, vg, vb, sc, m, rmark };
+  }
+  if (!best) return { kind: 'color', text: null, agree: 0, n, colored: true, palette: cls.name };
+
+  /* обратная сверка по каждому непустому каналу */
+  const ags = [];
+  const chans = [[best.vr, cls.cr, true], [best.vg, cls.cg, false], [best.vb, cls.cb, false]];
+  for (const [txt, ch, isR] of chans) {
+    if (txt === null) continue;
+    const chk = fillChannel(txt, n, best.m, isR ? best.rmark : null);
+    ags.push(agreeOf(ch, chk, n));
+  }
+  const agree = ags.length ? ags.reduce((a, b) => a + b, 0) / ags.length : 0;
+
+  const parts = [best.vr, best.vg, best.vb].filter(t => t !== null);
+  const text = best.rmark
+    ? (parts.every(t => t === parts[0]) ? parts[0] : parts.join(''))
+    : parts.join(' · ');
+
+  return { kind: best.rmark ? 'monolith' : 'three', text, parts, agree,
+           mode: best.m, n, colored: true, palette: cls.name, rmark: best.rmark,
+           channels: [best.vr, best.vg, best.vb] };
+}
+
+/* ═════════════════════ ЧАСТЬ 2. ГЕОМЕТРИЯ ═════════════════════
+   Гомография своя, чистый JS — чтобы выборка пикселей всегда шла
+   из оригинального кадра, без промежуточных canvas и пересэмплингов.
+   ══════════════════════════════════════════════════════════════ */
+
+function gaussElim(A, b) {
+  const n = b.length, M = A.map((r, i) => [...r, b[i]]);
+  for (let c = 0; c < n; c++) {
+    let mr = c, mv = Math.abs(M[c][c]);
+    for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > mv) { mv = Math.abs(M[r][c]); mr = r; }
+    [M[c], M[mr]] = [M[mr], M[c]];
+    const pv = M[c][c];
+    if (Math.abs(pv) < 1e-12) return null;
+    for (let r = c + 1; r < n; r++) {
+      const f = M[r][c] / pv;
+      for (let j = c; j <= n; j++) M[r][j] -= f * M[c][j];
     }
   }
-  return dedup(results);
-}
-
-/* ═══ SCAN: базовий pixel-scan ═══ */
-function scanImage(px,IW,IH){
-  const runs=[];
-  for(const f of[.15,.25,.35,.5,.65,.75,.85]){
-    const y=Math.floor(IH*f);let prev=-1,len2=0;
-    for(let x=0;x<IW;x++){const cc=lum(px,(y*IW+x)*4)>127?1:0;if(cc===prev)len2++;else{if(prev>=0&&x>1&&x<IW-1)runs.push(len2);prev=cc;len2=1;}}
-    const x0=Math.floor(IW*f);prev=-1;len2=0;
-    for(let y2=0;y2<IH;y2++){const cc=lum(px,(y2*IW+x0)*4)>127?1:0;if(cc===prev)len2++;else{if(prev>=0&&y2>1&&y2<IH-1)runs.push(len2);prev=cc;len2=1;}}
+  const x = new Array(n).fill(0);
+  for (let i = n - 1; i >= 0; i--) {
+    x[i] = M[i][n];
+    for (let j = i + 1; j < n; j++) x[i] -= M[i][j] * x[j];
+    x[i] /= M[i][i];
   }
-  if(!runs.length)return[];
-  const freq=new Map();for(const r of runs)if(r>0)freq.set(r,(freq.get(r)||0)+1);
-  const sorted=[...freq.entries()].sort((a,b)=>b[1]-a[1]);
-  const cands=new Set();
-  for(let i=0;i<Math.min(4,sorted.length);i++)cands.add(sorted[i][0]);
-  cands.add(Math.min(...runs));
+  return x;
+}
 
-  const Tset=new Set();
-  for(const mm of cands){
-    if(mm<2)continue;
-    for(const k of[1,2,.5]){const ms=Math.round(mm*k);if(ms>0&&IW%ms===0){const T=IW/ms;if(T>=MINN&&T<=200)Tset.add(T);}}
-    for(const k of[1,2,.5]){const cell=mm*k;if(cell>=2){const Tc=IW/cell;for(const Tr of[Math.round(Tc),Math.floor(Tc),Math.ceil(Tc)]){if(Tr>=MINN&&Tr<=200)Tset.add(Tr);}}}
+function computeH(s4, d4) {
+  const rows = [], rhs = [];
+  for (let i = 0; i < 4; i++) {
+    const sx = s4[i][0], sy = s4[i][1], dx = d4[i][0], dy = d4[i][1];
+    rows.push([sx, sy, 1, 0, 0, 0, -sx * dx, -sy * dx]); rhs.push(dx);
+    rows.push([0, 0, 0, sx, sy, 1, -sx * dy, -sy * dy]); rhs.push(dy);
   }
-
-  const results=[];
-  if(IW===IH)for(const T of Tset){
-    for(let pad=0;pad<=8;pad++){
-      const n=T-2*pad;if(n<MINN||n%2===0)continue;
-      const cr=readChan(px,IW,T,pad,n,0),cg=readChan(px,IW,T,pad,n,1),cb=readChan(px,IW,T,pad,n,2);
-      const cl=readChan(px,IW,T,pad,n,-1);
-      let sameRGB=true;for(let z=0;z<cr.length;z++){if(cr[z]!==cg[z]||cr[z]!==cb[z]){sameRGB=false;break;}}
-
-      for(const m of['oct','quad','half']){
-        {const t=decodeSector(cl,n,m,0);
-         if(t!==null){const chk=fillChannel(t,n,m,null);let same=true;for(let z=0;z<n*n&&same;z++)if((chk[z]?1:0)!==cl[z])same=false;if(same)results.push({kind:'one',mode:m,n,pad,res:[t,null,null]});}}
-        if(!sameRGB){
-          if(markCell(cr,n,m)===1){const rR=decodeSector(cr,n,m,1),rG=decodeSector(cg,n,m,0),rB=decodeSector(cb,n,m,0);if(rR!==null)results.push({kind:'mono',mode:m,n,pad,res:[(rR||'')+(rG||'')+(rB||''),null,null]});}
-          const tr=decodeSector(cr,n,m,0),tg=decodeSector(cg,n,m,0),tb=decodeSector(cb,n,m,0);
-          const cnt=[tr,tg,tb].filter(x=>x!==null).length;
-          if(cnt>=2){const ne=[tr,tg,tb].filter(x=>x!==null);if(!ne.every(x=>x===ne[0]))results.push({kind:'three',mode:m,n,pad,res:[tr,tg,tb]});}
-        }
-      }
-    }
-  }
-
-  for(let pad=0;pad<=8;pad++)for(const w of[8,16,24,32]){
-    const TW=w+pad*2;if(IW%TW)continue;
-    const cell=IW/TW;if(IH%cell)continue;
-    const TH=IH/cell,h=TH-pad*2;if(h<1||h>250)continue;
-    const g=readRow(px,IW,IH,TW,pad,w,h,-1);const t=rowDecode(g,w,h);if(t===null)continue;
-    let mb=1;for(const c of t){const k=enc.encode(c).length;if(k>mb)mb=k;}
-    if(mb*8!==w)continue;
-    const r=rowBuild(t,mb);if(r.w!==w||r.h!==h)continue;
-    let same=true;for(let i=0;i<w*h&&same;i++)if((r.g[i]?1:0)!==(g[i]?1:0))same=false;
-    if(same)results.push({kind:'one',mode:'row',n:w,pad,res:[t,null,null]});
-  }
-
-  return sortResults(dedup(results));
+  const h = gaussElim(rows, rhs);
+  if (!h) return null;
+  return [[h[0], h[1], h[2]], [h[3], h[4], h[5]], [h[6], h[7], 1]];
 }
 
-/* ═══ ЛОКАЛІЗАЦІЯ: знайти код серед сцени ═══ */
-function findCodeBox(px,IW,IH){
-  const GX=120,GY=Math.max(20,Math.round(120*IH/IW));
-  const cw=IW/GX,ch=IH/GY;
-  const avg=new Float64Array(GX*GY*3);
-  for(let gy=0;gy<GY;gy++)for(let gx=0;gx<GX;gx++){
-    let r=0,g=0,b=0,cnt=0;
-    const x0=Math.floor(gx*cw),x1=Math.floor((gx+1)*cw),y0=Math.floor(gy*ch),y1=Math.floor((gy+1)*ch);
-    for(let y=y0;y<y1;y+=2)for(let x=x0;x<x1;x+=2){const p=(y*IW+x)*4;r+=px[p];g+=px[p+1];b+=px[p+2];cnt++;}
-    const i=(gy*GX+gx)*3;avg[i]=r/(cnt||1);avg[i+1]=g/(cnt||1);avg[i+2]=b/(cnt||1);
-  }
-  const edge=[];
-  for(let gx=0;gx<GX;gx++){edge.push([gx,0]);edge.push([gx,GY-1]);}
-  for(let gy=0;gy<GY;gy++){edge.push([0,gy]);edge.push([GX-1,gy]);}
-  const compMed=k=>{const a=edge.map(([gx,gy])=>avg[(gy*GX+gx)*3+k]).sort((x,y)=>x-y);return a[a.length>>1];};
-  const bg=[compMed(0),compMed(1),compMed(2)];
-  const fg=new Uint8Array(GX*GY);
-  for(let i=0;i<GX*GY;i++){const dr=avg[i*3]-bg[0],dg=avg[i*3+1]-bg[1],db=avg[i*3+2]-bg[2];if(Math.sqrt(dr*dr+dg*dg+db*db)>55)fg[i]=1;}
-  const lab=new Int32Array(GX*GY);let cur=0,best=0,bestBox=null;const stack=[];
-  for(let s=0;s<GX*GY;s++){
-    if(!fg[s]||lab[s])continue;cur++;let cnt=0,minx=GX,miny=GY,maxx=0,maxy=0;
-    stack.push(s);lab[s]=cur;
-    while(stack.length){const p=stack.pop();const gx=p%GX,gy=(p/GX)|0;cnt++;
-      if(gx<minx)minx=gx;if(gx>maxx)maxx=gx;if(gy<miny)miny=gy;if(gy>maxy)maxy=gy;
-      const gxs=[gx-1,gx+1,gx,gx],gys=[gy,gy,gy-1,gy+1];
-      for(let k=0;k<4;k++){const nx=gxs[k],ny=gys[k];if(nx<0||ny<0||nx>=GX||ny>=GY)continue;const q=ny*GX+nx;if(fg[q]&&!lab[q]){lab[q]=cur;stack.push(q);}}}
-    if(cnt>best){best=cnt;bestBox=[minx,miny,maxx,maxy];}
-  }
-  if(!bestBox)return null;
-  let x0=Math.floor(bestBox[0]*cw),y0=Math.floor(bestBox[1]*ch),x1=Math.ceil((bestBox[2]+1)*cw),y1=Math.ceil((bestBox[3]+1)*ch);
-  const padX=cw*0.5,padY=ch*0.5;
-  x0=Math.max(0,Math.floor(x0-padX));y0=Math.max(0,Math.floor(y0-padY));
-  x1=Math.min(IW,Math.ceil(x1+padX));y1=Math.min(IH,Math.ceil(y1+padY));
-  return{x0,y0,w:x1-x0,h:y1-y0};
+function applyH(H, x, y) {
+  const w = H[2][0] * x + H[2][1] * y + H[2][2];
+  return [(H[0][0] * x + H[0][1] * y + H[0][2]) / w,
+          (H[1][0] * x + H[1][1] * y + H[1][2]) / w];
 }
 
-function cropPx(px,IW,IH,box){
-  const{x0,y0,w,h}=box;const out=new Uint8ClampedArray(w*h*4);
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-    const src=((y0+y)*IW+(x0+x))*4,dst=(y*w+x)*4;
-    out[dst]=px[src];out[dst+1]=px[src+1];out[dst+2]=px[src+2];out[dst+3]=255;
-  }
-  return out;
-}
-
-/* ═══ ЛОКАЛІЗАЦІЯ: кути по градієнту ═══ */
-function gradCorners(px,IW,IH,G){
-  const lumFn=p=>(px[p*4]+px[p*4+1]+px[p*4+2])/3;
-  const cw=IW/G,ch=IH/G;const gr=new Float64Array(G*G);
-  for(let gy=0;gy<G;gy++)for(let gx=0;gx<G;gx++){
-    let s=0,c=0;
-    const x0=Math.floor(gx*cw),x1=Math.floor((gx+1)*cw),y0=Math.floor(gy*ch),y1=Math.floor((gy+1)*ch);
-    for(let y=y0+1;y<y1-1;y+=2)for(let x=x0+1;x<x1-1;x+=2){
-      const gxv=Math.abs(lumFn(y*IW+x+1)-lumFn(y*IW+x-1)),gyv=Math.abs(lumFn((y+1)*IW+x)-lumFn((y-1)*IW+x));
-      s+=gxv+gyv;c++;
-    }
-    gr[gy*G+gx]=c?s/c:0;
-  }
-  const mx=Math.max(...gr),thr=mx*0.18;
-  const fg=gr.map(v=>v>=thr?1:0);
-  const dil=new Uint8Array(G*G);
-  for(let gy=0;gy<G;gy++)for(let gx=0;gx<G;gx++){
-    let any=0;
-    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const nx=gx+dx,ny=gy+dy;if(nx>=0&&ny>=0&&nx<G&&ny<G&&fg[ny*G+nx])any=1;}
-    dil[gy*G+gx]=any;
-  }
-  const lab=new Int32Array(G*G);let cur=0,best=0,bestPts=null;const st=[];
-  for(let s=0;s<G*G;s++){
-    if(!dil[s]||lab[s])continue;cur++;const pts=[];st.push(s);lab[s]=cur;
-    while(st.length){const p=st.pop();pts.push(p);const gx=p%G,gy=(p/G)|0;
-      for(const[nx,ny]of[[gx-1,gy],[gx+1,gy],[gx,gy-1],[gx,gy+1]]){
-        if(nx<0||ny<0||nx>=G||ny>=G)continue;const q=ny*G+nx;if(dil[q]&&!lab[q]){lab[q]=cur;st.push(q);}}}
-    if(pts.length>best){best=pts.length;bestPts=pts;}
-  }
-  if(!bestPts||best<8)return null;
-  let TL,TR,BR,BL;
-  for(const p of bestPts){const gx=p%G,gy=(p/G)|0;const X=(gx+0.5)*cw,Y=(gy+0.5)*ch;const s=X+Y,d=X-Y;
-    if(!TL||s<TL.s)TL={X,Y,s};if(!BR||s>BR.s)BR={X,Y,s};if(!TR||d>TR.d)TR={X,Y,d};if(!BL||d<BL.d)BL={X,Y,d};}
-  const dd=(a,b)=>Math.hypot(a.X-b.X,a.Y-b.Y);
-  const side=(dd(TL,TR)+dd(TR,BR)+dd(BR,BL)+dd(BL,TL))/4;
-  return{TL:[TL.X,TL.Y],TR:[TR.X,TR.Y],BR:[BR.X,BR.Y],BL:[BL.X,BL.Y],side};
-}
-
-/* ═══ ЛОКАЛІЗАЦІЯ: deskew ═══ */
-function gaussElim(A,b){
-  const n=b.length,M=A.map((r,i)=>[...r,b[i]]);
-  for(let c=0;c<n;c++){let mr=c,mv=Math.abs(M[c][c]);for(let r=c+1;r<n;r++)if(Math.abs(M[r][c])>mv){mv=Math.abs(M[r][c]);mr=r;}[M[c],M[mr]]=[M[mr],M[c]];const pv=M[c][c];if(Math.abs(pv)<1e-12)return null;for(let r=c+1;r<n;r++){const f=M[r][c]/pv;for(let j=c;j<=n;j++)M[r][j]-=f*M[c][j];}}
-  const x=new Array(n).fill(0);for(let i=n-1;i>=0;i--){x[i]=M[i][n];for(let j=i+1;j<n;j++)x[i]-=M[i][j]*x[j];x[i]/=M[i][i];}return x;
-}
-function computeH(s4,d4){
-  const rows=[],rhs=[];
-  for(let i=0;i<4;i++){const sx=s4[i].x,sy=s4[i].y,dx=d4[i].x,dy=d4[i].y;rows.push([sx,sy,1,0,0,0,-sx*dx,-sy*dx]);rhs.push(dx);rows.push([0,0,0,sx,sy,1,-sx*dy,-sy*dy]);rhs.push(dy);}
-  const h=gaussElim(rows,rhs);if(!h)return null;return[[h[0],h[1],h[2]],[h[3],h[4],h[5]],[h[6],h[7],1]];
-}
-function inv3(M){
-  const[[a,b,c],[d,e,f],[g,h,k]]=M;const dt=a*(e*k-f*h)-b*(d*k-f*g)+c*(d*h-e*g);
-  if(Math.abs(dt)<1e-12)return null;
-  return[[(e*k-f*h)/dt,(c*h-b*k)/dt,(b*f-c*e)/dt],[(f*g-d*k)/dt,(a*k-c*g)/dt,(c*d-a*f)/dt],[(d*h-e*g)/dt,(b*g-a*h)/dt,(a*e-b*d)/dt]];
-}
-function deskew(px,IW,IH,corners,N){
-  const{TL,TR,BR,BL}=corners;
-  const x0=TL[0],y0=TL[1],x1=TR[0],y1=TR[1],x2=BR[0],y2=BR[1],x3=BL[0],y3=BL[1];
-  const dx1=x1-x2,dx2=x3-x2,dx3=x0-x1+x2-x3,dy1=y1-y2,dy2=y3-y2,dy3=y0-y1+y2-y3;
-  let a,b,cc,d,e,f,gg,hh;
-  if(Math.abs(dx3)<1e-9&&Math.abs(dy3)<1e-9){a=x1-x0;b=x3-x0;cc=x0;d=y1-y0;e=y3-y0;f=y0;gg=0;hh=0;}
-  else{const den=dx1*dy2-dx2*dy1;gg=(dx3*dy2-dx2*dy3)/den;hh=(dx1*dy3-dx3*dy1)/den;a=x1-x0+gg*x1;b=x3-x0+hh*x3;cc=x0;d=y1-y0+gg*y1;e=y3-y0+hh*y3;f=y0;}
-  const samp=(x,y,ch)=>{
-    const xi=Math.max(0,Math.min(IW-1,Math.floor(x))),yi=Math.max(0,Math.min(IH-1,Math.floor(y)));
-    const xfr=Math.max(0,Math.min(1,x-xi)),yfr=Math.max(0,Math.min(1,y-yi));
-    const x1_=Math.min(IW-1,xi+1),y1_=Math.min(IH-1,yi+1);
-    const A=px[(yi*IW+xi)*4+ch],B=px[(yi*IW+x1_)*4+ch],D=px[(y1_*IW+xi)*4+ch],E=px[(y1_*IW+x1_)*4+ch];
-    return A*(1-xfr)*(1-yfr)+B*xfr*(1-yfr)+D*(1-xfr)*yfr+E*xfr*yfr;
-  };
-  const out=new Uint8ClampedArray(N*N*4);
-  for(let j=0;j<N;j++)for(let i=0;i<N;i++){
-    const u=i/(N-1),v=j/(N-1);const den=gg*u+hh*v+1;
-    const x=(a*u+b*v+cc)/den,y=(d*u+e*v+f)/den;const dst=(j*N+i)*4;
-    out[dst]=samp(x,y,0);out[dst+1]=samp(x,y,1);out[dst+2]=samp(x,y,2);out[dst+3]=255;
-  }
-  return out;
-}
-
-/* ═══ ЛОКАЛІЗАЦІЯ: findOrnament (activity scan) ═══ */
-function findOrnament(px,IW,IH){
-  const lumFn=p=>(px[p]+px[p+1]+px[p+2])/3;
-  const rowAct=new Array(IH).fill(0),colAct=new Array(IW).fill(0);
-  for(let y=0;y<IH;y++){let prev=-1,tr=0;for(let x=0;x<IW;x+=2){const cc=lumFn((y*IW+x)*4)>127?1:0;if(cc!==prev){tr++;prev=cc;}}rowAct[y]=tr;}
-  for(let x=0;x<IW;x++){let prev=-1,tr=0;for(let y=0;y<IH;y+=2){const cc=lumFn((y*IW+x)*4)>127?1:0;if(cc!==prev){tr++;prev=cc;}}colAct[x]=tr;}
-  const maxRow=Math.max(...rowAct),maxCol=Math.max(...colAct);
-  const rowThr=Math.max(4,maxRow*0.25),colThr=Math.max(4,maxCol*0.25);
-  function longestBlock(act,thr){
-    let bestS=0,bestE=-1,curS=-1,gap=0;const maxGap=Math.max(8,act.length*0.03);
-    for(let i=0;i<act.length;i++){if(act[i]>=thr){if(curS<0)curS=i;gap=0;if(i-curS>bestE-bestS){bestS=curS;bestE=i;}}else{if(curS>=0){gap++;if(gap>maxGap){curS=-1;gap=0;}}}}
-    return[bestS,bestE];
-  }
-  let[y0,y1]=longestBlock(rowAct,rowThr),[x0,x1]=longestBlock(colAct,colThr);
-  if(y1<=y0||x1<=x0)return null;
-  const side=Math.max(x1-x0,y1-y0),cx=(x0+x1)/2,cy=(y0+y1)/2;
-  let nx0=Math.max(0,Math.round(cx-side/2)),ny0=Math.max(0,Math.round(cy-side/2));
-  let nx1=Math.min(IW,nx0+side),ny1=Math.min(IH,ny0+side);
-  const cropW=nx1-nx0,cropH=ny1-ny0;
-  if(cropW<20||cropH<20)return null;
-  return{x0:nx0,y0:ny0,w:cropW,h:cropH};
-}
-
-/* ═══ БУФЕР ═══ */
-function buildBuffer(img){
-  const AS=Math.max(512,Math.min(1200,Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height)));
-  const cc=document.createElement('canvas');cc.width=AS;cc.height=AS;
-  const g=cc.getContext('2d',{willReadFrequently:true});
-  const tmp=document.createElement('canvas');tmp.width=img.naturalWidth||img.width;tmp.height=img.naturalHeight||img.height;
-  const tg=tmp.getContext('2d',{willReadFrequently:true});tg.drawImage(img,0,0);
-  const cp=tg.getImageData(0,0,1,1).data;
-  g.fillStyle='rgb('+cp[0]+','+cp[1]+','+cp[2]+')';g.fillRect(0,0,AS,AS);
-  const scale=Math.min(AS/(img.naturalWidth||img.width),AS/(img.naturalHeight||img.height));
-  const w=(img.naturalWidth||img.width)*scale,h=(img.naturalHeight||img.height)*scale;
-  g.imageSmoothingEnabled=true;g.drawImage(img,(AS-w)/2,(AS-h)/2,w,h);
-  return{px:g.getImageData(0,0,AS,AS).data,IW:AS,IH:AS};
-}
-
-/* ВИПРАВЛЕНО: Тепер зберігає пропорції (не розтягує прямокутний кадр камери) */
-function buildBufferFromCanvas(canvas){
-  const AS=Math.max(512,Math.min(1000,Math.max(canvas.width,canvas.height)));
-  const cc=document.createElement('canvas');cc.width=AS;cc.height=AS;
-  const g=cc.getContext('2d',{willReadFrequently:true});
-  const tmp=document.createElement('canvas');tmp.width=canvas.width;tmp.height=canvas.height;
-  const tg=tmp.getContext('2d',{willReadFrequently:true});tg.drawImage(canvas,0,0);
-  const cp=tg.getImageData(0,0,1,1).data;
-  g.fillStyle='rgb('+cp[0]+','+cp[1]+','+cp[2]+')';g.fillRect(0,0,AS,AS);
-  const scale=Math.min(AS/canvas.width,AS/canvas.height);
-  const w=canvas.width*scale,h=canvas.height*scale;
-  g.imageSmoothingEnabled=true;g.drawImage(canvas,(AS-w)/2,(AS-h)/2,w,h);
-  return{px:g.getImageData(0,0,AS,AS).data,IW:AS,IH:AS};
-}
-
-/* ═══ УТИЛІТИ ═══ */
-function dedup(results){
-  const seen=new Set(),uniq=[];
-  for(const r of results){const key=(r.kind||'')+'|'+r.res.join('\u0001');if(!seen.has(key)){seen.add(key);uniq.push(r);}}
-  return uniq;
-}
-function sortResults(results){
-  return results.sort((a,b)=>{
-    const al=a.res.filter(x=>x).join('').length,bl=b.res.filter(x=>x).join('').length;
-    if(al!==bl)return bl-al;
-    if(a.kind==='three'&&b.kind==='three'){const ax=a.res.filter(x=>x).length,bx=b.res.filter(x=>x).length;if(ax!==bx)return bx-ax;}
-    return(a.n||0)-(b.n||0);
+/** Порядок углов: TL, TR, BR, BL */
+function orderCorners(pts) {
+  const cx = (pts[0][0] + pts[1][0] + pts[2][0] + pts[3][0]) / 4;
+  const cy = (pts[0][1] + pts[1][1] + pts[2][1] + pts[3][1]) / 4;
+  const withA = pts.map(p => ({ p, a: Math.atan2(p[1] - cy, p[0] - cx) }));
+  withA.sort((u, v) => u.a - v.a);
+  let s = 0, bd = Infinity;
+  withA.forEach((u, i) => {
+    let d = Math.abs(u.a - (-3 * Math.PI / 4));
+    if (d > Math.PI) d = 2 * Math.PI - d;
+    if (d < bd) { bd = d; s = i; }
   });
+  const out = [];
+  for (let i = 0; i < 4; i++) out.push(withA[(s + i) % 4].p);
+  return out;
 }
 
-function collect(all,px,IW,IH){
-  try{const ru=findRuler(px,IW,IH);if(ru){const rr=decodeByRuler(px,IW,IH,ru);if(rr.length)all.push(...rr);}}catch(e){}
-  try{const f=scanImage(px,IW,IH);if(f.length)all.push(...f);}catch(e){}
-}
-function hasSolid(all){return all.some(r=>r.kind==='one'||r.kind==='three'||r.kind==='mono');}
-
-
-/* ═══════════════════════════════════════════════════════════════
-   ZEBRA V9 SCANNER CORE (OpenCV)
-   ═══════════════════════════════════════════════════════════════ */
-const CROP_SIZE = 500;
-const CROP_MARGIN = 35;
-
-function orderCorners(pts){
-  const cx=pts.reduce((s,p)=>s+p.x,0)/4;
-  const cy=pts.reduce((s,p)=>s+p.y,0)/4;
-  const withAngle=pts.map(p=>({...p,a:Math.atan2(p.y-cy,p.x-cx)}));
-  withAngle.sort((a,b)=>a.a-b.a);
-  let startIdx=0,bestD=Infinity;
-  withAngle.forEach((p,i)=>{let d=Math.abs(p.a-(-3*Math.PI/4));if(d>Math.PI)d=2*Math.PI-d;if(d<bestD){bestD=d;startIdx=i;}});
-  const out=[];
-  for(let i=0;i<4;i++)out.push(withAngle[(startIdx+i)%4]);
-  return out.map(p=>({x:p.x,y:p.y}));
-}
-function squareness(p){
-  const d=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-  const sides=[d(p[0],p[1]),d(p[1],p[2]),d(p[2],p[3]),d(p[3],p[0])];
-  const mn=Math.min(...sides),mx=Math.max(...sides);
-  if(mx===0)return 0;
-  const d1=d(p[0],p[2]),d2=d(p[1],p[3]);
-  return (mn/mx)*(Math.min(d1,d2)/Math.max(d1,d2));
-}
-function readRing(px,inset,SZ){
-  const a=inset,b=SZ-1-inset;
-  if(b-a<40)return null;
-  const top=[],bottom=[],left=[],right=[];
-  for(let x=a;x<=b;x++){top.push(px(x,a));bottom.push(px(x,b));}
-  for(let y=a;y<=b;y++){left.push(px(a,y));right.push(px(b,y));}
-  const sides=[top,bottom,left,right];
-  let alt=0,tot=0;
-  for(const s of sides)for(let i=0;i<s.length-1;i++){if(s[i]!==s[i+1])alt++;tot++;}
-  const altRatio=tot?alt/tot:0;
-  let dark=0,cnt=0;
-  for(const s of sides)for(const v of s){dark+=v;cnt++;}
-  const darkRatio=cnt?dark/cnt:0;
-  const balance=1-Math.abs(darkRatio-0.5)*2;
-  function countCells(arr){const runs=[];let cur=arr[0],c2=1;for(let i=1;i<arr.length;i++){if(arr[i]===cur)c2++;else{runs.push(c2);cur=arr[i];c2=1;}}runs.push(c2);if(runs.length<5)return null;const inner=runs.slice(1,-1).filter(r=>r>=1);if(inner.length<3)return null;const sorted=[...inner].sort((a,b)=>a-b);const unit=sorted[Math.floor(sorted.length/2)];if(unit<2)return null;return Math.round(arr.length/unit);}
-  const counts=sides.map(s=>countCells(s)).filter(c=>c);
-  if(counts.length<4)return null;
-  const mn=Math.min(...counts),mx=Math.max(...counts);
-  const agr=mx>0?mn/mx:0;
-  const totalCells=Math.round(counts.reduce((x,y)=>x+y,0)/counts.length);
-  const cornersDark=[px(a+2,a+2),px(b-2,a+2),px(b-2,b-2),px(a+2,b-2)].reduce((s,v)=>s+v,0)/4;
-  if(totalCells<6||totalCells>120)return null;
-  return{score:altRatio*0.35+balance*0.2+agr*0.25+cornersDark*0.2,totalCells};
-}
-function analyseQuad(gray,pts){
-  const SZ=CROP_SIZE;
-  let srcTri,dstTri,M,warped,wbin;
-  try{
-    srcTri=cv.matFromArray(4,1,cv.CV_32FC2,[pts[0].x,pts[0].y,pts[1].x,pts[1].y,pts[2].x,pts[2].y,pts[3].x,pts[3].y]);
-    dstTri=cv.matFromArray(4,1,cv.CV_32FC2,[0,0,SZ,0,SZ,SZ,0,SZ]);
-    M=cv.getPerspectiveTransform(srcTri,dstTri);
-    warped=new cv.Mat();
-    cv.warpPerspective(gray,warped,M,new cv.Size(SZ,SZ),cv.INTER_LINEAR,cv.BORDER_CONSTANT,new cv.Scalar(127));
-    wbin=new cv.Mat();
-    cv.threshold(warped,wbin,0,255,cv.THRESH_BINARY_INV|cv.THRESH_OTSU);
-    const d=wbin.data;
-    const px=(x,y)=>{x=Math.round(x);y=Math.round(y);if(x<0||x>=SZ||y<0||y>=SZ)return 0;return d[y*SZ+x]>0?1:0;};
-    let bestRing=null;
-    for(const inset of[2,4,6,9,12,16,22,30]){const ring=readRing(px,inset,SZ);if(!ring)continue;if(!bestRing||ring.score>bestRing.score)bestRing={...ring,inset};}
-    if(!bestRing)return null;
-    return{score:bestRing.score,totalCells:bestRing.totalCells,gridN:Math.max(1,bestRing.totalCells-2)};
-  }catch(e){return null;}
-  finally{[srcTri,dstTri,M,warped,wbin].forEach(m=>{try{if(m)m.delete();}catch(e){}});}
+function squareness(p) {
+  const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const sides = [d(p[0],p[1]), d(p[1],p[2]), d(p[2],p[3]), d(p[3],p[0])];
+  const mn = Math.min(...sides), mx = Math.max(...sides);
+  if (mx === 0) return 0;
+  const d1 = d(p[0], p[2]), d2 = d(p[1], p[3]);
+  return (mn / mx) * (Math.min(d1, d2) / Math.max(d1, d2));
 }
 
-function scannerLocate(srcCanvas,quiet){
-  if(!window.cv || !window.cv.Mat) return null;
-  let src,gray,blur,bin,contours,hier;
-  const mats=[];
-  try{
-    src=cv.imread(srcCanvas);mats.push(src);
-    const W=src.cols,H=src.rows;
-    gray=new cv.Mat();mats.push(gray);
-    cv.cvtColor(src,gray,cv.COLOR_RGBA2GRAY);
-    blur=new cv.Mat();mats.push(blur);
-    cv.GaussianBlur(gray,blur,new cv.Size(5,5),0);
-    bin=new cv.Mat();mats.push(bin);
-    const blockSize=(Math.floor(Math.min(W,H)/20)*2+1);
-    cv.adaptiveThreshold(blur,bin,255,cv.ADAPTIVE_THRESH_MEAN_C,cv.THRESH_BINARY_INV,Math.max(11,Math.min(151,blockSize)),7);
-    contours=new cv.MatVector();mats.push(contours);
-    hier=new cv.Mat();mats.push(hier);
-    cv.findContours(bin,contours,hier,cv.RETR_LIST,cv.CHAIN_APPROX_SIMPLE);
+function meanSide(p) {
+  const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  return (d(p[0],p[1]) + d(p[1],p[2]) + d(p[2],p[3]) + d(p[3],p[0])) / 4;
+}
 
-    const minArea=W*H*0.004,maxArea=W*H*0.98;
-    const quads=[];
-    for(let i=0;i<contours.size();i++){
-      const cnt=contours.get(i);
-      const area=cv.contourArea(cnt);
-      if(area<minArea||area>maxArea){cnt.delete();continue;}
-      const peri=cv.arcLength(cnt,true);
-      const approx=new cv.Mat();
-      cv.approxPolyDP(cnt,approx,0.04*peri,true);
-      if(approx.rows===4&&cv.isContourConvex(approx)){
-        const pts=[];
-        for(let p=0;p<4;p++)pts.push({x:approx.data32S[p*2],y:approx.data32S[p*2+1]});
-        const ord=orderCorners(pts);
-        if(squareness(ord)>0.55)quads.push({pts:ord,area});
+/**
+ * Сжать (k>0) или расширить (k<0) квадрат на k модулей — через ту же гомографию.
+ * Работает в координатах ОРИГИНАЛЬНОГО кадра: никакой обрезки готового warp-а.
+ */
+function insetCorners(pts, kMod, Tz, S) {
+  S = S || 1000;
+  const dst = [[0,0],[S,0],[S,S],[0,S]];
+  const H = computeH(dst, pts);      // warp-квадрат → оригинал
+  if (!H) return null;
+  const d = kMod * (S / Tz);
+  const box = [[d,d],[S-d,d],[S-d,S-d],[d,S-d]];
+  return box.map(([x, y]) => applyH(H, x, y));
+}
+
+/** Стиск в долях стороны — когда Tz ещё неизвестен (контур поймал обводку/поле) */
+function insetCornersFrac(pts, frac, S) {
+  S = S || 1000;
+  const dst = [[0,0],[S,0],[S,S],[0,S]];
+  const H = computeH(dst, pts);
+  if (!H) return null;
+  const d = frac * S;
+  const box = [[d,d],[S-d,d],[S-d,S-d],[d,S-d]];
+  return box.map(([x, y]) => applyH(H, x, y));
+}
+
+/** Быстрый warp в серое, ближайший сосед — для проверки гипотез */
+function warpGrayNN(px, W, H0, pts, S) {
+  const H = computeH([[0,0],[S,0],[S,S],[0,S]], pts);
+  if (!H) return null;
+  const out = new Uint8Array(S * S);
+  for (let j = 0; j < S; j++) {
+    for (let i = 0; i < S; i++) {
+      const w = H[2][0] * i + H[2][1] * j + H[2][2];
+      const x = (H[0][0] * i + H[0][1] * j + H[0][2]) / w;
+      const y = (H[1][0] * i + H[1][1] * j + H[1][2]) / w;
+      const xi = x | 0, yi = y | 0;
+      if (xi < 0 || yi < 0 || xi >= W || yi >= H0) { out[j * S + i] = 127; continue; }
+      const p = (yi * W + xi) * 4;
+      out[j * S + i] = (px[p] * 77 + px[p+1] * 150 + px[p+2] * 29) >> 8;
+    }
+  }
+  return out;
+}
+
+/** Точный warp в RGB, билинейный — только для финального кандидата */
+function warpRGB(px, W, H0, pts, S) {
+  const H = computeH([[0,0],[S,0],[S,S],[0,S]], pts);
+  if (!H) return null;
+  const out = new Float32Array(S * S * 3);
+  for (let j = 0; j < S; j++) {
+    for (let i = 0; i < S; i++) {
+      const w = H[2][0] * i + H[2][1] * j + H[2][2];
+      const x = (H[0][0] * i + H[0][1] * j + H[0][2]) / w;
+      const y = (H[1][0] * i + H[1][1] * j + H[1][2]) / w;
+      const x0 = Math.floor(x), y0 = Math.floor(y);
+      const fx = x - x0, fy = y - y0;
+      const o = (j * S + i) * 3;
+      for (let c = 0; c < 3; c++) {
+        const g = (sx, sy) => {
+          if (sx < 0 || sy < 0 || sx >= W || sy >= H0) return 127;
+          return px[(sy * W + sx) * 4 + c];
+        };
+        out[o + c] = g(x0, y0) * (1-fx) * (1-fy) + g(x0+1, y0) * fx * (1-fy)
+                   + g(x0, y0+1) * (1-fx) * fy   + g(x0+1, y0+1) * fx * fy;
       }
-      approx.delete();cnt.delete();
     }
-    if(!quads.length)return null;
+  }
+  return out;
+}
 
-    quads.sort((a,b)=>b.area-a.area);
-    let best=null;
-    for(const q of quads.slice(0,25)){
-      const res=analyseQuad(gray,q.pts);
-      if(!res)continue;
-      if(!best||res.score>best.score)best={...res,pts:q.pts};
+/* ═════════════════════ ЧАСТЬ 3. ЗЕБРА И СТРУКТУРА ═════════════════════ */
+
+/**
+ * Определение Tz по кольцу зебры. Голосование по четырём сторонам:
+ * если одну сторону убил блик, остальные три вытягивают.
+ */
+function verifyZebra(gray, S) {
+  function scanLine(arr) {
+    let mn = 255, mx = 0;
+    for (let i = 0; i < arr.length; i++) { const v = arr[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
+    if (mx - mn < CFG.MIN_CONTRAST) return null;
+    const thr = (mn + mx) >> 1, runs = [];
+    let cur = arr[0] > thr ? 1 : 0, len = 1;
+    for (let i = 1; i < arr.length; i++) {
+      const b = arr[i] > thr ? 1 : 0;
+      if (b === cur) len++; else { runs.push({ v: cur, len }); cur = b; len = 1; }
     }
-    if(!best||best.score<0.35)return null;
+    runs.push({ v: cur, len });
+    if (runs.length < 3) return null;
+    const lens = runs.map(r => r.len).sort((a, b) => a - b);
+    const med = lens[lens.length >> 1];
+    if (med < 2) return null;
+    const valid = runs.filter(r => r.len >= med * 0.4 && r.len <= med * 2.4);
+    if (valid.length < 5) return null;
+    let T = valid.length;
+    if (T % 2 === 0) {
+      if (valid[0].v === 1 || valid[T-1].v === 1) T += 1; else return null;
+    }
+    if (T < CFG.T_MIN - 2 || T > CFG.T_MAX) return null;
+    return T;
+  }
 
-    // ── Вирізка з БІЛИМ ПОЛЕМ ──
-    const P=best.pts,M0=CROP_MARGIN,E=CROP_SIZE-CROP_MARGIN;
-    let src2,dst,st,dt,M2;
-    try{
-      src2=cv.imread(srcCanvas);
-      dst=new cv.Mat();
-      st=cv.matFromArray(4,1,cv.CV_32FC2,[P[0].x,P[0].y,P[1].x,P[1].y,P[2].x,P[2].y,P[3].x,P[3].y]);
-      dt=cv.matFromArray(4,1,cv.CV_32FC2,[M0,M0,E,M0,E,E,M0,E]);
-      M2=cv.getPerspectiveTransform(st,dt);
-      cv.warpPerspective(src2,dst,M2,new cv.Size(CROP_SIZE,CROP_SIZE),
-        cv.INTER_LINEAR,cv.BORDER_CONSTANT,new cv.Scalar(255,255,255,255));
-      const out=document.createElement('canvas');out.width=CROP_SIZE;out.height=CROP_SIZE;
-      cv.imshow(out,dst);
-      return{canvas:out,totalCells:best.totalCells};
-    }finally{[src2,dst,st,dt,M2].forEach(m=>{try{if(m)m.delete();}catch(e){}});}
-  }catch(e){
+  const offs = [0.006, 0.011, 0.02, 0.033, 0.05, 0.075].map(f => Math.max(1, Math.round(S * f)));
+  const votes = new Map();
+  let total = 0;
+  const row = new Uint8Array(S), col = new Uint8Array(S);
+  for (const off of offs) {
+    if (off >= S / 2) continue;
+    for (const pos of [off, S - 1 - off]) {
+      for (let x = 0; x < S; x++) row[x] = gray[pos * S + x];
+      let t = scanLine(row); if (t) votes.set(t, (votes.get(t) || 0) + 1);
+      total++;
+      for (let y = 0; y < S; y++) col[y] = gray[y * S + pos];
+      t = scanLine(col); if (t) votes.set(t, (votes.get(t) || 0) + 1);
+      total++;
+    }
+  }
+  if (!votes.size) return null;
+  const sortedV = [...votes.entries()].sort((a, b) => b[1] - a[1]);
+  return { Tz: sortedV[0][0], conf: sortedV[0][1] / Math.max(1, total),
+           votes: sortedV.slice(0, 5) };
+}
+
+/** Качество кольца зебры: тёмные углы + чередование по периметру */
+function zebraRing(gray, S, Tz) {
+  const mod = S / Tz;
+  const cell = (r, c) => {
+    const y0 = Math.floor(r * mod + mod * 0.3), y1 = Math.floor(r * mod + mod * 0.7);
+    const x0 = Math.floor(c * mod + mod * 0.3), x1 = Math.floor(c * mod + mod * 0.7);
+    let s = 0, cnt = 0;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      if (x < 0 || y < 0 || x >= S || y >= S) continue;
+      s += gray[y * S + x]; cnt++;
+    }
+    return cnt ? s / cnt : 0;
+  };
+  const vals = [];
+  for (let c = 0; c < Tz; c++) vals.push(cell(0, c));
+  for (let c = 0; c < Tz; c++) vals.push(cell(Tz - 1, c));
+  for (let r = 0; r < Tz; r++) vals.push(cell(r, 0));
+  for (let r = 0; r < Tz; r++) vals.push(cell(r, Tz - 1));
+  let mn = Infinity, mx = -Infinity;
+  for (const v of vals) { if (v < mn) mn = v; if (v > mx) mx = v; }
+  const thr = (mn + mx) / 2;
+  const bits = vals.map(v => v > thr ? 1 : 0);
+  let alt = 0, tot = 0;
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < Tz - 1; j++) {
+      if (bits[i * Tz + j] !== bits[i * Tz + j + 1]) alt++;
+      tot++;
+    }
+  }
+  const corners = [cell(0,0), cell(0,Tz-1), cell(Tz-1,Tz-1), cell(Tz-1,0)];
+  const cornersDark = corners.filter(c => c < thr).length / 4;
+  return { alt: alt / Math.max(1, tot), cornersDark };
+}
+
+/**
+ * ГЛАВНЫЙ ЗАЩИТНЫЙ ФИЛЬТР.
+ * Проверяет канонический инвариант TAINA снаружи внутрь:
+ *   белое поле → чёрная полоска → белая полоска → зебра
+ * Мусор — это всегда кусок, вырезанный из середины другого кода: внутри он
+ * похож на валидный TAINA, но снаружи у него вместо рамки чужие данные.
+ * Подделать это вырезкой невозможно.
+ * Снимаем ПРЯМО ИЗ ОРИГИНАЛЬНОГО кадра.
+ */
+function outerFrameScore(px, W, H0, pts, Tz) {
+  const ringAt = (radMod) => {
+    const p = insetCorners(pts, -radMod, Tz);
+    if (!p) return null;
+    const out = [];
+    for (let i = 0; i < 4; i++) {
+      const a = p[i], b = p[(i + 1) % 4];
+      for (let s = 0; s < 20; s++) {
+        const t = 0.05 + (0.9 * s) / 19;
+        const x = Math.round(a[0] + (b[0] - a[0]) * t);
+        const y = Math.round(a[1] + (b[1] - a[1]) * t);
+        if (x < 0 || y < 0 || x >= W || y >= H0) continue;
+        const q = (y * W + x) * 4;
+        out.push((px[q] * 77 + px[q+1] * 150 + px[q+2] * 29) >> 8);
+      }
+    }
+    return out.length >= 40 ? out : null;
+  };
+
+  const zeb   = ringAt(-0.5);   // само кольцо зебры — эталон контраста
+  const white = ringAt(0.5);    // белая полоска за зеброй
+  const black = ringAt(1.5);    // чёрная полоска за ней
+  if (!zeb || !white || !black) return { score: 0, wOk: 0, bOk: 0, reason: 'кольца вне кадра' };
+
+  const sz = [...zeb].sort((a, b) => a - b);
+  const lo = sz[Math.floor(sz.length * 0.1)], hi = sz[Math.floor(sz.length * 0.9)];
+  if (hi - lo < 30) return { score: 0, wOk: 0, bOk: 0, reason: 'нет контраста зебры' };
+  const thr = (lo + hi) / 2;
+
+  const wOk = white.filter(v => v > thr).length / white.length;
+  const bOk = black.filter(v => v < thr).length / black.length;
+  return { score: wOk * bOk, wOk, bOk, thr };
+}
+
+/** Выборка клеток данных: круг радиусом 0.28 модуля в центре каждой клетки */
+function sampleCells(rgb, S, Tz) {
+  const n = Tz - 2, mod = S / Tz, r = mod * 0.28, r2 = r * r;
+  const out = new Float64Array(n * n * 3);
+  let idx = 0;
+  for (let row = 1; row < Tz - 1; row++) {
+    for (let col = 1; col < Tz - 1; col++) {
+      const cx = col * mod + mod / 2, cy = row * mod + mod / 2;
+      const x0 = Math.max(0, Math.floor(cx - r)), x1 = Math.min(S - 1, Math.ceil(cx + r));
+      const y0 = Math.max(0, Math.floor(cy - r)), y1 = Math.min(S - 1, Math.ceil(cy + r));
+      let sR = 0, sG = 0, sB = 0, cnt = 0;
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          const dx = x - cx, dy = y - cy;
+          if (dx * dx + dy * dy > r2) continue;
+          const o = (y * S + x) * 3;
+          sR += rgb[o]; sG += rgb[o+1]; sB += rgb[o+2]; cnt++;
+        }
+      }
+      if (cnt) { out[idx] = sR/cnt; out[idx+1] = sG/cnt; out[idx+2] = sB/cnt; }
+      idx += 3;
+    }
+  }
+  return out;
+}
+
+/* ═════════════════════ ЧАСТЬ 4. ПОИСК КАНДИДАТОВ ═════════════════════
+   Методы взяты из Data Matrix: контуры → четырёхугольник → проверка
+   квадратности → гомография. Это универсальная часть локализации.
+   Формат TAINA при этом не меняется — зебра остаётся зеброй.
+   ═════════════════════════════════════════════════════════════════════ */
+
+function findQuadsCV(canvas, W, H) {
+  if (!window.cv || !window.cv.Mat || !window.cv.imread) return null;
+  const cv = window.cv;
+  const mats = [];
+  try {
+    const src = cv.imread(canvas); mats.push(src);
+    const gray = new cv.Mat(); mats.push(gray);
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    const blur = new cv.Mat(); mats.push(blur);
+    cv.GaussianBlur(gray, blur, new cv.Size(5, 5), 0);
+    const bin = new cv.Mat(); mats.push(bin);
+    let bs = Math.floor(Math.min(W, H) / 20) * 2 + 1;
+    bs = Math.max(11, Math.min(151, bs));
+    cv.adaptiveThreshold(blur, bin, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, bs, 7);
+    const contours = new cv.MatVector(); mats.push(contours);
+    const hier = new cv.Mat(); mats.push(hier);
+    cv.findContours(bin, contours, hier, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+    const minA = W * H * 0.002, maxA = W * H * 0.98;
+    const quads = [];
+    for (let i = 0; i < contours.size(); i++) {
+      const cnt = contours.get(i);
+      const area = cv.contourArea(cnt);
+      if (area < minA || area > maxA) { cnt.delete(); continue; }
+      const peri = cv.arcLength(cnt, true);
+      const ap = new cv.Mat();
+      cv.approxPolyDP(cnt, ap, 0.04 * peri, true);
+      if (ap.rows === 4 && cv.isContourConvex(ap)) {
+        const pts = [];
+        for (let p = 0; p < 4; p++) pts.push([ap.data32S[p*2], ap.data32S[p*2+1]]);
+        const ord = orderCorners(pts);
+        const sq = squareness(ord);
+        if (sq > CFG.SQUARENESS_MIN) quads.push({ pts: ord, area, sq });
+      }
+      ap.delete(); cnt.delete();
+    }
+    quads.sort((a, b) => b.area - a.area);
+    return quads;
+  } catch (e) {
     return null;
-  }finally{
-    mats.forEach(m=>{try{m.delete();}catch(e){}});
+  } finally {
+    mats.forEach(m => { try { m.delete(); } catch (e) {} });
   }
 }
 
-/* ДОДАНО: Допоміжна функція для зменшення розміру canvas (критично для мобільних) */
-function getDownscaledCanvas(sourceCanvas, maxSide) {
-  const w = sourceCanvas.width;
-  const h = sourceCanvas.height;
-  if (Math.max(w, h) <= maxSide) return sourceCanvas;
-  
-  const scale = maxSide / Math.max(w, h);
-  const nw = Math.round(w * scale);
-  const nh = Math.round(h * scale);
-  
+/* ═════════════════════ ЧАСТЬ 5. КОНВЕЙЕР ═════════════════════ */
+
+function sourceToCanvas(src) {
+  if (src instanceof HTMLCanvasElement) return src;
+  const w = src.naturalWidth || src.videoWidth || src.width;
+  const h = src.naturalHeight || src.videoHeight || src.height;
   const c = document.createElement('canvas');
-  c.width = nw;
-  c.height = nh;
-  const ctx = c.getContext('2d', { willReadFrequently: true });
-  ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(sourceCanvas, 0, 0, nw, nh);
+  c.width = w; c.height = h;
+  c.getContext('2d', { willReadFrequently: true }).drawImage(src, 0, 0, w, h);
   return c;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   RAW DECODE PIPELINE (Існуюча логіка Life_10)
-   ═══════════════════════════════════════════════════════════════ */
-function decodeRawPx(px,IW,IH){
-  const all=[];
-  const done=()=>{if(!all.length)return[];const u=dedup(all);return sortResults(u);};
-
-  /* Шлях 1: пряме читання */
-  collect(all,px,IW,IH);
-  if(hasSolid(all))return done();
-
-  /* Шлях 2: локалізація по кольору фону → кроп → читання */
-  try{
-    const box=findCodeBox(px,IW,IH);
-    if(box){
-      for(const sf of[1.0,1.06,1.12,1.20]){
-        const side=Math.round(Math.max(box.w,box.h)*sf);
-        const cx=box.x0+box.w/2,cy=box.y0+box.h/2;
-        let nx=Math.max(0,Math.round(cx-side/2)),ny=Math.max(0,Math.round(cy-side/2));
-        const ss=Math.min(side,IW-nx,IH-ny);if(ss<40)continue;
-        const c=cropPx(px,IW,IH,{x0:nx,y0:ny,w:ss,h:ss});
-        collect(all,c,ss,ss);
-        if(hasSolid(all))return done();
-      }
-    }
-  }catch(e){}
-
-  /* Шлях 3: activity scan → кроп */
-  try{
-    const box=findOrnament(px,IW,IH);
-    if(box){const c=cropPx(px,IW,IH,box);collect(all,c,box.w,box.h);}
-  }catch(e){}
-  if(hasSolid(all))return done();
-
-  /* Шлях 4: кути по градієнту → deskew */
-  try{
-    const cor=gradCorners(px,IW,IH,120);
-    if(cor){
-      for(const ef of[1.0,1.04,0.97]){
-        const cx=(cor.TL[0]+cor.TR[0]+cor.BR[0]+cor.BL[0])/4,cy=(cor.TL[1]+cor.TR[1]+cor.BR[1]+cor.BL[1])/4;
-        const exp=c=>[cx+(c[0]-cx)*ef,cy+(c[1]-cy)*ef];
-        const cc={TL:exp(cor.TL),TR:exp(cor.TR),BR:exp(cor.BR),BL:exp(cor.BL)};
-        const N=Math.max(256,Math.min(1200,Math.round(cor.side*ef)));
-        const d=deskew(px,IW,IH,cc,N);
-        collect(all,d,N,N);
-        if(hasSolid(all))return done();
-      }
-    }
-  }catch(e){}
-
-  return done();
+function downscaleCanvas(canvas, maxSide) {
+  const w = canvas.width, h = canvas.height;
+  if (Math.max(w, h) <= maxSide) return { canvas, scale: 1 };
+  const s = maxSide / Math.max(w, h);
+  const c = document.createElement('canvas');
+  c.width = Math.round(w * s); c.height = Math.round(h * s);
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.imageSmoothingEnabled = true;
+  g.drawImage(canvas, 0, 0, c.width, c.height);
+  return { canvas: c, scale: s };
 }
 
-/* ═══ ГОЛОВНА ФУНКЦІЯ ═══ */
-function runDecodeAttempts(img){
-  const isCanvas=img instanceof HTMLCanvasElement;
+/**
+ * Главная функция декодирования.
+ *
+ * @param {HTMLImageElement|HTMLCanvasElement|HTMLVideoElement} source
+ * @param {Object} [opts]
+ *        opts.mode        'image' (по умолчанию) | 'camera'
+ *        opts.diagnostic  true → подробный отчёт по этапам
+ *        opts.roiHint     четыре угла предыдущего успеха (трекинг кандидата)
+ *        opts.maxQuads, opts.timeBudgetMs — переопределение лимитов
+ * @returns {Object} результат — см. описание в конце файла
+ */
+function decode(source, opts) {
+  opts = opts || {};
+  const t0 = performance.now();
+  const diag = { stages: [], candidates: [], rejected: [] };
+  const mark = (name, extra) => {
+    diag.stages.push(Object.assign({ stage: name, ms: +(performance.now() - t0).toFixed(1) }, extra || {}));
+  };
 
-  // Спроба 1: Використання нового OpenCV сканера для локалізації, вирізки та корекції перспективи
-  if (window.cv && window.cv.Mat && window.cv.imread) {
-    try {
-      let srcCanvas = img;
-      if (!isCanvas) {
-        srcCanvas = document.createElement('canvas');
-        srcCanvas.width = img.naturalWidth || img.width;
-        srcCanvas.height = img.naturalHeight || img.height;
-        srcCanvas.getContext('2d').drawImage(img, 0, 0);
+  /* ── FRAME: оригинальный кадр. Из него и только из него берутся пиксели ── */
+  let full;
+  try { full = sourceToCanvas(source); }
+  catch (e) { return fail('не удалось прочитать изображение', diag, t0); }
+  const W = full.width, H = full.height;
+  if (!W || !H) return fail('пустой кадр', diag, t0);
+  const fctx = full.getContext('2d', { willReadFrequently: true });
+  const px = fctx.getImageData(0, 0, W, H).data;
+  mark('FRAME', { w: W, h: H });
+
+  /* ── CANDIDATES: контуры ищем на уменьшенной копии,
+        координаты сразу возвращаем в систему оригинала ── */
+  const { canvas: small, scale } = downscaleCanvas(full, CFG.DETECT_MAX);
+  let quads = findQuadsCV(small, small.width, small.height);
+  const cvUsed = quads !== null;
+  if (!quads || !quads.length) {
+    const m = Math.min(W, H), ox = (W - m) / 2, oy = (H - m) / 2;
+    quads = [{ pts: [[ox,oy],[ox+m,oy],[ox+m,oy+m],[ox,oy+m]], area: m*m, sq: 1 }];
+    mark('CANDIDATES', { found: 0, fallback: 'весь кадр', opencv: cvUsed });
+  } else {
+    quads = quads.map(q => ({
+      pts: q.pts.map(([x, y]) => [x / scale, y / scale]),
+      area: q.area / (scale * scale), sq: q.sq
+    }));
+    mark('CANDIDATES', { found: quads.length, detectScale: +scale.toFixed(3), opencv: true });
+  }
+
+  return decodePixels(px, W, H, quads, opts, diag, mark, t0);
+}
+
+/**
+ * Ядро конвейера: работает с уже готовым буфером оригинала и списком кандидатов.
+ * Вынесено отдельно, чтобы его можно было прогонять автотестами без DOM.
+ */
+function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
+  opts = opts || {};
+  t0 = t0 != null ? t0 : performance.now();
+  diag = diag || { stages: [], candidates: [], rejected: [] };
+  mark = mark || function () {};
+  const preset = opts.mode === 'camera' ? CFG.CAMERA : CFG.IMAGE;
+  const maxQuads     = opts.maxQuads     != null ? opts.maxQuads     : preset.maxQuads;
+  const timeBudgetMs = opts.timeBudgetMs != null ? opts.timeBudgetMs : preset.timeBudgetMs;
+
+  if (opts.roiHint && opts.roiHint.length === 4) {
+    quads = [{ pts: opts.roiHint, area: 0, sq: 1, tracked: true }].concat(quads);
+  }
+  quads = quads.slice(0, maxQuads + (opts.roiHint ? 1 : 0));
+
+  const accepted = [];
+  let evaluated = 0;
+
+  outer:
+  for (let qi = 0; qi < quads.length; qi++) {
+    if (performance.now() - t0 > timeBudgetMs) { diag.timeout = true; break; }
+    const q = quads[qi];
+
+    /* FINDER: грубая оценка Tz на дешёвом warp-е из ОРИГИНАЛА.
+       Неудача здесь — НЕ повод бросать кандидата: контур мог зацепиться за
+       чёрную обводку или за белое поле, где на срезе зебры просто нет. */
+    const probe0 = warpGrayNN(px, W, H, q.pts, CFG.PROBE_SIZE);
+    if (!probe0) { diag.rejected.push({ q: qi, why: 'гомография не решилась' }); continue; }
+    const z0 = verifyZebra(probe0, CFG.PROBE_SIZE);
+
+    /* Гипотезы стиска: модульные (если Tz уже известен) плюс долевые.
+       Долевые нужны для мелких кодов, где один модуль — десятая часть стороны
+       и промахнуться на модуль означает промахнуться мимо всего кода. */
+    const hyp = [];
+    if (z0) for (const k of CFG.INSETS) hyp.push({ frac: k / z0.Tz, label: k + 'мод' });
+    for (const f of CFG.INSETS_FRAC) hyp.push({ frac: f, label: f.toFixed(3) });
+    const seen = [];
+    const uniq = hyp.filter(h => {
+      if (seen.some(v => Math.abs(v - h.frac) < 0.004)) return false;
+      seen.push(h.frac); return true;
+    });
+
+    for (const h of uniq) {
+      if (performance.now() - t0 > timeBudgetMs) { diag.timeout = true; break outer; }
+
+      /* CORNERS: стиск в координатах оригинала, через ту же гомографию.
+         Готовый warp никогда не обрезаем — это сдвигает сетку. */
+      const pts = h.frac === 0 ? q.pts : insetCornersFrac(q.pts, h.frac);
+      if (!pts) continue;
+
+      const probe = warpGrayNN(px, W, H, pts, CFG.PROBE_SIZE);
+      if (!probe) continue;
+      const z = verifyZebra(probe, CFG.PROBE_SIZE);
+      if (!z) continue;
+      const Tz = z.Tz, T = Tz + 2, n = Tz - 2;
+      if (T < CFG.T_MIN || T > CFG.T_MAX || n < 5 || n % 2 === 0) continue;
+
+      const ring = zebraRing(probe, CFG.PROBE_SIZE, Tz);
+
+      /* ПРОВЕРКА 1: структура внешней рамки — снимается прямо из оригинала */
+      const frame = outerFrameScore(px, W, H, pts, Tz);
+      evaluated++;
+      if (frame.score < CFG.FRAME_MIN) {
+        diag.rejected.push({ q: qi, k: h.label, T, why: 'структура рамки',
+                             frame: +frame.score.toFixed(2),
+                             wOk: +frame.wOk.toFixed(2), bOk: +frame.bOk.toFixed(2) });
+        continue;
       }
-      
-      // КРИТИЧНЕ ВИПРАВЛЕННЯ 1: Зменшуємо розмір кадру до 800px перед OpenCV, 
-      // щоб уникнути зависання мобільних пристроїв на великих кадрах з камери.
-      srcCanvas = getDownscaledCanvas(srcCanvas, 800);
-      
-      const located = scannerLocate(srcCanvas, true); 
-      if (located && located.canvas) {
-        const buf = buildBufferFromCanvas(located.canvas);
-        const results = decodeRawPx(buf.px, buf.IW, buf.IH);
-        if (results.length > 0) return results;
+
+      /* WARP + GRID + RGB: точная выборка ИЗ ОРИГИНАЛА */
+      const side = meanSide(pts);
+      const S = Math.max(CFG.FINAL_MIN, Math.min(CFG.FINAL_MAX,
+                Math.round(Math.max(side, Tz * 8))));
+      const rgb = warpRGB(px, W, H, pts, S);
+      if (!rgb) continue;
+      const cells = sampleCells(rgb, S, Tz);
+
+      /* DECODE */
+      const dec = decodeCells(cells, Tz);
+      if (!dec || dec.text === null) {
+        diag.rejected.push({ q: qi, k: h.label, T, why: 'декод пустой',
+                             frame: +frame.score.toFixed(2) });
+        continue;
       }
-    } catch(e) {
-      console.warn("OpenCV scanner failed, falling back to standard decode:", e);
+
+      /* ПРОВЕРКА 2: обратная сверка — текст обратно в орнамент и сравнение */
+      if (dec.agree < CFG.AGREE_MIN) {
+        diag.rejected.push({ q: qi, k: h.label, T, why: 'обратная сверка',
+                             agree: +dec.agree.toFixed(3), text: dec.text.slice(0, 20) });
+        continue;
+      }
+
+      accepted.push({
+        text: dec.text, parts: dec.parts || [dec.text], T, n, Tz,
+        mode: dec.mode, kind: dec.kind, colored: dec.colored, palette: dec.palette,
+        agree: dec.agree, frame: frame.score, zebraConf: z.conf,
+        alt: ring.alt, cornersDark: ring.cornersDark,
+        corners: pts, quad: qi, inset: h.label, warpSize: S,
+        channels: dec.channels || null
+      });
+      diag.candidates.push({ q: qi, k: h.label, T, agree: +dec.agree.toFixed(3),
+                             frame: +frame.score.toFixed(2), text: dec.text.slice(0, 40) });
+
+      /* Ранний выход — только по подтверждённому консенсусу. Одиночное идеальное
+         совпадение может оказаться сдвинутой сеткой, прочитавшей самосогласованный
+         кусок настоящего кода. */
+      const sameText = accepted.filter(c => c.text === dec.text).length;
+      if (dec.agree >= 0.999 && frame.score >= 0.999 && sameText >= 2) {
+        diag.earlyExit = true; break outer;
+      }
     }
   }
 
-  // Спроба 2: Стандартний декодер 
-  // КРИТИЧНЕ ВИПРАВЛЕННЯ 2: buildBufferFromCanvas більше не розтягує прямокутні кадри
-  const buf = isCanvas ? buildBufferFromCanvas(img) : buildBuffer(img);
-  return decodeRawPx(buf.px, buf.IW, buf.IH);
+  mark('DECODE', { evaluated, accepted: accepted.length });
+
+  /* ── ВЫБОР ПОБЕДИТЕЛЯ ──
+     Сюда доходят только кандидаты, прошедшие обе проверки. Ранжируем консенсусом:
+     сколько независимых гипотез дали ровно этот текст. Сдвинутая сетка способна
+     выдать самосогласованное чтение куска кода, но повторить его с другого
+     квадрата и другого стиска она не может. */
+  const byText = new Map();
+  for (const c of accepted) {
+    const e = byText.get(c.text);
+    if (e) { e.votes++; if (c.agree > e.best.agree) e.best = c; }
+    else byText.set(c.text, { votes: 1, best: c });
+  }
+  const ranked = [...byText.values()].sort((a, b) =>
+    (b.votes - a.votes) ||
+    (b.best.text.length - a.best.text.length) ||
+    (b.best.agree - a.best.agree) ||
+    (b.best.frame - a.best.frame)
+  );
+  diag.consensus = ranked.map(r => ({ text: r.best.text.slice(0, 40), votes: r.votes, T: r.best.T }));
+
+  if (!ranked.length) {
+    const r = fail('NO CODE', diag, t0);
+    r.diagnostic = opts.diagnostic ? diag : undefined;
+    return r;
+  }
+  const best = ranked[0].best;
+  best.votes = ranked[0].votes;
+  mark('RESULT', { T: best.T, text: best.text.slice(0, 40) });
+
+  return {
+    ok: true,
+    text: best.text,
+    parts: best.parts,
+    channels: best.channels,
+    T: best.T,                  // полный габарит: рамка+зебра+данные+зебра+рамка
+    n: best.n,                  // зона данных, n = T - 4
+    mode: best.mode,            // oct | quad | half
+    kind: best.kind,            // mono | monolith | three
+    colored: best.colored,
+    palette: best.palette,
+    confidence: {
+      agree: +best.agree.toFixed(4),
+      frame: +best.frame.toFixed(4),
+      zebra: +best.zebraConf.toFixed(3),
+      alternation: +best.alt.toFixed(3),
+      cornersDark: best.cornersDark,
+      votes: best.votes           // сколько независимых гипотез дали этот текст
+    },
+    corners: best.corners,
+    ms: +(performance.now() - t0).toFixed(1),
+    diagnostic: opts.diagnostic ? diag : undefined
+  };
 }
 
-/* ── публічний API ── */
-window.runDecodeAttempts=runDecodeAttempts;
+function fail(reason, diag, t0) {
+  return { ok: false, text: null, reason,
+           ms: +(performance.now() - t0).toFixed(1), diagnostic: diag };
+}
+
+/* ═════════════════════ ЧАСТЬ 6. НЕПРЕРЫВНАЯ КАМЕРА ═════════════════════ */
+
+/**
+ * Непрерывный разбор видеопотока. Отчёт по КАЖДОМУ кадру, не по нажатию.
+ * Возвращает объект с методом stop().
+ */
+function scanVideo(video, onFrame, opts) {
+  opts = opts || {};
+  const intervalMs = opts.intervalMs || 700;
+  let stopped = false, roiHint = null, roiAge = 0, timer = null;
+  const work = document.createElement('canvas');
+  const wctx = work.getContext('2d', { willReadFrequently: true });
+
+  function tick() {
+    if (stopped) return;
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) { timer = setTimeout(tick, 200); return; }
+    work.width = vw; work.height = vh;
+    wctx.drawImage(video, 0, 0, vw, vh);
+
+    let res;
+    try {
+      res = decode(work, Object.assign({ mode: 'camera', diagnostic: true, roiHint }, opts));
+    } catch (e) {
+      res = { ok: false, text: null, reason: 'ошибка: ' + e.message };
+    }
+
+    /* трекинг найденного кандидата — следующий кадр начинаем с него */
+    if (res.ok) { roiHint = res.corners; roiAge = 0; }
+    else if (roiHint && ++roiAge > 3) { roiHint = null; }
+
+    try { onFrame(res); } catch (e) {}
+
+    if (res.ok && opts.stopOnSuccess) { stopped = true; return; }
+    timer = setTimeout(tick, intervalMs);
+  }
+
+  tick();
+  return { stop() { stopped = true; if (timer) clearTimeout(timer); } };
+}
+
+/* ═════════════════════ ЧАСТЬ 7. ПУБЛИЧНОЕ API ═════════════════════ */
+
+window.TainaDecoder = {
+  decode,
+  scanVideo,
+  config: CFG,
+  version: '1.0',
+  /* внутренности — для decoder-lab.html и автотестов */
+  _internal: { decodePixels, warpGrayNN, warpRGB, insetCorners, insetCornersFrac, verifyZebra, zebraRing,
+               outerFrameScore, sampleCells, decodeCells, findQuadsCV,
+               orderCorners, squareness, meanSide, computeH, applyH }
+};
+
+/**
+ * Совместимость со старым интерфейсом Life_10.
+ * index.html вызывает runDecodeAttempts(img) и ждёт [{kind,mode,n,res}].
+ * UI переделывать не требуется — старый вызов продолжает работать.
+ */
+window.runDecodeAttempts = function (img) {
+  const r = decode(img, { mode: 'image' });
+  if (!r.ok) return [];
+  let kind = 'one', res = [r.text, null, null];
+  if (r.kind === 'three') { kind = 'three'; res = r.channels || [r.text, null, null]; }
+  else if (r.kind === 'monolith') { kind = 'mono'; }
+  return [{ kind, mode: r.mode, n: r.n, pad: 2, res, T: r.T, confidence: r.confidence }];
+};
 
 })();
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   КАК ПОДКЛЮЧИТЬ
+
+   1) OpenCV.js нужен для поиска контуров (локализация). Подключается как
+      обычно, до decoder.js:
+        <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
+        <script src="decoder.js"></script>
+      Без OpenCV декодер продолжает работать, но рассматривает только весь
+      кадр целиком — годится для ровных загруженных PNG, не для камеры.
+
+   2) Заменить старый decoder.js этим файлом. Больше ничего в проекте
+      трогать не нужно: Generator, Gallery, UI, Supabase, Vercel — без изменений.
+
+   ПУБЛИЧНАЯ ФУНКЦИЯ
+
+     TainaDecoder.decode(source, opts)
+
+   ПРИНИМАЕТ
+
+     source  — <img>, <canvas> или <video> (любой из трёх, конвейер один и тот же;
+               разница только на стадии получения кадра)
+     opts.mode        'image' | 'camera'   (лимиты по времени и числу кандидатов)
+     opts.diagnostic  true → в ответ добавляется поле diagnostic
+     opts.roiHint     4 угла предыдущего успеха — ускоряет следующий кадр
+
+   ВОЗВРАЩАЕТ
+
+     Успех:
+       { ok: true,
+         text:      "декодированный текст",
+         parts:     ["текст R", "текст G", "текст B"],   // для цветных
+         T:         35,        // полный габарит: рамка+зебра+данные+зебра+рамка
+         n:         31,        // зона данных, n = T - 4
+         mode:      "oct" | "quad" | "half",
+         kind:      "mono" | "monolith" | "three",
+         colored:   false,
+         palette:   "галерейна" | "насичена" | null,
+         confidence: { agree, frame, zebra, alternation, cornersDark },
+         corners:   [[x,y],[x,y],[x,y],[x,y]],   // в координатах оригинала
+         ms:        142.3 }
+
+     Неудача:
+       { ok: false, text: null, reason: "NO CODE", ms: 98.1 }
+
+   НЕПРЕРЫВНАЯ КАМЕРА
+
+     const scan = TainaDecoder.scanVideo(videoEl, res => {
+       console.log(res.ok ? res.text : res.reason);   // отчёт по КАЖДОМУ кадру
+     }, { intervalMs: 700, stopOnSuccess: false });
+     // scan.stop() — остановить
+
+   ПОРОГИ (TainaDecoder.config)
+
+     FRAME_MIN = 0.95   структура внешней рамки
+     AGREE_MIN = 0.90   обратная сверка
+   Оба должны быть пройдены. Ослабление любого из них открывает дорогу
+   ложным срабатываниям — на тестовом наборе именно эта пара дала
+   10 настоящих кодов из 10 при 0 ложных из 91.
+   ═══════════════════════════════════════════════════════════════════════════ */
