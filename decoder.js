@@ -46,6 +46,38 @@ const CFG = {
   CAMERA: { maxQuads:  6, timeBudgetMs:  500 }
 };
 
+/* ── АВТОЗАГРУЗКА OpenCV.js ───────────────────────────────────────────────
+   OpenCV нужен для поиска контуров. Декодер подтягивает его сам, чтобы
+   оставаться drop-in: подключил decoder.js — и всё работает.
+   Если на странице уже есть свой <script> с opencv.js, повторно не грузим. */
+const OPENCV_URL = 'https://docs.opencv.org/4.8.0/opencv.js';
+let _cvPromise = null;
+function ensureOpenCV() {
+  if (_cvPromise) return _cvPromise;
+  _cvPromise = new Promise(resolve => {
+    if (window.cv && window.cv.Mat) return resolve(true);
+    let doc;
+    try { doc = document; } catch (e) { return resolve(false); }
+    if (!doc || !doc.head) return resolve(false);
+    try {
+      if (!doc.querySelector('script[data-taina-opencv]') &&
+          !doc.querySelector('script[src*="opencv.js"]')) {
+        const s = doc.createElement('script');
+        s.src = OPENCV_URL; s.async = true;
+        s.setAttribute('data-taina-opencv', '1');
+        doc.head.appendChild(s);
+      }
+    } catch (e) { return resolve(false); }
+    const t0 = Date.now();
+    (function poll() {
+      if (window.cv && window.cv.Mat) return resolve(true);
+      if (Date.now() - t0 > 25000) return resolve(false);
+      setTimeout(poll, 120);
+    })();
+  });
+  return _cvPromise;
+}
+
 const MODES = ['oct', 'quad', 'half'];
 const RGB_MAIN = { r: [255, 0, 0],    g: [0, 255, 0],    b: [0, 0, 255]   };
 const RGB_GAL  = { r: [220, 50, 60],  g: [65, 195, 65],  b: [60, 70, 215] };
@@ -708,7 +740,8 @@ function decode(source, opts) {
   if (!quads || !quads.length) {
     const m = Math.min(W, H), ox = (W - m) / 2, oy = (H - m) / 2;
     quads = [{ pts: [[ox,oy],[ox+m,oy],[ox+m,oy+m],[ox,oy+m]], area: m*m, sq: 1 }];
-    mark('CANDIDATES', { found: 0, fallback: 'весь кадр', opencv: cvUsed });
+    mark('CANDIDATES', { found: 0, fallback: 'весь кадр', opencv: cvUsed,
+                         note: cvUsed ? '' : 'OpenCV ще не готовий — чекай TainaDecoder.ready' });
   } else {
     quads = quads.map(q => ({
       pts: q.pts.map(([x, y]) => [x / scale, y / scale]),
@@ -942,8 +975,13 @@ function scanVideo(video, onFrame, opts) {
 window.TainaDecoder = {
   decode,
   scanVideo,
+  /* Промис: резолвится, когда OpenCV готов (true) или не дождались (false).
+     Камеру и разбор файла имеет смысл запускать после него — без OpenCV
+     декодер видит только весь кадр целиком и на фото с камеры не сработает. */
+  ready: ensureOpenCV(),
+  cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
-  version: '1.0',
+  version: '1.1',
   /* внутренности — для decoder-lab.html и автотестов */
   _internal: { decodePixels, warpGrayNN, warpRGB, insetCorners, insetCornersFrac, verifyZebra, zebraRing,
                outerFrameScore, sampleCells, decodeCells, findQuadsCV,
@@ -955,8 +993,11 @@ window.TainaDecoder = {
  * index.html вызывает runDecodeAttempts(img) и ждёт [{kind,mode,n,res}].
  * UI переделывать не требуется — старый вызов продолжает работать.
  */
-window.runDecodeAttempts = function (img) {
-  const r = decode(img, { mode: 'image' });
+window.runDecodeAttempts = function (img, opts) {
+  /* opts необязателен. Для видеокадров передавай { mode: 'camera' } —
+     иначе на каждый кадр уйдёт бюджет неподвижной картинки и цикл камеры
+     будет заметно подвисать. */
+  const r = decode(img, Object.assign({ mode: 'image' }, opts || {}));
   if (!r.ok) return [];
   let kind = 'one', res = [r.text, null, null];
   if (r.kind === 'three') { kind = 'three'; res = r.channels || [r.text, null, null]; }
