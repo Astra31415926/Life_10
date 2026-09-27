@@ -1,1027 +1,295 @@
-/* ═══════════════════════════════════════════════════════════════════════════
-   decoder.js — TAINA Decoder v1.0
-   Новый декодер, написанный с нуля под камеру мобильного телефона.
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TAINA DECODER LAB</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:#08080b;color:#9a9aaa;font:13px/1.6 ui-monospace,'Courier New',monospace;
+     padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+#app{display:flex;flex-direction:column;height:100%}
+#bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px;
+     border-bottom:1px solid #1a1a26;flex-shrink:0}
+h1{font-size:13px;letter-spacing:3px;color:#4a8ac0;margin-right:6px}
+.btn{background:#101018;border:1px solid #242436;color:#aab;padding:10px 16px;
+     cursor:pointer;font:inherit;font-size:14px;letter-spacing:1px;border-radius:4px}
+.btn:hover{border-color:#4a8ac0;color:#dde}
+.btn.on{border-color:#4a8ac0;color:#8fd08f}
+input[type=file]{display:none}
+#main{flex:1;display:flex;gap:10px;padding:10px;overflow:hidden;min-height:0}
+#left{flex:0 0 46%;display:flex;flex-direction:column;gap:8px;overflow:hidden}
+#right{flex:1;overflow-y:auto;min-width:0}
+.pane{background:#0c0c12;border:1px solid #1a1a26;border-radius:4px;padding:8px;overflow:hidden}
+.pane h2{font-size:11px;letter-spacing:2px;color:#4a6a8a;margin-bottom:6px}
+canvas{display:block;max-width:100%;max-height:34vh;margin:0 auto;image-rendering:pixelated;
+       border:1px solid #1a1a26}
+#vid{max-width:100%;max-height:34vh;display:none;margin:0 auto}
+#rgbwrap{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+#rgbwrap canvas{max-height:16vh}
+.lbl{font-size:10px;letter-spacing:2px;text-align:center;color:#3a5a7a;margin-top:3px}
+#status{padding:8px 10px;font-size:16px;letter-spacing:1px;border-top:1px solid #1a1a26;
+        flex-shrink:0;min-height:38px}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th,td{text-align:left;padding:2px 5px;border-bottom:1px solid #15151f;white-space:nowrap;
+      overflow:hidden;text-overflow:ellipsis;max-width:190px}
+th{color:#4a6a8a;font-weight:400}
+.ok{color:#6ec46e}.bad{color:#c46e6e}.warn{color:#c4a86e}.dim{color:#55556a}
+h3{font-size:11px;letter-spacing:2px;color:#4a6a8a;margin:10px 0 4px}
+@media(max-width:800px){#main{flex-direction:column}#left{flex:0 0 auto}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="bar">
+    <h1>TAINA·LAB</h1>
+    <label class="btn">Файл<input type="file" id="fin" accept="image/*"></label>
+    <button class="btn" id="camBtn">Камера</button>
+    <button class="btn" id="stopBtn" style="display:none">Стоп</button>
+    <span class="dim" id="cvState">opencv…</span>
+  </div>
 
-   НОТАЦИЯ РАЗМЕРА (стандарт проекта):
-     T = внешняя рамка(1) + зебра(1) + данные(n) + зебра(1) + внешняя рамка(1)
-     T = n + 4        n = T - 4        Tz (кольцо зебры) = T - 2
+  <div id="main">
+    <div id="left">
+      <div class="pane">
+        <h2>КАДР / WARP</h2>
+        <canvas id="cnv"></canvas>
+        <video id="vid" autoplay playsinline muted></video>
+      </div>
+      <div class="pane">
+        <h2>RGB-КАНАЛИ</h2>
+        <div id="rgbwrap"></div>
+      </div>
+    </div>
+    <div id="right">
+      <div id="report"></div>
+    </div>
+  </div>
 
-   КОНВЕЙЕР:
-     кадр → уменьшенная копия → контуры → 4-угольники → гипотезы стиска
-          → зебра → структура внешней рамки → warp ИЗ ОРИГИНАЛА
-          → выборка клеток → RGB/каналы → TAINA decode → обратная сверка
+  <div id="status" class="dim">— очікування —</div>
+</div>
 
-   ДВА ПРАВИЛА, НА КОТОРЫХ ДЕРЖИТСЯ НАДЁЖНОСТЬ:
-     1. Уменьшенная копия кадра используется ТОЛЬКО для поиска контуров.
-        Любая выборка пикселей идёт из оригинального кадра. Пересэмплинг
-        убивает и мелкие коды (T=11), и крупные (T=61).
-     2. Результат выдаётся, только если пройдены ОБЕ проверки:
-        структура внешней рамки ≥ 0.95  И  обратная сверка ≥ 0.90.
-        Иначе NO CODE.
-
-   ПУБЛИЧНОЕ API — в конце файла.
-   ═══════════════════════════════════════════════════════════════════════════ */
+<script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
+<script src="decoder.js"></script>
+<script>
 'use strict';
-(function () {
 
-/* ───────────────────────────── НАСТРОЙКИ ───────────────────────────── */
+const $ = id => document.getElementById(id);
+const cnv = $('cnv'), vid = $('vid'), report = $('report');
+const esc = s => String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
 
-const CFG = {
-  DETECT_MAX:      900,    // макс. сторона уменьшенной копии для поиска контуров
-  PROBE_SIZE:      360,    // размер дешёвого warp-а для проверки гипотез
-  FINAL_MIN:       240,    // границы размера финального warp-а
-  FINAL_MAX:      1100,
-  SQUARENESS_MIN:  0.55,   // минимальная «квадратность» кандидата
-  INSETS:   [1, 0.5, 1.5, 0, 2, 2.5, 3],  // гипотезы стиска, в модулях
-  /* Долевые гипотезы — на случай, когда контур поймал чёрную обводку или белое
-     поле и Tz по такому квадрату вообще не читается (характерно для мелких
-     кодов, где один модуль занимает десятую часть стороны). */
-  INSETS_FRAC: [0, 0.015, 0.03, 0.045, 0.06, 0.08, 0.105, 0.13],
-  FRAME_MIN:       0.95,   // порог структуры внешней рамки
-  AGREE_MIN:       0.90,   // порог обратной сверки
-  T_MIN:           9,      // T = 9 → n = 5
-  T_MAX:          201,
-  MIN_CONTRAST:    50,     // минимальный контраст строки для анализа зебры
-  IMAGE:  { maxQuads: 14, timeBudgetMs: 2500 },
-  CAMERA: { maxQuads:  6, timeBudgetMs:  500 }
-};
-
-const MODES = ['oct', 'quad', 'half'];
-const RGB_MAIN = { r: [255, 0, 0],    g: [0, 255, 0],    b: [0, 0, 255]   };
-const RGB_GAL  = { r: [220, 50, 60],  g: [65, 195, 65],  b: [60, 70, 215] };
-const REFBITS  = [[0,0,0],[1,0,0],[0,1,0],[0,0,1],[1,1,0],[1,0,1],[0,1,1],[1,1,1]];
-
-const _enc = new TextEncoder();
-const _dec = new TextDecoder('utf-8', { fatal: true });
-
-/* ═════════════════════ ЧАСТЬ 1. ЯДРО ФОРМАТА TAINA ═════════════════════
-   Перенесено из рабочего декодера проекта без изменения логики.
-   Формат не меняется — меняется только то, как мы до него добираемся.
-   ═══════════════════════════════════════════════════════════════════════ */
-
-function isClean(t) {
-  for (const ch of t) {
-    const o = ch.codePointAt(0);
-    if (o === 0 || (o < 32 && ch !== '\n' && ch !== '\t')) return false;
-  }
-  return true;
-}
-
-function bytesToText(by) {
-  by = by.slice();
-  while (by.length && by[by.length - 1] === 0) by.pop();
-  if (!by.length) return null;
-  try {
-    const t = _dec.decode(new Uint8Array(by));
-    return isClean(t) ? t : null;
-  } catch (e) { return null; }
-}
-
-function textBits(t) {
-  const d = _enc.encode(t), b = new Uint8Array(d.length * 8);
-  for (let i = 0; i < d.length; i++)
-    for (let k = 0; k < 8; k++) b[i * 8 + k] = (d[i] >> (7 - k)) & 1;
-  return b;
-}
-
-function Rof(n) { return (n - 1) / 2; }
-
-const _bcCache = new Map();
-function baseCells(m, n) {
-  const key = m + ':' + n;
-  if (_bcCache.has(key)) return _bcCache.get(key);
-  const c = Rof(n), o = [];
-  if (m === 'oct') {
-    for (let i = 0; i <= c; i++) for (let j = 0; j <= i; j++) o.push([c + i, c + j]);
-  } else if (m === 'quad') {
-    for (let i = 0; i <= c; i++) for (let j = 0; j <= c; j++) o.push([c + i, c + j]);
-  } else {
-    for (let y = 0; y < n; y++) for (let i = 0; i <= c; i++) o.push([c + i, y]);
-  }
-  _bcCache.set(key, o);
-  return o;
-}
-
-function mirrors(m, n, x, y) {
-  const c = Rof(n), i = x - c, j = y - c;
-  let p;
-  if (m === 'oct')       p = [[i,j],[j,i],[-i,j],[-j,i],[i,-j],[j,-i],[-i,-j],[-j,-i]];
-  else if (m === 'quad') p = [[i,j],[-i,j],[i,-j],[-i,-j]];
-  else                   p = [[i,j],[-i,j]];
-  const o = [];
-  for (const [a, b] of p) {
-    const X = c + a, Y = c + b;
-    if (X >= 0 && Y >= 0 && X < n && Y < n) o.push([X, Y]);
-  }
-  return o;
-}
-
-function fillChannel(t, n, m, markBit) {
-  const g = new Uint8Array(n * n), bc = baseCells(m, n);
-  let seq = textBits(t);
-  if (markBit != null) {
-    const s2 = new Uint8Array(seq.length + 1);
-    s2[0] = markBit; s2.set(seq, 1); seq = s2;
-  }
-  const lim = Math.min(seq.length, bc.length);
-  for (let i = 0; i < lim; i++) {
-    const [x, y] = bc[i];
-    if (seq[i]) for (const [X, Y] of mirrors(m, n, x, y)) g[Y * n + X] = 1;
-  }
-  return g;
-}
-
-function markCell(g, n, m) {
-  const [x, y] = baseCells(m, n)[0];
-  return g[y * n + x] ? 1 : 0;
-}
-
-/* обратная сверка: доля совпавших клеток между снятой и перестроенной матрицей */
-function agreeOf(g, chk, n) {
-  let ok = 0;
-  for (let z = 0; z < n * n; z++) ok += ((chk[z] ? 1 : 0) === g[z]) ? 1 : 0;
-  return ok / (n * n);
-}
-
-/* декод с голосованием по зеркалам — избыточность орнамента как error correction */
-function decodeVoted(g, n, m, off, conf) {
-  const bc = baseCells(m, n), by = [];
-  for (let i = off || 0; i + 7 < bc.length; i += 8) {
-    let v = 0;
-    for (let b = 0; b < 8; b++) {
-      const [x, y] = bc[i + b], cells = mirrors(m, n, x, y);
-      let bit;
-      if (conf) {
-        let w1 = 0, w0 = 0;
-        for (const [X, Y] of cells) {
-          const cv = conf[Y * n + X];
-          if (cv < 0.15) continue;           // серая клякса — клетка исключается
-          if (g[Y * n + X]) w1 += cv; else w0 += cv;
-        }
-        bit = (w1 === 0 && w0 === 0) ? (g[y * n + x] ? 1 : 0) : (w1 > w0 ? 1 : 0);
-      } else {
-        let ones = 0;
-        for (const [X, Y] of cells) ones += g[Y * n + X] ? 1 : 0;
-        const cnt = cells.length;
-        bit = ones * 2 > cnt ? 1 : (ones * 2 < cnt ? 0 : (g[y * n + x] ? 1 : 0));
-      }
-      v = (v << 1) | bit;
-    }
-    by.push(v);
-  }
-  return bytesToText(by);
-}
-
-function refsFor(S) {
-  const mix = (r, g, b) => [
-    Math.min(255, (r ? S.r[0] : 0) + (g ? S.g[0] : 0) + (b ? S.b[0] : 0)),
-    Math.min(255, (r ? S.r[1] : 0) + (g ? S.g[1] : 0) + (b ? S.b[1] : 0)),
-    Math.min(255, (r ? S.r[2] : 0) + (g ? S.g[2] : 0) + (b ? S.b[2] : 0))
-  ];
-  return REFBITS.map(c => ({ bits: c, col: mix(c[0], c[1], c[2]) }));
-}
-
-function classifyCells(cells, n) {
-  let best = null;
-  for (const [name, S] of [['насичена', RGB_MAIN], ['галерейна', RGB_GAL]]) {
-    const refs = refsFor(S);
-    let err = 0;
-    const cr = new Uint8Array(n * n), cg = new Uint8Array(n * n), cb = new Uint8Array(n * n);
-    for (let i = 0; i < n * n; i++) {
-      const R = cells[i * 3], G = cells[i * 3 + 1], B = cells[i * 3 + 2];
-      let bi = 0, bd = 1e9;
-      for (let k = 0; k < refs.length; k++) {
-        const q = refs[k].col;
-        const dr = R - q[0], dg = G - q[1], db = B - q[2];
-        const dd = dr * dr + dg * dg + db * db;
-        if (dd < bd) { bd = dd; bi = k; }
-      }
-      err += bd;
-      const t = refs[bi].bits;
-      cr[i] = t[0]; cg[i] = t[1]; cb[i] = t[2];
-    }
-    if (!best || err < best.err) best = { name, err, cr, cg, cb };
-  }
-  return best;
-}
-
-/**
- * Декод снятых клеток.
- * @param cells Float64Array длиной n*n*3 — средний RGB каждой клетки
- * @param Tz    размер кольца зебры (Tz = T - 2)
- */
-function decodeCells(cells, Tz) {
-  const n = Tz - 2;
-  if (n < 5 || n % 2 === 0) return null;
-  const N = n * n;
-
-  const L = new Float64Array(N);
-  let lmin = 1e9, lmax = -1e9;
-  for (let i = 0; i < N; i++) {
-    const v = (cells[i*3] + cells[i*3+1] + cells[i*3+2]) / 3;
-    L[i] = v; if (v < lmin) lmin = v; if (v > lmax) lmax = v;
-  }
-  const thr = (lmin + lmax) / 2;
-  const gl = new Uint8Array(N), confM = new Float64Array(N);
-  for (let i = 0; i < N; i++) {
-    gl[i] = L[i] > thr ? 1 : 0;
-    confM[i] = Math.min(1, Math.abs(L[i] - thr) / (thr / 2 + 1));
-  }
-
-  const sats = new Float64Array(N);
-  let coloredCnt = 0;
-  for (let i = 0; i < N; i++) {
-    const r = cells[i*3], g = cells[i*3+1], b = cells[i*3+2];
-    sats[i] = Math.max(r, g, b) - Math.min(r, g, b);
-    if (sats[i] > 60) coloredCnt++;
-  }
-  const sorted = Array.from(sats).sort((a, b) => a - b);
-  const medSat = sorted[N >> 1];
-  const isColored = medSat > 25 || coloredCnt >= Math.max(3, n * 0.15);
-
-  if (!isColored) {
-    let best = null;
-    for (const m of MODES) {
-      const txt = decodeVoted(gl, n, m, 0, confM);
-      if (txt === null) continue;
-      const a = agreeOf(gl, fillChannel(txt, n, m, null), n);
-      if (!best || a > best.agree) best = { text: txt, agree: a, mode: m };
-    }
-    if (!best) return { kind: 'mono', text: null, agree: 0, n, colored: false };
-    return { kind: 'mono', text: best.text, parts: [best.text], agree: best.agree,
-             mode: best.mode, n, colored: false, palette: null };
-  }
-
-  const cls = classifyCells(cells, n);
-  const cR = new Float64Array(N), cG = new Float64Array(N), cB = new Float64Array(N);
-  for (let i = 0; i < N; i++) {
-    cR[i] = Math.min(1, Math.abs(cells[i*3]   - 128) / 90);
-    cG[i] = Math.min(1, Math.abs(cells[i*3+1] - 128) / 90);
-    cB[i] = Math.min(1, Math.abs(cells[i*3+2] - 128) / 90);
-  }
-
-  let best = null;
-  for (const m of MODES) {
-    const rmark = markCell(cls.cr, n, m);
-    let vr = decodeVoted(cls.cr, n, m, rmark ? 1 : 0, cR);
-    if (rmark && vr === null) vr = decodeVoted(cls.cr, n, m, 0, cR);
-    const vg = decodeVoted(cls.cg, n, m, 0, cG);
-    const vb = decodeVoted(cls.cb, n, m, 0, cB);
-    const nn = [vr, vg, vb].filter(t => t !== null);
-    if (!nn.length) continue;
-    const sc = nn.length * 1000 + nn.reduce((a, t) => a + t.length, 0);
-    if (!best || sc > best.sc) best = { vr, vg, vb, sc, m, rmark };
-  }
-  if (!best) return { kind: 'color', text: null, agree: 0, n, colored: true, palette: cls.name };
-
-  /* обратная сверка по каждому непустому каналу */
-  const ags = [];
-  const chans = [[best.vr, cls.cr, true], [best.vg, cls.cg, false], [best.vb, cls.cb, false]];
-  for (const [txt, ch, isR] of chans) {
-    if (txt === null) continue;
-    const chk = fillChannel(txt, n, best.m, isR ? best.rmark : null);
-    ags.push(agreeOf(ch, chk, n));
-  }
-  const agree = ags.length ? ags.reduce((a, b) => a + b, 0) / ags.length : 0;
-
-  const parts = [best.vr, best.vg, best.vb].filter(t => t !== null);
-  const text = best.rmark
-    ? (parts.every(t => t === parts[0]) ? parts[0] : parts.join(''))
-    : parts.join(' · ');
-
-  return { kind: best.rmark ? 'monolith' : 'three', text, parts, agree,
-           mode: best.m, n, colored: true, palette: cls.name, rmark: best.rmark,
-           channels: [best.vr, best.vg, best.vb] };
-}
-
-/* ═════════════════════ ЧАСТЬ 2. ГЕОМЕТРИЯ ═════════════════════
-   Гомография своя, чистый JS — чтобы выборка пикселей всегда шла
-   из оригинального кадра, без промежуточных canvas и пересэмплингов.
-   ══════════════════════════════════════════════════════════════ */
-
-function gaussElim(A, b) {
-  const n = b.length, M = A.map((r, i) => [...r, b[i]]);
-  for (let c = 0; c < n; c++) {
-    let mr = c, mv = Math.abs(M[c][c]);
-    for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > mv) { mv = Math.abs(M[r][c]); mr = r; }
-    [M[c], M[mr]] = [M[mr], M[c]];
-    const pv = M[c][c];
-    if (Math.abs(pv) < 1e-12) return null;
-    for (let r = c + 1; r < n; r++) {
-      const f = M[r][c] / pv;
-      for (let j = c; j <= n; j++) M[r][j] -= f * M[c][j];
-    }
-  }
-  const x = new Array(n).fill(0);
-  for (let i = n - 1; i >= 0; i--) {
-    x[i] = M[i][n];
-    for (let j = i + 1; j < n; j++) x[i] -= M[i][j] * x[j];
-    x[i] /= M[i][i];
-  }
-  return x;
-}
-
-function computeH(s4, d4) {
-  const rows = [], rhs = [];
-  for (let i = 0; i < 4; i++) {
-    const sx = s4[i][0], sy = s4[i][1], dx = d4[i][0], dy = d4[i][1];
-    rows.push([sx, sy, 1, 0, 0, 0, -sx * dx, -sy * dx]); rhs.push(dx);
-    rows.push([0, 0, 0, sx, sy, 1, -sx * dy, -sy * dy]); rhs.push(dy);
-  }
-  const h = gaussElim(rows, rhs);
-  if (!h) return null;
-  return [[h[0], h[1], h[2]], [h[3], h[4], h[5]], [h[6], h[7], 1]];
-}
-
-function applyH(H, x, y) {
-  const w = H[2][0] * x + H[2][1] * y + H[2][2];
-  return [(H[0][0] * x + H[0][1] * y + H[0][2]) / w,
-          (H[1][0] * x + H[1][1] * y + H[1][2]) / w];
-}
-
-/** Порядок углов: TL, TR, BR, BL */
-function orderCorners(pts) {
-  const cx = (pts[0][0] + pts[1][0] + pts[2][0] + pts[3][0]) / 4;
-  const cy = (pts[0][1] + pts[1][1] + pts[2][1] + pts[3][1]) / 4;
-  const withA = pts.map(p => ({ p, a: Math.atan2(p[1] - cy, p[0] - cx) }));
-  withA.sort((u, v) => u.a - v.a);
-  let s = 0, bd = Infinity;
-  withA.forEach((u, i) => {
-    let d = Math.abs(u.a - (-3 * Math.PI / 4));
-    if (d > Math.PI) d = 2 * Math.PI - d;
-    if (d < bd) { bd = d; s = i; }
-  });
-  const out = [];
-  for (let i = 0; i < 4; i++) out.push(withA[(s + i) % 4].p);
-  return out;
-}
-
-function squareness(p) {
-  const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
-  const sides = [d(p[0],p[1]), d(p[1],p[2]), d(p[2],p[3]), d(p[3],p[0])];
-  const mn = Math.min(...sides), mx = Math.max(...sides);
-  if (mx === 0) return 0;
-  const d1 = d(p[0], p[2]), d2 = d(p[1], p[3]);
-  return (mn / mx) * (Math.min(d1, d2) / Math.max(d1, d2));
-}
-
-function meanSide(p) {
-  const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
-  return (d(p[0],p[1]) + d(p[1],p[2]) + d(p[2],p[3]) + d(p[3],p[0])) / 4;
-}
-
-/**
- * Сжать (k>0) или расширить (k<0) квадрат на k модулей — через ту же гомографию.
- * Работает в координатах ОРИГИНАЛЬНОГО кадра: никакой обрезки готового warp-а.
- */
-function insetCorners(pts, kMod, Tz, S) {
-  S = S || 1000;
-  const dst = [[0,0],[S,0],[S,S],[0,S]];
-  const H = computeH(dst, pts);      // warp-квадрат → оригинал
-  if (!H) return null;
-  const d = kMod * (S / Tz);
-  const box = [[d,d],[S-d,d],[S-d,S-d],[d,S-d]];
-  return box.map(([x, y]) => applyH(H, x, y));
-}
-
-/** Стиск в долях стороны — когда Tz ещё неизвестен (контур поймал обводку/поле) */
-function insetCornersFrac(pts, frac, S) {
-  S = S || 1000;
-  const dst = [[0,0],[S,0],[S,S],[0,S]];
-  const H = computeH(dst, pts);
-  if (!H) return null;
-  const d = frac * S;
-  const box = [[d,d],[S-d,d],[S-d,S-d],[d,S-d]];
-  return box.map(([x, y]) => applyH(H, x, y));
-}
-
-/** Быстрый warp в серое, ближайший сосед — для проверки гипотез */
-function warpGrayNN(px, W, H0, pts, S) {
-  const H = computeH([[0,0],[S,0],[S,S],[0,S]], pts);
-  if (!H) return null;
-  const out = new Uint8Array(S * S);
-  for (let j = 0; j < S; j++) {
-    for (let i = 0; i < S; i++) {
-      const w = H[2][0] * i + H[2][1] * j + H[2][2];
-      const x = (H[0][0] * i + H[0][1] * j + H[0][2]) / w;
-      const y = (H[1][0] * i + H[1][1] * j + H[1][2]) / w;
-      const xi = x | 0, yi = y | 0;
-      if (xi < 0 || yi < 0 || xi >= W || yi >= H0) { out[j * S + i] = 127; continue; }
-      const p = (yi * W + xi) * 4;
-      out[j * S + i] = (px[p] * 77 + px[p+1] * 150 + px[p+2] * 29) >> 8;
-    }
-  }
-  return out;
-}
-
-/** Точный warp в RGB, билинейный — только для финального кандидата */
-function warpRGB(px, W, H0, pts, S) {
-  const H = computeH([[0,0],[S,0],[S,S],[0,S]], pts);
-  if (!H) return null;
-  const out = new Float32Array(S * S * 3);
-  for (let j = 0; j < S; j++) {
-    for (let i = 0; i < S; i++) {
-      const w = H[2][0] * i + H[2][1] * j + H[2][2];
-      const x = (H[0][0] * i + H[0][1] * j + H[0][2]) / w;
-      const y = (H[1][0] * i + H[1][1] * j + H[1][2]) / w;
-      const x0 = Math.floor(x), y0 = Math.floor(y);
-      const fx = x - x0, fy = y - y0;
-      const o = (j * S + i) * 3;
-      for (let c = 0; c < 3; c++) {
-        const g = (sx, sy) => {
-          if (sx < 0 || sy < 0 || sx >= W || sy >= H0) return 127;
-          return px[(sy * W + sx) * 4 + c];
-        };
-        out[o + c] = g(x0, y0) * (1-fx) * (1-fy) + g(x0+1, y0) * fx * (1-fy)
-                   + g(x0, y0+1) * (1-fx) * fy   + g(x0+1, y0+1) * fx * fy;
-      }
-    }
-  }
-  return out;
-}
-
-/* ═════════════════════ ЧАСТЬ 3. ЗЕБРА И СТРУКТУРА ═════════════════════ */
-
-/**
- * Определение Tz по кольцу зебры. Голосование по четырём сторонам:
- * если одну сторону убил блик, остальные три вытягивают.
- */
-function verifyZebra(gray, S) {
-  function scanLine(arr) {
-    let mn = 255, mx = 0;
-    for (let i = 0; i < arr.length; i++) { const v = arr[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
-    if (mx - mn < CFG.MIN_CONTRAST) return null;
-    const thr = (mn + mx) >> 1, runs = [];
-    let cur = arr[0] > thr ? 1 : 0, len = 1;
-    for (let i = 1; i < arr.length; i++) {
-      const b = arr[i] > thr ? 1 : 0;
-      if (b === cur) len++; else { runs.push({ v: cur, len }); cur = b; len = 1; }
-    }
-    runs.push({ v: cur, len });
-    if (runs.length < 3) return null;
-    const lens = runs.map(r => r.len).sort((a, b) => a - b);
-    const med = lens[lens.length >> 1];
-    if (med < 2) return null;
-    const valid = runs.filter(r => r.len >= med * 0.4 && r.len <= med * 2.4);
-    if (valid.length < 5) return null;
-    let T = valid.length;
-    if (T % 2 === 0) {
-      if (valid[0].v === 1 || valid[T-1].v === 1) T += 1; else return null;
-    }
-    if (T < CFG.T_MIN - 2 || T > CFG.T_MAX) return null;
-    return T;
-  }
-
-  const offs = [0.006, 0.011, 0.02, 0.033, 0.05, 0.075].map(f => Math.max(1, Math.round(S * f)));
-  const votes = new Map();
-  let total = 0;
-  const row = new Uint8Array(S), col = new Uint8Array(S);
-  for (const off of offs) {
-    if (off >= S / 2) continue;
-    for (const pos of [off, S - 1 - off]) {
-      for (let x = 0; x < S; x++) row[x] = gray[pos * S + x];
-      let t = scanLine(row); if (t) votes.set(t, (votes.get(t) || 0) + 1);
-      total++;
-      for (let y = 0; y < S; y++) col[y] = gray[y * S + pos];
-      t = scanLine(col); if (t) votes.set(t, (votes.get(t) || 0) + 1);
-      total++;
-    }
-  }
-  if (!votes.size) return null;
-  const sortedV = [...votes.entries()].sort((a, b) => b[1] - a[1]);
-  return { Tz: sortedV[0][0], conf: sortedV[0][1] / Math.max(1, total),
-           votes: sortedV.slice(0, 5) };
-}
-
-/** Качество кольца зебры: тёмные углы + чередование по периметру */
-function zebraRing(gray, S, Tz) {
-  const mod = S / Tz;
-  const cell = (r, c) => {
-    const y0 = Math.floor(r * mod + mod * 0.3), y1 = Math.floor(r * mod + mod * 0.7);
-    const x0 = Math.floor(c * mod + mod * 0.3), x1 = Math.floor(c * mod + mod * 0.7);
-    let s = 0, cnt = 0;
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-      if (x < 0 || y < 0 || x >= S || y >= S) continue;
-      s += gray[y * S + x]; cnt++;
-    }
-    return cnt ? s / cnt : 0;
-  };
-  const vals = [];
-  for (let c = 0; c < Tz; c++) vals.push(cell(0, c));
-  for (let c = 0; c < Tz; c++) vals.push(cell(Tz - 1, c));
-  for (let r = 0; r < Tz; r++) vals.push(cell(r, 0));
-  for (let r = 0; r < Tz; r++) vals.push(cell(r, Tz - 1));
-  let mn = Infinity, mx = -Infinity;
-  for (const v of vals) { if (v < mn) mn = v; if (v > mx) mx = v; }
-  const thr = (mn + mx) / 2;
-  const bits = vals.map(v => v > thr ? 1 : 0);
-  let alt = 0, tot = 0;
-  for (let i = 0; i < 4; i++) {
-    for (let j = 0; j < Tz - 1; j++) {
-      if (bits[i * Tz + j] !== bits[i * Tz + j + 1]) alt++;
-      tot++;
-    }
-  }
-  const corners = [cell(0,0), cell(0,Tz-1), cell(Tz-1,Tz-1), cell(Tz-1,0)];
-  const cornersDark = corners.filter(c => c < thr).length / 4;
-  return { alt: alt / Math.max(1, tot), cornersDark };
-}
-
-/**
- * ГЛАВНЫЙ ЗАЩИТНЫЙ ФИЛЬТР.
- * Проверяет канонический инвариант TAINA снаружи внутрь:
- *   белое поле → чёрная полоска → белая полоска → зебра
- * Мусор — это всегда кусок, вырезанный из середины другого кода: внутри он
- * похож на валидный TAINA, но снаружи у него вместо рамки чужие данные.
- * Подделать это вырезкой невозможно.
- * Снимаем ПРЯМО ИЗ ОРИГИНАЛЬНОГО кадра.
- */
-function outerFrameScore(px, W, H0, pts, Tz) {
-  const ringAt = (radMod) => {
-    const p = insetCorners(pts, -radMod, Tz);
-    if (!p) return null;
-    const out = [];
-    for (let i = 0; i < 4; i++) {
-      const a = p[i], b = p[(i + 1) % 4];
-      for (let s = 0; s < 20; s++) {
-        const t = 0.05 + (0.9 * s) / 19;
-        const x = Math.round(a[0] + (b[0] - a[0]) * t);
-        const y = Math.round(a[1] + (b[1] - a[1]) * t);
-        if (x < 0 || y < 0 || x >= W || y >= H0) continue;
-        const q = (y * W + x) * 4;
-        out.push((px[q] * 77 + px[q+1] * 150 + px[q+2] * 29) >> 8);
-      }
-    }
-    return out.length >= 40 ? out : null;
-  };
-
-  const zeb   = ringAt(-0.5);   // само кольцо зебры — эталон контраста
-  const white = ringAt(0.5);    // белая полоска за зеброй
-  const black = ringAt(1.5);    // чёрная полоска за ней
-  if (!zeb || !white || !black) return { score: 0, wOk: 0, bOk: 0, reason: 'кольца вне кадра' };
-
-  const sz = [...zeb].sort((a, b) => a - b);
-  const lo = sz[Math.floor(sz.length * 0.1)], hi = sz[Math.floor(sz.length * 0.9)];
-  if (hi - lo < 30) return { score: 0, wOk: 0, bOk: 0, reason: 'нет контраста зебры' };
-  const thr = (lo + hi) / 2;
-
-  const wOk = white.filter(v => v > thr).length / white.length;
-  const bOk = black.filter(v => v < thr).length / black.length;
-  return { score: wOk * bOk, wOk, bOk, thr };
-}
-
-/** Выборка клеток данных: круг радиусом 0.28 модуля в центре каждой клетки */
-function sampleCells(rgb, S, Tz) {
-  const n = Tz - 2, mod = S / Tz, r = mod * 0.28, r2 = r * r;
-  const out = new Float64Array(n * n * 3);
-  let idx = 0;
-  for (let row = 1; row < Tz - 1; row++) {
-    for (let col = 1; col < Tz - 1; col++) {
-      const cx = col * mod + mod / 2, cy = row * mod + mod / 2;
-      const x0 = Math.max(0, Math.floor(cx - r)), x1 = Math.min(S - 1, Math.ceil(cx + r));
-      const y0 = Math.max(0, Math.floor(cy - r)), y1 = Math.min(S - 1, Math.ceil(cy + r));
-      let sR = 0, sG = 0, sB = 0, cnt = 0;
-      for (let y = y0; y <= y1; y++) {
-        for (let x = x0; x <= x1; x++) {
-          const dx = x - cx, dy = y - cy;
-          if (dx * dx + dy * dy > r2) continue;
-          const o = (y * S + x) * 3;
-          sR += rgb[o]; sG += rgb[o+1]; sB += rgb[o+2]; cnt++;
-        }
-      }
-      if (cnt) { out[idx] = sR/cnt; out[idx+1] = sG/cnt; out[idx+2] = sB/cnt; }
-      idx += 3;
-    }
-  }
-  return out;
-}
-
-/* ═════════════════════ ЧАСТЬ 4. ПОИСК КАНДИДАТОВ ═════════════════════
-   Методы взяты из Data Matrix: контуры → четырёхугольник → проверка
-   квадратности → гомография. Это универсальная часть локализации.
-   Формат TAINA при этом не меняется — зебра остаётся зеброй.
-   ═════════════════════════════════════════════════════════════════════ */
-
-function findQuadsCV(canvas, W, H) {
-  if (!window.cv || !window.cv.Mat || !window.cv.imread) return null;
-  const cv = window.cv;
-  const mats = [];
-  try {
-    const src = cv.imread(canvas); mats.push(src);
-    const gray = new cv.Mat(); mats.push(gray);
-    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-    const blur = new cv.Mat(); mats.push(blur);
-    cv.GaussianBlur(gray, blur, new cv.Size(5, 5), 0);
-    const bin = new cv.Mat(); mats.push(bin);
-    let bs = Math.floor(Math.min(W, H) / 20) * 2 + 1;
-    bs = Math.max(11, Math.min(151, bs));
-    cv.adaptiveThreshold(blur, bin, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, bs, 7);
-    const contours = new cv.MatVector(); mats.push(contours);
-    const hier = new cv.Mat(); mats.push(hier);
-    cv.findContours(bin, contours, hier, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-
-    const minA = W * H * 0.002, maxA = W * H * 0.98;
-    const quads = [];
-    for (let i = 0; i < contours.size(); i++) {
-      const cnt = contours.get(i);
-      const area = cv.contourArea(cnt);
-      if (area < minA || area > maxA) { cnt.delete(); continue; }
-      const peri = cv.arcLength(cnt, true);
-      const ap = new cv.Mat();
-      cv.approxPolyDP(cnt, ap, 0.04 * peri, true);
-      if (ap.rows === 4 && cv.isContourConvex(ap)) {
-        const pts = [];
-        for (let p = 0; p < 4; p++) pts.push([ap.data32S[p*2], ap.data32S[p*2+1]]);
-        const ord = orderCorners(pts);
-        const sq = squareness(ord);
-        if (sq > CFG.SQUARENESS_MIN) quads.push({ pts: ord, area, sq });
-      }
-      ap.delete(); cnt.delete();
-    }
-    quads.sort((a, b) => b.area - a.area);
-    return quads;
-  } catch (e) {
-    return null;
-  } finally {
-    mats.forEach(m => { try { m.delete(); } catch (e) {} });
-  }
-}
-
-/* ═════════════════════ ЧАСТЬ 5. КОНВЕЙЕР ═════════════════════ */
-
-function sourceToCanvas(src) {
-  if (src instanceof HTMLCanvasElement) return src;
-  const w = src.naturalWidth || src.videoWidth || src.width;
-  const h = src.naturalHeight || src.videoHeight || src.height;
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  c.getContext('2d', { willReadFrequently: true }).drawImage(src, 0, 0, w, h);
-  return c;
-}
-
-function downscaleCanvas(canvas, maxSide) {
-  const w = canvas.width, h = canvas.height;
-  if (Math.max(w, h) <= maxSide) return { canvas, scale: 1 };
-  const s = maxSide / Math.max(w, h);
-  const c = document.createElement('canvas');
-  c.width = Math.round(w * s); c.height = Math.round(h * s);
-  const g = c.getContext('2d', { willReadFrequently: true });
-  g.imageSmoothingEnabled = true;
-  g.drawImage(canvas, 0, 0, c.width, c.height);
-  return { canvas: c, scale: s };
-}
-
-/**
- * Главная функция декодирования.
- *
- * @param {HTMLImageElement|HTMLCanvasElement|HTMLVideoElement} source
- * @param {Object} [opts]
- *        opts.mode        'image' (по умолчанию) | 'camera'
- *        opts.diagnostic  true → подробный отчёт по этапам
- *        opts.roiHint     четыре угла предыдущего успеха (трекинг кандидата)
- *        opts.maxQuads, opts.timeBudgetMs — переопределение лимитов
- * @returns {Object} результат — см. описание в конце файла
- */
-function decode(source, opts) {
-  opts = opts || {};
-  const t0 = performance.now();
-  const diag = { stages: [], candidates: [], rejected: [] };
-  const mark = (name, extra) => {
-    diag.stages.push(Object.assign({ stage: name, ms: +(performance.now() - t0).toFixed(1) }, extra || {}));
-  };
-
-  /* ── FRAME: оригинальный кадр. Из него и только из него берутся пиксели ── */
-  let full;
-  try { full = sourceToCanvas(source); }
-  catch (e) { return fail('не удалось прочитать изображение', diag, t0); }
-  const W = full.width, H = full.height;
-  if (!W || !H) return fail('пустой кадр', diag, t0);
-  const fctx = full.getContext('2d', { willReadFrequently: true });
-  const px = fctx.getImageData(0, 0, W, H).data;
-  mark('FRAME', { w: W, h: H });
-
-  /* ── CANDIDATES: контуры ищем на уменьшенной копии,
-        координаты сразу возвращаем в систему оригинала ── */
-  const { canvas: small, scale } = downscaleCanvas(full, CFG.DETECT_MAX);
-  let quads = findQuadsCV(small, small.width, small.height);
-  const cvUsed = quads !== null;
-  if (!quads || !quads.length) {
-    const m = Math.min(W, H), ox = (W - m) / 2, oy = (H - m) / 2;
-    quads = [{ pts: [[ox,oy],[ox+m,oy],[ox+m,oy+m],[ox,oy+m]], area: m*m, sq: 1 }];
-    mark('CANDIDATES', { found: 0, fallback: 'весь кадр', opencv: cvUsed });
-  } else {
-    quads = quads.map(q => ({
-      pts: q.pts.map(([x, y]) => [x / scale, y / scale]),
-      area: q.area / (scale * scale), sq: q.sq
-    }));
-    mark('CANDIDATES', { found: quads.length, detectScale: +scale.toFixed(3), opencv: true });
-  }
-
-  return decodePixels(px, W, H, quads, opts, diag, mark, t0);
-}
-
-/**
- * Ядро конвейера: работает с уже готовым буфером оригинала и списком кандидатов.
- * Вынесено отдельно, чтобы его можно было прогонять автотестами без DOM.
- */
-function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
-  opts = opts || {};
-  t0 = t0 != null ? t0 : performance.now();
-  diag = diag || { stages: [], candidates: [], rejected: [] };
-  mark = mark || function () {};
-  const preset = opts.mode === 'camera' ? CFG.CAMERA : CFG.IMAGE;
-  const maxQuads     = opts.maxQuads     != null ? opts.maxQuads     : preset.maxQuads;
-  const timeBudgetMs = opts.timeBudgetMs != null ? opts.timeBudgetMs : preset.timeBudgetMs;
-
-  if (opts.roiHint && opts.roiHint.length === 4) {
-    quads = [{ pts: opts.roiHint, area: 0, sq: 1, tracked: true }].concat(quads);
-  }
-  quads = quads.slice(0, maxQuads + (opts.roiHint ? 1 : 0));
-
-  const accepted = [];
-  let evaluated = 0;
-
-  outer:
-  for (let qi = 0; qi < quads.length; qi++) {
-    if (performance.now() - t0 > timeBudgetMs) { diag.timeout = true; break; }
-    const q = quads[qi];
-
-    /* FINDER: грубая оценка Tz на дешёвом warp-е из ОРИГИНАЛА.
-       Неудача здесь — НЕ повод бросать кандидата: контур мог зацепиться за
-       чёрную обводку или за белое поле, где на срезе зебры просто нет. */
-    const probe0 = warpGrayNN(px, W, H, q.pts, CFG.PROBE_SIZE);
-    if (!probe0) { diag.rejected.push({ q: qi, why: 'гомография не решилась' }); continue; }
-    const z0 = verifyZebra(probe0, CFG.PROBE_SIZE);
-
-    /* Гипотезы стиска: модульные (если Tz уже известен) плюс долевые.
-       Долевые нужны для мелких кодов, где один модуль — десятая часть стороны
-       и промахнуться на модуль означает промахнуться мимо всего кода. */
-    const hyp = [];
-    if (z0) for (const k of CFG.INSETS) hyp.push({ frac: k / z0.Tz, label: k + 'мод' });
-    for (const f of CFG.INSETS_FRAC) hyp.push({ frac: f, label: f.toFixed(3) });
-    const seen = [];
-    const uniq = hyp.filter(h => {
-      if (seen.some(v => Math.abs(v - h.frac) < 0.004)) return false;
-      seen.push(h.frac); return true;
-    });
-
-    for (const h of uniq) {
-      if (performance.now() - t0 > timeBudgetMs) { diag.timeout = true; break outer; }
-
-      /* CORNERS: стиск в координатах оригинала, через ту же гомографию.
-         Готовый warp никогда не обрезаем — это сдвигает сетку. */
-      const pts = h.frac === 0 ? q.pts : insetCornersFrac(q.pts, h.frac);
-      if (!pts) continue;
-
-      const probe = warpGrayNN(px, W, H, pts, CFG.PROBE_SIZE);
-      if (!probe) continue;
-      const z = verifyZebra(probe, CFG.PROBE_SIZE);
-      if (!z) continue;
-      const Tz = z.Tz, T = Tz + 2, n = Tz - 2;
-      if (T < CFG.T_MIN || T > CFG.T_MAX || n < 5 || n % 2 === 0) continue;
-
-      const ring = zebraRing(probe, CFG.PROBE_SIZE, Tz);
-
-      /* ПРОВЕРКА 1: структура внешней рамки — снимается прямо из оригинала */
-      const frame = outerFrameScore(px, W, H, pts, Tz);
-      evaluated++;
-      if (frame.score < CFG.FRAME_MIN) {
-        diag.rejected.push({ q: qi, k: h.label, T, why: 'структура рамки',
-                             frame: +frame.score.toFixed(2),
-                             wOk: +frame.wOk.toFixed(2), bOk: +frame.bOk.toFixed(2) });
-        continue;
-      }
-
-      /* WARP + GRID + RGB: точная выборка ИЗ ОРИГИНАЛА */
-      const side = meanSide(pts);
-      const S = Math.max(CFG.FINAL_MIN, Math.min(CFG.FINAL_MAX,
-                Math.round(Math.max(side, Tz * 8))));
-      const rgb = warpRGB(px, W, H, pts, S);
-      if (!rgb) continue;
-      const cells = sampleCells(rgb, S, Tz);
-
-      /* DECODE */
-      const dec = decodeCells(cells, Tz);
-      if (!dec || dec.text === null) {
-        diag.rejected.push({ q: qi, k: h.label, T, why: 'декод пустой',
-                             frame: +frame.score.toFixed(2) });
-        continue;
-      }
-
-      /* ПРОВЕРКА 2: обратная сверка — текст обратно в орнамент и сравнение */
-      if (dec.agree < CFG.AGREE_MIN) {
-        diag.rejected.push({ q: qi, k: h.label, T, why: 'обратная сверка',
-                             agree: +dec.agree.toFixed(3), text: dec.text.slice(0, 20) });
-        continue;
-      }
-
-      accepted.push({
-        text: dec.text, parts: dec.parts || [dec.text], T, n, Tz,
-        mode: dec.mode, kind: dec.kind, colored: dec.colored, palette: dec.palette,
-        agree: dec.agree, frame: frame.score, zebraConf: z.conf,
-        alt: ring.alt, cornersDark: ring.cornersDark,
-        corners: pts, quad: qi, inset: h.label, warpSize: S,
-        channels: dec.channels || null
-      });
-      diag.candidates.push({ q: qi, k: h.label, T, agree: +dec.agree.toFixed(3),
-                             frame: +frame.score.toFixed(2), text: dec.text.slice(0, 40) });
-
-      /* Ранний выход — только по подтверждённому консенсусу. Одиночное идеальное
-         совпадение может оказаться сдвинутой сеткой, прочитавшей самосогласованный
-         кусок настоящего кода. */
-      const sameText = accepted.filter(c => c.text === dec.text).length;
-      if (dec.agree >= 0.999 && frame.score >= 0.999 && sameText >= 2) {
-        diag.earlyExit = true; break outer;
-      }
-    }
-  }
-
-  mark('DECODE', { evaluated, accepted: accepted.length });
-
-  /* ── ВЫБОР ПОБЕДИТЕЛЯ ──
-     Сюда доходят только кандидаты, прошедшие обе проверки. Ранжируем консенсусом:
-     сколько независимых гипотез дали ровно этот текст. Сдвинутая сетка способна
-     выдать самосогласованное чтение куска кода, но повторить его с другого
-     квадрата и другого стиска она не может. */
-  const byText = new Map();
-  for (const c of accepted) {
-    const e = byText.get(c.text);
-    if (e) { e.votes++; if (c.agree > e.best.agree) e.best = c; }
-    else byText.set(c.text, { votes: 1, best: c });
-  }
-  const ranked = [...byText.values()].sort((a, b) =>
-    (b.votes - a.votes) ||
-    (b.best.text.length - a.best.text.length) ||
-    (b.best.agree - a.best.agree) ||
-    (b.best.frame - a.best.frame)
-  );
-  diag.consensus = ranked.map(r => ({ text: r.best.text.slice(0, 40), votes: r.votes, T: r.best.T }));
-
-  if (!ranked.length) {
-    const r = fail('NO CODE', diag, t0);
-    r.diagnostic = opts.diagnostic ? diag : undefined;
-    return r;
-  }
-  const best = ranked[0].best;
-  best.votes = ranked[0].votes;
-  mark('RESULT', { T: best.T, text: best.text.slice(0, 40) });
-
-  return {
-    ok: true,
-    text: best.text,
-    parts: best.parts,
-    channels: best.channels,
-    T: best.T,                  // полный габарит: рамка+зебра+данные+зебра+рамка
-    n: best.n,                  // зона данных, n = T - 4
-    mode: best.mode,            // oct | quad | half
-    kind: best.kind,            // mono | monolith | three
-    colored: best.colored,
-    palette: best.palette,
-    confidence: {
-      agree: +best.agree.toFixed(4),
-      frame: +best.frame.toFixed(4),
-      zebra: +best.zebraConf.toFixed(3),
-      alternation: +best.alt.toFixed(3),
-      cornersDark: best.cornersDark,
-      votes: best.votes           // сколько независимых гипотез дали этот текст
-    },
-    corners: best.corners,
-    ms: +(performance.now() - t0).toFixed(1),
-    diagnostic: opts.diagnostic ? diag : undefined
-  };
-}
-
-function fail(reason, diag, t0) {
-  return { ok: false, text: null, reason,
-           ms: +(performance.now() - t0).toFixed(1), diagnostic: diag };
-}
-
-/* ═════════════════════ ЧАСТЬ 6. НЕПРЕРЫВНАЯ КАМЕРА ═════════════════════ */
-
-/**
- * Непрерывный разбор видеопотока. Отчёт по КАЖДОМУ кадру, не по нажатию.
- * Возвращает объект с методом stop().
- */
-function scanVideo(video, onFrame, opts) {
-  opts = opts || {};
-  const intervalMs = opts.intervalMs || 700;
-  let stopped = false, roiHint = null, roiAge = 0, timer = null;
-  const work = document.createElement('canvas');
-  const wctx = work.getContext('2d', { willReadFrequently: true });
-
-  function tick() {
-    if (stopped) return;
-    const vw = video.videoWidth, vh = video.videoHeight;
-    if (!vw || !vh) { timer = setTimeout(tick, 200); return; }
-    work.width = vw; work.height = vh;
-    wctx.drawImage(video, 0, 0, vw, vh);
-
-    let res;
-    try {
-      res = decode(work, Object.assign({ mode: 'camera', diagnostic: true, roiHint }, opts));
-    } catch (e) {
-      res = { ok: false, text: null, reason: 'ошибка: ' + e.message };
-    }
-
-    /* трекинг найденного кандидата — следующий кадр начинаем с него */
-    if (res.ok) { roiHint = res.corners; roiAge = 0; }
-    else if (roiHint && ++roiAge > 3) { roiHint = null; }
-
-    try { onFrame(res); } catch (e) {}
-
-    if (res.ok && opts.stopOnSuccess) { stopped = true; return; }
-    timer = setTimeout(tick, intervalMs);
-  }
-
-  tick();
-  return { stop() { stopped = true; if (timer) clearTimeout(timer); } };
-}
-
-/* ═════════════════════ ЧАСТЬ 7. ПУБЛИЧНОЕ API ═════════════════════ */
-
-window.TainaDecoder = {
-  decode,
-  scanVideo,
-  config: CFG,
-  version: '1.0',
-  /* внутренности — для decoder-lab.html и автотестов */
-  _internal: { decodePixels, warpGrayNN, warpRGB, insetCorners, insetCornersFrac, verifyZebra, zebraRing,
-               outerFrameScore, sampleCells, decodeCells, findQuadsCV,
-               orderCorners, squareness, meanSide, computeH, applyH }
-};
-
-/**
- * Совместимость со старым интерфейсом Life_10.
- * index.html вызывает runDecodeAttempts(img) и ждёт [{kind,mode,n,res}].
- * UI переделывать не требуется — старый вызов продолжает работать.
- */
-window.runDecodeAttempts = function (img) {
-  const r = decode(img, { mode: 'image' });
-  if (!r.ok) return [];
-  let kind = 'one', res = [r.text, null, null];
-  if (r.kind === 'three') { kind = 'three'; res = r.channels || [r.text, null, null]; }
-  else if (r.kind === 'monolith') { kind = 'mono'; }
-  return [{ kind, mode: r.mode, n: r.n, pad: 2, res, T: r.T, confidence: r.confidence }];
-};
-
+(function waitCv(){
+  if (window.cv && window.cv.Mat) { $('cvState').textContent = 'opencv ok'; $('cvState').className='ok'; }
+  else setTimeout(waitCv, 300);
 })();
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   КАК ПОДКЛЮЧИТЬ
+function setStatus(t, cls) { const e = $('status'); e.textContent = t; e.className = cls || 'dim'; }
 
-   1) OpenCV.js нужен для поиска контуров (локализация). Подключается как
-      обычно, до decoder.js:
-        <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
-        <script src="decoder.js"></script>
-      Без OpenCV декодер продолжает работать, но рассматривает только весь
-      кадр целиком — годится для ровных загруженных PNG, не для камеры.
+/* ── ОТЧЁТ ПО ЭТАПАМ ── */
+function renderReport(res) {
+  const d = res.diagnostic || {};
+  let h = '';
 
-   2) Заменить старый decoder.js этим файлом. Больше ничего в проекте
-      трогать не нужно: Generator, Gallery, UI, Supabase, Vercel — без изменений.
+  h += '<h3>ЕТАПИ</h3><table><tr><th>етап</th><th>мс</th><th>деталі</th></tr>';
+  for (const s of (d.stages || [])) {
+    const extra = Object.keys(s).filter(k => k!=='stage' && k!=='ms')
+                    .map(k => k+'='+esc(s[k])).join(' ');
+    h += `<tr><td>${s.stage}</td><td>${s.ms}</td><td class="dim">${extra}</td></tr>`;
+  }
+  h += '</table>';
 
-   ПУБЛИЧНАЯ ФУНКЦИЯ
+  if (res.ok) {
+    const c = res.confidence;
+    h += '<h3>РЕЗУЛЬТАТ</h3><table>';
+    h += `<tr><td>текст</td><td class="ok">${esc(res.text)}</td></tr>`;
+    h += `<tr><td>T (повний габарит)</td><td>${res.T}</td></tr>`;
+    h += `<tr><td>n (зона даних)</td><td>${res.n}</td></tr>`;
+    h += `<tr><td>режим</td><td>${res.mode} · ${res.kind}${res.palette?' · '+res.palette:''}</td></tr>`;
+    h += `<tr><td>зворотна звірка</td><td class="${c.agree>=0.9?'ok':'bad'}">${c.agree}</td></tr>`;
+    h += `<tr><td>структура рамки</td><td class="${c.frame>=0.95?'ok':'bad'}">${c.frame}</td></tr>`;
+    h += `<tr><td>зебра conf / чергування</td><td>${c.zebra} / ${c.alternation}</td></tr>`;
+    h += `<tr><td>кути зебри темні</td><td>${c.cornersDark}</td></tr>`;
+    h += `<tr><td>голосів за цей текст</td><td>${c.votes}</td></tr>`;
+    h += `<tr><td>час</td><td>${res.ms} мс</td></tr>`;
+    h += '</table>';
+  } else {
+    h += `<h3>РЕЗУЛЬТАТ</h3><div class="bad">${esc(res.reason)} · ${res.ms} мс</div>`;
+  }
 
-     TainaDecoder.decode(source, opts)
+  if (d.consensus && d.consensus.length) {
+    h += '<h3>КОНСЕНСУС</h3><table><tr><th>текст</th><th>T</th><th>голосів</th></tr>';
+    for (const c of d.consensus)
+      h += `<tr><td>${esc(c.text)}</td><td>${c.T}</td><td>${c.votes}</td></tr>`;
+    h += '</table>';
+  }
 
-   ПРИНИМАЕТ
+  if (d.candidates && d.candidates.length) {
+    h += '<h3>ПРИЙНЯТІ ГІПОТЕЗИ</h3><table><tr><th>quad</th><th>стиск</th><th>T</th><th>звірка</th><th>рамка</th><th>текст</th></tr>';
+    for (const c of d.candidates)
+      h += `<tr><td>${c.q}</td><td>${c.k}</td><td>${c.T}</td><td>${c.agree}</td><td>${c.frame}</td><td class="ok">${esc(c.text)}</td></tr>`;
+    h += '</table>';
+  }
 
-     source  — <img>, <canvas> или <video> (любой из трёх, конвейер один и тот же;
-               разница только на стадии получения кадра)
-     opts.mode        'image' | 'camera'   (лимиты по времени и числу кандидатов)
-     opts.diagnostic  true → в ответ добавляется поле diagnostic
-     opts.roiHint     4 угла предыдущего успеха — ускоряет следующий кадр
+  if (d.rejected && d.rejected.length) {
+    h += `<h3>ВІДХИЛЕНО (${d.rejected.length})</h3><table><tr><th>quad</th><th>стиск</th><th>T</th><th>причина</th><th>деталі</th></tr>`;
+    for (const r of d.rejected.slice(0, 60)) {
+      const det = Object.keys(r).filter(k => !['q','k','T','why'].includes(k))
+                    .map(k => k+'='+esc(r[k])).join(' ');
+      h += `<tr><td>${r.q}</td><td>${r.k!=null?r.k:'-'}</td><td>${r.T||'-'}</td><td class="warn">${r.why}</td><td class="dim">${det}</td></tr>`;
+    }
+    h += '</table>';
+    if (d.rejected.length > 60) h += `<div class="dim">…ще ${d.rejected.length-60}</div>`;
+  }
 
-   ВОЗВРАЩАЕТ
+  if (d.timeout) h += '<div class="warn">⚠ вичерпано ліміт часу — показано те, що встигли</div>';
+  report.innerHTML = h;
+}
 
-     Успех:
-       { ok: true,
-         text:      "декодированный текст",
-         parts:     ["текст R", "текст G", "текст B"],   // для цветных
-         T:         35,        // полный габарит: рамка+зебра+данные+зебра+рамка
-         n:         31,        // зона данных, n = T - 4
-         mode:      "oct" | "quad" | "half",
-         kind:      "mono" | "monolith" | "three",
-         colored:   false,
-         palette:   "галерейна" | "насичена" | null,
-         confidence: { agree, frame, zebra, alternation, cornersDark },
-         corners:   [[x,y],[x,y],[x,y],[x,y]],   // в координатах оригинала
-         ms:        142.3 }
+/* ── ВИЗУАЛИЗАЦИЯ: warp + сетка + круги выборки + жёлтые углы ── */
+function drawFound(sourceCanvas, res) {
+  const I = window.TainaDecoder._internal;
+  const W = sourceCanvas.width, H = sourceCanvas.height;
+  const px = sourceCanvas.getContext('2d', { willReadFrequently: true })
+                         .getImageData(0, 0, W, H).data;
+  const Tz = res.T - 2;
+  const S = Math.min(560, Math.max(280, Tz * 16));
+  const rgb = I.warpRGB(px, W, H, res.corners, S);
+  if (!rgb) return;
 
-     Неудача:
-       { ok: false, text: null, reason: "NO CODE", ms: 98.1 }
+  cnv.width = S; cnv.height = S;
+  const ctx = cnv.getContext('2d');
+  const img = ctx.createImageData(S, S);
+  for (let i = 0; i < S * S; i++) {
+    img.data[i*4]   = rgb[i*3];
+    img.data[i*4+1] = rgb[i*3+1];
+    img.data[i*4+2] = rgb[i*3+2];
+    img.data[i*4+3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
 
-   НЕПРЕРЫВНАЯ КАМЕРА
+  const mod = S / Tz;
+  ctx.strokeStyle = 'rgba(70,140,220,0.30)'; ctx.lineWidth = 0.5;
+  for (let i = 0; i <= Tz; i++) {
+    const p = i * mod;
+    ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, S); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(S, p); ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(255,215,60,0.45)';
+  [[0,0],[S-mod,0],[S-mod,S-mod],[0,S-mod]].forEach(([x,y]) => ctx.fillRect(x, y, mod, mod));
+  ctx.strokeStyle = 'rgba(110,235,120,0.65)'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(mod, mod, (Tz-2)*mod, (Tz-2)*mod);
+  const r = mod * 0.28;
+  ctx.strokeStyle = 'rgba(255,255,255,0.65)'; ctx.lineWidth = Math.max(0.7, mod*0.05);
+  for (let row = 1; row < Tz-1; row++) for (let col = 1; col < Tz-1; col++) {
+    ctx.beginPath();
+    ctx.arc(col*mod + mod/2, row*mod + mod/2, r, 0, Math.PI*2);
+    ctx.stroke();
+  }
 
-     const scan = TainaDecoder.scanVideo(videoEl, res => {
-       console.log(res.ok ? res.text : res.reason);   // отчёт по КАЖДОМУ кадру
-     }, { intervalMs: 700, stopOnSuccess: false });
-     // scan.stop() — остановить
+  drawChannels(rgb, S, Tz);
+}
 
-   ПОРОГИ (TainaDecoder.config)
+function drawChannels(rgb, S, Tz) {
+  const wrap = $('rgbwrap'); wrap.innerHTML = '';
+  const cols = [[255,60,60],[60,220,60],[60,110,255]], names = ['R','G','B'];
+  const mod = S / Tz, r = mod * 0.28;
+  for (let ci = 0; ci < 3; ci++) {
+    const box = document.createElement('div');
+    const c = document.createElement('canvas');
+    c.width = S; c.height = S;
+    const g = c.getContext('2d');
+    g.fillStyle = '#07070a'; g.fillRect(0, 0, S, S);
+    for (let row = 1; row < Tz-1; row++) for (let col = 1; col < Tz-1; col++) {
+      const cx = col*mod + mod/2, cy = row*mod + mod/2;
+      let sum = 0, cnt = 0;
+      for (let y = Math.floor(cy-r); y <= cy+r; y++)
+        for (let x = Math.floor(cx-r); x <= cx+r; x++) {
+          if (x<0||y<0||x>=S||y>=S) continue;
+          const dx = x-cx, dy = y-cy;
+          if (dx*dx + dy*dy > r*r) continue;
+          sum += rgb[(y*S+x)*3 + ci]; cnt++;
+        }
+      const v = cnt ? sum/cnt : 0;
+      g.fillStyle = `rgba(${cols[ci][0]},${cols[ci][1]},${cols[ci][2]},${(v/255).toFixed(2)})`;
+      g.beginPath(); g.arc(cx, cy, r, 0, Math.PI*2); g.fill();
+    }
+    const l = document.createElement('div'); l.className = 'lbl'; l.textContent = names[ci];
+    box.appendChild(c); box.appendChild(l); wrap.appendChild(box);
+  }
+}
 
-     FRAME_MIN = 0.95   структура внешней рамки
-     AGREE_MIN = 0.90   обратная сверка
-   Оба должны быть пройдены. Ослабление любого из них открывает дорогу
-   ложным срабатываниям — на тестовом наборе именно эта пара дала
-   10 настоящих кодов из 10 при 0 ложных из 91.
-   ═══════════════════════════════════════════════════════════════════════════ */
+function showRaw(canvas) {
+  const m = Math.min(1, 700 / Math.max(canvas.width, canvas.height));
+  cnv.width = Math.round(canvas.width * m);
+  cnv.height = Math.round(canvas.height * m);
+  cnv.getContext('2d').drawImage(canvas, 0, 0, cnv.width, cnv.height);
+  $('rgbwrap').innerHTML = '';
+}
+
+/* ── ФАЙЛ ── */
+$('fin').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const img = new Image();
+  img.onload = () => {
+    vid.style.display = 'none'; cnv.style.display = 'block';
+    setStatus('обробка…');
+    setTimeout(() => {
+      const src = document.createElement('canvas');
+      src.width = img.naturalWidth; src.height = img.naturalHeight;
+      src.getContext('2d', { willReadFrequently: true }).drawImage(img, 0, 0);
+      const res = window.TainaDecoder.decode(src, { mode: 'image', diagnostic: true });
+      renderReport(res);
+      if (res.ok) { drawFound(src, res); setStatus('✓ ' + res.text, 'ok'); }
+      else { showRaw(src); setStatus('✗ ' + res.reason, 'bad'); }
+    }, 20);
+  };
+  img.src = URL.createObjectURL(f);
+  e.target.value = '';
+});
+
+/* ── КАМЕРА: непрерывно, отчёт по каждому кадру, без кнопки «снимок» ── */
+let stream = null, scan = null;
+
+$('camBtn').addEventListener('click', async () => {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' },
+               width: { ideal: 1920 }, height: { ideal: 1080 } }
+    });
+    vid.srcObject = stream; await vid.play();
+    vid.style.display = 'block'; cnv.style.display = 'none';
+    $('camBtn').style.display = 'none'; $('stopBtn').style.display = 'inline';
+    setStatus('◎ сканування…');
+
+    let frame = 0;
+    scan = window.TainaDecoder.scanVideo(vid, res => {
+      frame++;
+      renderReport(res);
+      if (res.ok) {
+        const snap = document.createElement('canvas');
+        snap.width = vid.videoWidth; snap.height = vid.videoHeight;
+        snap.getContext('2d', { willReadFrequently: true }).drawImage(vid, 0, 0);
+        vid.style.display = 'none'; cnv.style.display = 'block';
+        drawFound(snap, res);
+        setStatus('✓ ' + res.text, 'ok');
+      } else {
+        vid.style.display = 'block'; cnv.style.display = 'none';
+        setStatus(`кадр ${frame}: ${res.reason} · ${res.ms} мс`, 'warn');
+      }
+    }, { intervalMs: 600, stopOnSuccess: false });
+  } catch (err) {
+    setStatus('✗ камера: ' + err.message, 'bad');
+  }
+});
+
+$('stopBtn').addEventListener('click', () => {
+  if (scan) { scan.stop(); scan = null; }
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  vid.style.display = 'none'; cnv.style.display = 'block';
+  $('camBtn').style.display = 'inline'; $('stopBtn').style.display = 'none';
+  setStatus('— зупинено —');
+});
+</script>
+</body>
+</html>
