@@ -441,12 +441,20 @@ function build(){
     CH.forEach((k,i)=>{let markBit=null;if(layers===3&&monoMark===1&&i===0)markBit=1;const r=fillChannel(T[i]||'',n,mode,markBit);grid[k]=r.g;dmask[k]=r.dm;if(r.ovf)ovf=true;});
     $('s-fld').textContent=n+'×'+n;}
 
-  $('s-ch').textContent=nch;$('s-by').textContent=nby;$('s-bits').textContent=maxBits;$('s-warn').style.display=ovf?'block':'none';render();
-let ok;
+$('s-ch').textContent=nch;$('s-by').textContent=nby;$('s-bits').textContent=maxBits;$('s-warn').style.display=ovf?'block':'none';render();
+  let ok;
   if(mode==='row'){const got=CH.map(k=>rowDecode(grid[k],W,H));ok=CH.every((k,i)=>(got[i]||'')===(T[i]||''));}
   else if(layers===1){ok=decodeSector(grid.r,W,mode,0)===D.single;}
   else if(monoMark===1){const rR=decodeSector(grid.r,W,mode,1),rG=decodeSector(grid.g,W,mode,0),rB=decodeSector(grid.b,W,mode,0);ok=((rR||'')+(rG||'')+(rB||''))===T.join('');}
   else{const got=CH.map(k=>decodeSector(grid[k],W,mode,0));ok=CH.every((k,i)=>(got[i]||'')===(T[i]||''));}
+
+  if(!$('dbg')){
+    const d=document.createElement('div');
+    d.id='dbg';
+    d.style.cssText='font-size:12px;font-family:monospace;color:var(--acc-dim);margin:6px 0;text-align:center;';
+    $('rt').parentNode.insertBefore(d,$('rt'));
+  }
+
   $('rt').innerHTML=ok?'<span class="g">✓ цей орнамент декодується</span>':'<span class="w">перевір текст</span>';
   hasImage=true;syncMain();for(let i=0;i<3;i++)$('d-'+i).classList.toggle('filled',(D.ch[i]||'').length>0);
   try{localStorage.setItem('taina_last_ornament',document.getElementById('cv').toDataURL());}catch(e){}
