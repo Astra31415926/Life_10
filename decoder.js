@@ -38,7 +38,12 @@ const CFG = {
      кодов, где один модуль занимает десятую часть стороны). */
   INSETS_FRAC: [0, 0.015, 0.03, 0.045, 0.06, 0.08, 0.105, 0.13],
   FRAME_MIN:       0.95,   // порог структуры внешней рамки
-  AGREE_MIN:       0.90,   // порог обратной сверки
+  AGREE_MIN:       0.90,   // порог обратной сверки при чистом коде
+  /* Пом'якшений режим для перекритого коду: розбіжності приймаються,
+     якщо вони зібрані в одну пляму, а не розсипані по полю. */
+  AGREE_BLOB:      0.70,   // мінімальна звірка, коли розбіжності — одна пляма
+  BLOB_MAX_AREA:   0.30,   // пляма не більша за 30% поля
+  BLOB_MAX_BBOX:   0.40,   // габарит плями не більший за 40% поля
   T_MIN:           9,      // T = 9 → n = 5
   T_MAX:          201,
   MIN_CONTRAST:    50,     // минимальный контраст строки для анализа зебры
@@ -189,6 +194,35 @@ function agreeOf(g, chk, n) {
   return ok / (n * n);
 }
 
+/**
+ * Чи утворюють розбіжності ОДНУ компактну пляму.
+ * Клякса на коді дає розбіжності одним згустком; випадковий збіг —
+ * розсипом по всьому полю. Це і відрізняє перекритий код від сміття.
+ */
+function mismatchShape(masks, n) {
+  const N = n * n;
+  const bad = new Uint8Array(N);
+  let total = 0;
+  for (const [g, chk] of masks)
+    for (let i = 0; i < N; i++)
+      if (!bad[i] && (chk[i] ? 1 : 0) !== g[i]) { bad[i] = 1; }
+  for (let i = 0; i < N; i++) if (bad[i]) total++;
+  if (!total) return { frac: 0, bbox: 0 };
+  /* Міряємо КОМПАКТНІСТЬ, а не зв'язність. Під плямою збігаються ті
+     клітинки, де справжній біт і так дорівнював кольору плями, — тому
+     розбіжності всередині плями йдуть розсипом і зв'язної компоненти
+     не утворюють. А от габарит у них маленький. Сміття ж розкидане
+     по всьому полю, і габарит у нього — усе поле. */
+  let x0 = n, y0 = n, x1 = -1, y1 = -1;
+  for (let i = 0; i < N; i++) {
+    if (!bad[i]) continue;
+    const x = i % n, y = (i / n) | 0;
+    if (x < x0) x0 = x; if (x > x1) x1 = x;
+    if (y < y0) y0 = y; if (y > y1) y1 = y;
+  }
+  return { frac: total / N, bbox: ((x1 - x0 + 1) * (y1 - y0 + 1)) / N };
+}
+
 /* декод с голосованием по зеркалам — избыточность орнамента как error correction */
 function decodeVoted(g, n, m, off, conf) {
   const bc = baseCells(m, n), by = [];
@@ -294,11 +328,43 @@ function decodeCells(cells, Tz) {
       if (!best || a > best.agree) best = { text: txt, agree: a, mode: m };
     }
     if (!best) return { kind: 'mono', text: null, agree: 0, n, colored: false };
+    const shape = mismatchShape([[gl, fillChannel(best.text, n, best.mode, null)]], n);
     return { kind: 'mono', text: best.text, parts: [best.text], agree: best.agree,
-             mode: best.mode, n, colored: false, palette: null };
+             mode: best.mode, n, colored: false, palette: null, shape };
   }
 
   const cls = classifyCells(cells, n);
+
+  /* ПІДФАРБОВАНИЙ МОНОХРОМ.
+     Користувач пофарбував одноколірний код з палітри: жовтий = R+G,
+     блакитний = G+B. Канали при цьому несуть ОДИН І ТОЙ САМИЙ візерунок,
+     а не три різні тексти. Читати такий код поканально не можна —
+     вийде подвоєний або побитий текст. Читаємо по яскравості. */
+  {
+    const chans = [cls.cr, cls.cg, cls.cb].filter(ch => {
+      let ones = 0; for (let i = 0; i < N; i++) ones += ch[i];
+      return ones > N * 0.02 && ones < N * 0.98;     // канал не порожній і не суцільний
+    });
+    let identical = chans.length > 0;
+    for (let k = 1; k < chans.length && identical; k++)
+      for (let i = 0; i < N; i++)
+        if (chans[k][i] !== chans[0][i]) { identical = false; break; }
+    if (identical) {
+      let best = null;
+      for (const m of MODES) {
+        const txt = decodeVoted(gl, n, m, 0, confM);
+        if (txt === null) continue;
+        const a = agreeOf(gl, fillChannel(txt, n, m, null), n);
+        if (!best || a > best.agree) best = { text: txt, agree: a, mode: m };
+      }
+      if (best) {
+        const shape = mismatchShape([[gl, fillChannel(best.text, n, best.mode, null)]], n);
+        return { kind: 'mono', text: best.text, parts: [best.text], agree: best.agree,
+                 mode: best.mode, n, colored: false, tinted: true,
+                 palette: cls.name, shape };
+      }
+    }
+  }
   const cR = new Float64Array(N), cG = new Float64Array(N), cB = new Float64Array(N);
   for (let i = 0; i < N; i++) {
     cR[i] = Math.min(1, Math.abs(cells[i*3]   - 128) / 90);
@@ -321,13 +387,15 @@ function decodeCells(cells, Tz) {
   if (!best) return { kind: 'color', text: null, agree: 0, n, colored: true, palette: cls.name };
 
   /* обратная сверка по каждому непустому каналу */
-  const ags = [];
+  const ags = [], masks = [];
   const chans = [[best.vr, cls.cr, true], [best.vg, cls.cg, false], [best.vb, cls.cb, false]];
   for (const [txt, ch, isR] of chans) {
     if (txt === null) continue;
     const chk = fillChannel(txt, n, best.m, isR ? best.rmark : null);
     ags.push(agreeOf(ch, chk, n));
+    masks.push([ch, chk]);
   }
+  const shape = mismatchShape(masks, n);
   const agree = ags.length ? ags.reduce((a, b) => a + b, 0) / ags.length : 0;
 
   const parts = [best.vr, best.vg, best.vb].filter(t => t !== null);
@@ -335,7 +403,7 @@ function decodeCells(cells, Tz) {
     ? (parts.every(t => t === parts[0]) ? parts[0] : parts.join(''))
     : parts.join(' · ');
 
-  return { kind: best.rmark ? 'monolith' : 'three', text, parts, agree,
+  return { kind: best.rmark ? 'monolith' : 'three', text, parts, agree, shape,
            mode: best.m, n, colored: true, palette: cls.name, rmark: best.rmark,
            channels: [best.vr, best.vg, best.vb] };
 }
@@ -441,8 +509,35 @@ function insetCornersFrac(pts, frac, S) {
   return box.map(([x, y]) => applyH(H, x, y));
 }
 
-/** Быстрый warp в серое, ближайший сосед — для проверки гипотез */
-function warpGrayNN(px, W, H0, pts, S) {
+/**
+ * Який канал нести структуру. Підфарбований код може майже не мати
+ * контрасту в яскравості: жовте чорнило на кремовому тлі дає розкид 12,
+ * а в синьому каналі — 79. Шукати зебру по яскравості там марно.
+ */
+function pickStructureChannels(px, W, H0) {
+  let step = Math.max(1, Math.floor((W * H0) / 20000)) * 4;
+  const s = [0, 0, 0, 0], s2 = [0, 0, 0, 0];
+  let N = 0;
+  for (let i = 0; i + 3 < px.length; i += step) {
+    const r = px[i], g = px[i+1], b = px[i+2];
+    const v = [(r * 77 + g * 150 + b * 29) >> 8, r, g, b];
+    for (let k = 0; k < 4; k++) { s[k] += v[k]; s2[k] += v[k] * v[k]; }
+    N++;
+  }
+  if (!N) return [-1];
+  const sd = [];
+  for (let k = 0; k < 4; k++) {
+    const mu = s[k] / N;
+    sd.push(Math.sqrt(Math.max(0, s2[k] / N - mu * mu)));
+  }
+  let bi = 1, bv = sd[1];
+  for (let k = 2; k <= 3; k++) if (sd[k] > bv) { bv = sd[k]; bi = k; }
+  return bv > sd[0] * 1.4 ? [-1, bi - 1] : [-1];
+}
+
+/** Быстрый warp в серое, ближайший сосед — для проверки гипотез.
+ *  ch: -1 — яскравість, 0/1/2 — окремий канал R/G/B. */
+function warpGrayNN(px, W, H0, pts, S, ch) {
   const H = computeH([[0,0],[S,0],[S,S],[0,S]], pts);
   if (!H) return null;
   const out = new Uint8Array(S * S);
@@ -454,7 +549,9 @@ function warpGrayNN(px, W, H0, pts, S) {
       const xi = x | 0, yi = y | 0;
       if (xi < 0 || yi < 0 || xi >= W || yi >= H0) { out[j * S + i] = 127; continue; }
       const p = (yi * W + xi) * 4;
-      out[j * S + i] = (px[p] * 77 + px[p+1] * 150 + px[p+2] * 29) >> 8;
+      out[j * S + i] = (ch == null || ch < 0)
+        ? (px[p] * 77 + px[p+1] * 150 + px[p+2] * 29) >> 8
+        : px[p + ch];
     }
   }
   return out;
@@ -582,7 +679,7 @@ function zebraRing(gray, S, Tz) {
  * Подделать это вырезкой невозможно.
  * Снимаем ПРЯМО ИЗ ОРИГИНАЛЬНОГО кадра.
  */
-function outerFrameScore(px, W, H0, pts, Tz) {
+function outerFrameScore(px, W, H0, pts, Tz, ch) {
   const ringAt = (radMod) => {
     const p = insetCorners(pts, -radMod, Tz);
     if (!p) return null;
@@ -595,7 +692,9 @@ function outerFrameScore(px, W, H0, pts, Tz) {
         const y = Math.round(a[1] + (b[1] - a[1]) * t);
         if (x < 0 || y < 0 || x >= W || y >= H0) continue;
         const q = (y * W + x) * 4;
-        out.push((px[q] * 77 + px[q+1] * 150 + px[q+2] * 29) >> 8);
+        out.push((ch == null || ch < 0)
+          ? (px[q] * 77 + px[q+1] * 150 + px[q+2] * 29) >> 8
+          : px[q + ch]);
       }
     }
     return out.length >= 40 ? out : null;
@@ -787,7 +886,10 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
 
   const accepted = [];
   let evaluated = 0;
+  const SCs = pickStructureChannels(px, W, H);
+  if (SCs.length > 1) diag.structureChannels = SCs;
 
+  for (const SC of SCs) {
   outer:
   for (let qi = 0; qi < quads.length; qi++) {
     if (performance.now() - t0 > timeBudgetMs) { diag.timeout = true; break; }
@@ -796,7 +898,7 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
     /* FINDER: грубая оценка Tz на дешёвом warp-е из ОРИГИНАЛА.
        Неудача здесь — НЕ повод бросать кандидата: контур мог зацепиться за
        чёрную обводку или за белое поле, где на срезе зебры просто нет. */
-    const probe0 = warpGrayNN(px, W, H, q.pts, CFG.PROBE_SIZE);
+    const probe0 = warpGrayNN(px, W, H, q.pts, CFG.PROBE_SIZE, SC);
     if (!probe0) { diag.rejected.push({ q: qi, why: 'гомография не решилась' }); continue; }
     const z0 = verifyZebra(probe0, CFG.PROBE_SIZE);
 
@@ -820,7 +922,7 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
       const pts = h.frac === 0 ? q.pts : insetCornersFrac(q.pts, h.frac);
       if (!pts) continue;
 
-      const probe = warpGrayNN(px, W, H, pts, CFG.PROBE_SIZE);
+      const probe = warpGrayNN(px, W, H, pts, CFG.PROBE_SIZE, SC);
       if (!probe) continue;
       const z = verifyZebra(probe, CFG.PROBE_SIZE);
       if (!z) continue;
@@ -830,7 +932,7 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
       const ring = zebraRing(probe, CFG.PROBE_SIZE, Tz);
 
       /* ПРОВЕРКА 1: структура внешней рамки — снимается прямо из оригинала */
-      const frame = outerFrameScore(px, W, H, pts, Tz);
+      const frame = outerFrameScore(px, W, H, pts, Tz, SC);
       evaluated++;
       if (frame.score < CFG.FRAME_MIN) {
         diag.rejected.push({ q: qi, k: h.label, T, why: 'структура рамки',
@@ -856,9 +958,19 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
       }
 
       /* ПРОВЕРКА 2: обратная сверка — текст обратно в орнамент и сравнение */
-      if (dec.agree < CFG.AGREE_MIN) {
+      /* Розбіжності допустимі, якщо це ОДНА компактна пляма: перекритий
+         кутик, блік, палець. Симетрія ×8 дублює кожен біт 4–8 разів, тож
+         голосування відновлює текст навіть коли октант закритий цілком.
+         Розсипані розбіжності — навпаки, ознака випадкового збігу. */
+      const sh = dec.shape || { frac: 1, bbox: 1 };
+      const blobOk = dec.agree >= CFG.AGREE_BLOB &&
+                     sh.frac <= CFG.BLOB_MAX_AREA &&
+                     sh.bbox <= CFG.BLOB_MAX_BBOX;
+      if (dec.agree < CFG.AGREE_MIN && !blobOk) {
         diag.rejected.push({ q: qi, k: h.label, T, why: 'обратная сверка',
-                             agree: +dec.agree.toFixed(3), text: dec.text.slice(0, 20) });
+                             agree: +dec.agree.toFixed(3),
+                             plama: +sh.frac.toFixed(2), gabarit: +sh.bbox.toFixed(2),
+                             text: dec.text.slice(0, 20) });
         continue;
       }
 
@@ -887,6 +999,7 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
         text: dec.text, parts: dec.parts || [dec.text], T, n, Tz,
         mode: dec.mode, kind: dec.kind, colored: dec.colored, palette: dec.palette,
         agree: dec.agree, frame: frame.score, zebraConf: z.conf,
+        shape: dec.shape, tinted: !!dec.tinted, rmark: !!dec.rmark,
         alt: ring.alt, cornersDark: ring.cornersDark,
         corners: pts, quad: qi, inset: h.label, warpSize: S,
         channels: dec.channels || null
@@ -902,6 +1015,9 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
         diag.earlyExit = true; break outer;
       }
     }
+  }
+  /* Другий канал перебираємо ТІЛЬКИ якщо по яскравості нічого не знайшли. */
+  if (accepted.length) break;
   }
 
   mark('DECODE', { evaluated, accepted: accepted.length });
@@ -951,8 +1067,12 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
       zebra: +best.zebraConf.toFixed(3),
       alternation: +best.alt.toFixed(3),
       cornersDark: best.cornersDark,
-      votes: best.votes           // сколько независимых гипотез дали этот текст
+      votes: best.votes,          // сколько независимых гипотез дали этот текст
+      blobArea: best.shape ? +best.shape.frac.toFixed(3) : 0,
+      blobBox: best.shape ? +best.shape.bbox.toFixed(2) : 0
     },
+    tinted: best.tinted,          // підфарбований монохром
+    rmark: best.rmark,            // 1 = один текст, розкладений по каналах
     corners: best.corners,
     ms: +(performance.now() - t0).toFixed(1),
     diagnostic: opts.diagnostic ? diag : undefined
@@ -1016,7 +1136,7 @@ window.TainaDecoder = {
   ready: ensureOpenCV(),
   cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
-  version: '1.2',
+  version: '1.4',
   /* внутренности — для decoder-lab.html и автотестов */
   _internal: { decodePixels, warpGrayNN, warpRGB, insetCorners, insetCornersFrac, verifyZebra, zebraRing,
                outerFrameScore, sampleCells, decodeCells, findQuadsCV,
@@ -1037,7 +1157,11 @@ window.runDecodeAttempts = function (img, opts) {
   let kind = 'one', res = [r.text, null, null];
   if (r.kind === 'three') { kind = 'three'; res = r.channels || [r.text, null, null]; }
   else if (r.kind === 'monolith') { kind = 'mono'; }
-  return [{ kind, mode: r.mode, n: r.n, pad: 2, res, T: r.T, confidence: r.confidence }];
+  /* parts і rmark потрібні інтерфейсу, щоб залишити орнамент КОЛЬОРОВИМ,
+     коли це один текст, розкладений по каналах (kind 'mono'). */
+  return [{ kind, mode: r.mode, n: r.n, pad: 2, res, T: r.T,
+            confidence: r.confidence, parts: r.parts, channels: r.channels,
+            rmark: r.rmark, colored: r.colored, tinted: r.tinted, text: r.text }];
 };
 
 })();
