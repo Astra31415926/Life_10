@@ -104,6 +104,7 @@ textarea.inp.chan{padding:16px 18px;resize:none;overflow-y:auto;min-height:56px;
 .rt{font-family:var(--mono);font-size:13px;min-height:20px;text-align:center;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
 .rt .g{color:var(--ok);font-weight:600}.rt .r{color:var(--bad);font-weight:600}
 .rt .w{color:#e5a053;font-weight:600}
+#dbg{font-size:11px;letter-spacing:.06em;color:var(--acc-dim);min-height:16px}
 .linkbtn{font-family:var(--mono);font-size:12px;font-weight:700;padding:8px 14px;border-radius:8px;border:1px solid var(--acc);color:var(--on-acc);background:var(--acc);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:5px;transition:.15s}
 
 .stage{width:100%;max-width:min(48vh,430px);aspect-ratio:1/1;position:relative;background:#0a0806;border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;align-items:center;justify-content:center;flex:0 0 auto;box-shadow:0 14px 44px rgba(0,0,0,.5);transition:border-color .4s,background .4s}
@@ -284,12 +285,6 @@ body.light-mode .intro-panel{background:color-mix(in srgb,var(--ink) 94%,transpa
     <div class="grp"><div class="sec-t">Режим</div><div class="seg" id="layers"><button data-l="1" class="on">Один шар</button><button data-l="3">Три шари · RGB</button></div></div>
     <div class="grp" id="rgb-note-grp"><div class="sec-t">Три канали</div><p class="desc">Можна написати <b>три різні тексти</b> — по одному в кожен колір. Або лишити один: перед збереженням запропоную розкласти його на три.</p></div>
 
-    <div class="grp"><div class="sec-t">Симетрія</div><div class="seg col" id="sym">
-      <button data-m="oct" class="on"><span class="lbl">×8</span><span class="sub">октант · сніжинка</span></button>
-      <button data-m="quad"><span class="lbl">×4</span><span class="sub">чверть</span></button>
-      <button data-m="half"><span class="lbl">×2</span><span class="sub">дзеркало</span></button>
-      <button data-m="row"><span class="lbl">×1</span><span class="sub">рядок</span></button>
-    </div></div>
 
     <div class="stat">
       <span>Символів: <b id="s-ch">0</b> · байтів: <b class="big" id="s-by">0</b></span>
@@ -320,8 +315,8 @@ body.light-mode .intro-panel{background:color-mix(in srgb,var(--ink) 94%,transpa
         <div class="inrow"><span class="chdot" id="d-1" style="background:var(--ch-g);color:var(--ch-g)"></span><textarea id="t-1" class="inp g chan" maxlength="200" rows="1" placeholder="зелений…" autocomplete="off" spellcheck="false"></textarea></div>
         <div class="inrow"><span class="chdot" id="d-2" style="background:var(--ch-b);color:var(--ch-b)"></span><textarea id="t-2" class="inp b chan" maxlength="200" rows="1" placeholder="синій…" autocomplete="off" spellcheck="false"></textarea></div>
       </div>
-      <div class="rt" id="rt"></div> 
-       <div class="rt" id="dbg" style="font-size:11px;color:var(--acc-dim)"></div>
+      <div class="rt" id="rt"></div>
+      <div class="rt" id="dbg"></div>
     </div>
 
     <div class="stage" id="stage">
@@ -362,7 +357,8 @@ body.light-mode .intro-panel{background:color-mix(in srgb,var(--ink) 94%,transpa
 
 <!-- OpenCV вантажиться паралельно з версткою; decoder.js це бачить і дубль не створює -->
 <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
-<script src="decoder.js?v=11"></script>
+<!-- ?v=12 збиває кеш браузера і GitHub Pages. Міняй цифру при кожній заміні декодера. -->
+<script src="decoder.js?v=12"></script>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -372,7 +368,12 @@ const decFatal=new TextDecoder('utf-8',{fatal:true});
 const CH=['r','g','b'];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
-let mode='oct', layers=1;
+/* ═══ СИМЕТРІЯ: ТІЛЬКИ ×8 ═══
+   ×4, ×2 і ×1 вилучені з формату повністю — і з генератора, і з декодера.
+   На тестовому наборі ×4 дала 55 читань, ×2 — 41, і всі до єдиного
+   виявилися сміттям. Жодного правильного. Константа, не змінювати. */
+const mode='oct';
+let layers=1;
 let W=11,H=11, grid={r:null,g:null,b:null}, dmask={r:null,g:null,b:null};
 let shape='square';
 /* Маркерна рамка обов'язкова для роботи декодера і більше не вимикається
@@ -391,6 +392,24 @@ function blit(){CTX.imageSmoothingEnabled=false;CTX.fillStyle='#0a0806';CTX.fill
 function clearStage(){OFF.width=OFF.height=0;hasImage=false;blit();syncMain();$('stage').classList.remove('scanning','failed');}
 
 /* ── Повідомлення (раніше toast викликався, але не існував — падало) ── */
+/* ═══ ВІДЛАГОДЖЕННЯ НА ЕКРАНІ ═══
+   Рядок під орнаментом: у спокої — версія декодера і стан OpenCV,
+   після сканування — цифри, за якими результат був прийнятий. */
+function dbgIdle(){
+  const el=$('dbg');if(!el)return;
+  const v=(window.TainaDecoder&&TainaDecoder.version)||null;
+  const cv=!!(window.cv&&window.cv.Mat);
+  el.textContent=v?('декодер '+v+' · opencv '+(cv?'ok':'чекає…')):'декодер: СТАРИЙ ФАЙЛ';
+  el.style.color=v?'var(--acc-dim)':'var(--bad)';
+}
+function showConf(best){
+  const el=$('dbg');if(!el)return;
+  const c=best&&best.confidence;
+  if(!c){el.textContent='декодер без діагностики — старий файл';el.style.color='var(--bad)';return;}
+  el.style.color='var(--acc-dim)';
+  el.textContent='T='+best.T+' · звірка '+c.agree+' · рамка '+c.frame+' · голосів '+c.votes;
+}
+
 function toast(msg){let t=$('toast');if(!t){t=document.createElement('div');t.id='toast';document.body.appendChild(t);}t.textContent=msg;t.classList.add('on');clearTimeout(window._toastTO);window._toastTO=setTimeout(()=>t.classList.remove('on'),2600);}
 
 let AC=null;
@@ -441,20 +460,12 @@ function build(){
     CH.forEach((k,i)=>{let markBit=null;if(layers===3&&monoMark===1&&i===0)markBit=1;const r=fillChannel(T[i]||'',n,mode,markBit);grid[k]=r.g;dmask[k]=r.dm;if(r.ovf)ovf=true;});
     $('s-fld').textContent=n+'×'+n;}
 
-$('s-ch').textContent=nch;$('s-by').textContent=nby;$('s-bits').textContent=maxBits;$('s-warn').style.display=ovf?'block':'none';render();
-  let ok;
+  $('s-ch').textContent=nch;$('s-by').textContent=nby;$('s-bits').textContent=maxBits;$('s-warn').style.display=ovf?'block':'none';render();
+let ok;
   if(mode==='row'){const got=CH.map(k=>rowDecode(grid[k],W,H));ok=CH.every((k,i)=>(got[i]||'')===(T[i]||''));}
   else if(layers===1){ok=decodeSector(grid.r,W,mode,0)===D.single;}
   else if(monoMark===1){const rR=decodeSector(grid.r,W,mode,1),rG=decodeSector(grid.g,W,mode,0),rB=decodeSector(grid.b,W,mode,0);ok=((rR||'')+(rG||'')+(rB||''))===T.join('');}
   else{const got=CH.map(k=>decodeSector(grid[k],W,mode,0));ok=CH.every((k,i)=>(got[i]||'')===(T[i]||''));}
-
-  if(!$('dbg')){
-    const d=document.createElement('div');
-    d.id='dbg';
-    d.style.cssText='font-size:12px;font-family:monospace;color:var(--acc-dim);margin:6px 0;text-align:center;';
-    $('rt').parentNode.insertBefore(d,$('rt'));
-  }
-
   $('rt').innerHTML=ok?'<span class="g">✓ цей орнамент декодується</span>':'<span class="w">перевір текст</span>';
   hasImage=true;syncMain();for(let i=0;i<3;i++)$('d-'+i).classList.toggle('filled',(D.ch[i]||'').length>0);
   try{localStorage.setItem('taina_last_ornament',document.getElementById('cv').toDataURL());}catch(e){}
@@ -530,10 +541,10 @@ function camLoop(){
 $('cam-btn').onclick = () => { camStream ? stopCam() : startCam(); };
 
 async function showCamResult(found,shotURL){
-  flash();const best=found[0];mode=best.mode;syncSeg('sym','m',mode);scannedImg=shotURL;
+  flash();const best=found[0];scannedImg=shotURL;showConf(best);
   if(best.kind==='three'){setLayers(3);monoMark=0;D.ch=[best.res[0]||'',best.res[1]||'',best.res[2]||''];okChime();for(let i=0;i<3;i++)$('t-'+i).value='';for(let i=0;i<3;i++)if(best.res[i]){await typeOut($('t-'+i),best.res[i],22);grow($('t-'+i),120);}$('txt').value=[best.res[0],best.res[1],best.res[2]].filter(Boolean).join(' ');D.single=$('txt').value;showResult('✓ прочитано · камера',null);
   }else{setLayers(1);monoMark=0;const txt=best.res[0]||'';D.single=txt;okChime();$('txt').value='';await typeOut($('txt'),txt,26);grow($('txt'),200);const el=$('txt');el.scrollTop=el.scrollHeight;showResult('✓ прочитано · камера',txt);}
-  scannedImg=null;build();
+  scannedImg=null;build();showConf(best);
 }
 
 function drawScanned(url){return new Promise(res=>{const im=new Image();im.onload=()=>{OFF.width=OFF.height=512;OCTX.imageSmoothingEnabled=false;OCTX.drawImage(im,0,0,512,512);blit();res()};im.onerror=()=>res();im.src=url;});}
@@ -553,14 +564,14 @@ $('file').onchange=e=>{
     ]).catch(err => { console.error('Scan error:', err); return []; });
     stopScanSound();st.classList.remove('scanning');
 
-    if(!found || !found.length){st.classList.add('failed');sadSound();$('rt').innerHTML='<span class="r">✕ код не розпізнано</span>';$('report').textContent='—';await sleep(1600);st.classList.remove('failed');clearStage();busy=false;e.target.value='';return;}
+    if(!found || !found.length){st.classList.add('failed');sadSound();$('rt').innerHTML='<span class="r">✕ код не розпізнано</span>';$('dbg').textContent='NO CODE — жодна гіпотеза не пройшла перевірки';$('report').textContent='—';await sleep(1600);st.classList.remove('failed');clearStage();busy=false;e.target.value='';return;}
 
-    flash();const best=found[0];mode=best.mode;syncSeg('sym','m',mode);scannedImg=shotURL;
+    flash();const best=found[0];scannedImg=shotURL;showConf(best);
     if(best.kind==='three'){setLayers(3);monoMark=0;D.ch=[best.res[0]||'',best.res[1]||'',best.res[2]||''];okChime();for(let i=0;i<3;i++)$('t-'+i).value='';for(let i=0;i<3;i++)if(best.res[i]){await typeOut($('t-'+i),best.res[i],22);grow($('t-'+i),120);}$('txt').value=[best.res[0],best.res[1],best.res[2]].filter(Boolean).join(' ');D.single=$('txt').value;showResult('✓ прочитано · три канали',null);
     }else{setLayers(1);monoMark=0;const txt=best.res[0]||'';D.single=txt;okChime();$('txt').value='';await typeOut($('txt'),txt,26);grow($('txt'),200);const el=$('txt');el.scrollTop=el.scrollHeight;el.selectionStart=el.selectionEnd=el.value.length;prevLen=txt.length;pushHist();showResult('✓ прочитано'+(best.kind==='mono'?' · монолітний текст':''),txt);}
 
     $('report').innerHTML='<div style="margin-bottom:4px;color:var(--acc-dim)">Варіантів: '+found.length+'</div>'+found.slice(0,6).map(f=>{const txt=f.res.filter(x=>x).join(' | ')||'—';const tag=f.kind==='three'?'RGB×3':(f.kind==='mono'?'RGB моно':modeName(f.mode));return `<span>${tag} · ${f.n} → <b>${txt.slice(0,22)}</b></span>`;}).join('');
-    scannedImg=null;build();busy=false;e.target.value='';};
+    scannedImg=null;build();showConf(best);busy=false;e.target.value='';};
   im.onerror=()=>{URL.revokeObjectURL(url);$('rt').innerHTML='<span class="r">не вдалося відкрити файл</span>'};
   im.src=url;};
 function modeName(m){return {oct:'×8',quad:'×4',half:'×2',row:'×1'}[m]||m}
@@ -611,7 +622,6 @@ function grow(el,max){if(!el)return;el.style.height='auto';el.style.height=Math.
 function autoGrow(){grow($('txt'),200);for(let i=0;i<3;i++)grow($('t-'+i),120);}
 
 $('layers').onclick=e=>{const b=e.target.closest('button');if(!b)return;scannedImg=null;setLayers(+b.dataset.l);build()};
-$('sym').onclick=e=>{const b=e.target.closest('button');if(!b)return;scannedImg=null;mode=b.dataset.m;syncSeg('sym','m',mode);build()};
 $('shape').onclick=e=>{const b=e.target.closest('button');if(!b)return;shape=b.dataset.s;syncSeg('shape','s',shape);scannedImg=null;render()};
 
 const HIST=[];let hPos=-1,hTimer=null;
@@ -668,6 +678,7 @@ $('themeBtn').onclick=()=>applyMode(modeIdx+1);
 let startIdx=0;try{startIdx=parseInt(localStorage.getItem('taina_mode_idx'))||0;}catch(e){}
 if(!(startIdx>=0&&startIdx<MODES.length))startIdx=0;
 applyMode(startIdx);buildSwatches();buildSymTabs();buildSymGrid();setLayers(1);build();autoGrow();
+dbgIdle(); setInterval(()=>{ if(!busy && !camStream) dbgIdle(); },2000);
 
 /* МОБІЛЬНА ЛОГІКА */
 (function(){
