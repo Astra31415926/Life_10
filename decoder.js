@@ -78,10 +78,24 @@ function ensureOpenCV() {
   return _cvPromise;
 }
 
-const MODES = ['oct', 'quad', 'half'];
+/* ТІЛЬКИ ×8 (октант). Симетрії ×4 і ×2 з формату вилучені.
+   На тестовому наборі жодна з них не дала жодного правильного читання —
+   лише хибні спрацювання: ×4 дала 55 гіпотез, ×2 дала 41, усі до єдиної
+   сміття. Причина проста: чим менше дзеркал, тим легше випадковій області
+   виявитися «самоузгодженою». ×8 вимагає збігу восьми відображень. */
+const MODES = ['oct'];
 const RGB_MAIN = { r: [255, 0, 0],    g: [0, 255, 0],    b: [0, 0, 255]   };
 const RGB_GAL  = { r: [220, 50, 60],  g: [65, 195, 65],  b: [60, 70, 215] };
 const REFBITS  = [[0,0,0],[1,0,0],[0,1,0],[0,0,1],[1,1,0],[1,0,1],[0,1,1],[1,1,1]];
+
+/* Місткість октанта і мінімальний розмір поля під задану кількість біт.
+   Генератор бере найменше поле, куди влазять дані (pickN). Якщо знятий
+   текст влазить у поле на два кроки менше — сітку зсунуто. */
+function capacityOct(n) { const R = (n - 1) / 2; return (R + 1) * (R + 2) / 2; }
+function minimalOctN(bits) {
+  for (let n = 7; n <= CFG.T_MAX; n += 2) if (capacityOct(n) >= bits) return n;
+  return CFG.T_MAX;
+}
 
 const _enc = new TextEncoder();
 const _dec = new TextDecoder('utf-8', { fatal: true });
@@ -848,6 +862,27 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
         continue;
       }
 
+      /* ПЕРЕВІРКА 3: мінімальність поля.
+         Генератор обирає найменше поле під обсяг даних. Якщо знятий текст
+         влазить у менше поле — сітку зсунуто або це випадковий збіг. */
+      {
+        const ps = dec.parts || [dec.text];
+        let bits = 0;
+        for (const t of ps) if (t) bits = Math.max(bits, _enc.encode(t).length * 8);
+        if (dec.rmark) bits += 1;
+        const want = minimalOctN(bits);
+        /* Запас у два кроки. Точну рівність вимагати НЕ можна: старі коди
+           з галереї зроблені попередніми версіями генератора, де розкладка
+           тексту по каналах була іншою, і в них n на крок більше за нинішню
+           формулу. А от текст, що влазить у поле на два кроки менше, —
+           це вже не варіація генератора, це зсунута сітка. */
+        if (want <= n - 4) {
+          diag.rejected.push({ q: qi, k: h.label, T, why: 'поле завелике для даних',
+                               n, expected: want, text: dec.text.slice(0, 20) });
+          continue;
+        }
+      }
+
       accepted.push({
         text: dec.text, parts: dec.parts || [dec.text], T, n, Tz,
         mode: dec.mode, kind: dec.kind, colored: dec.colored, palette: dec.palette,
@@ -981,7 +1016,7 @@ window.TainaDecoder = {
   ready: ensureOpenCV(),
   cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
-  version: '1.1',
+  version: '1.2',
   /* внутренности — для decoder-lab.html и автотестов */
   _internal: { decodePixels, warpGrayNN, warpRGB, insetCorners, insetCornersFrac, verifyZebra, zebraRing,
                outerFrameScore, sampleCells, decodeCells, findQuadsCV,
