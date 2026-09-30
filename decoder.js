@@ -436,6 +436,24 @@ function decodeCells(cells, Tz) {
       if (!bst || sc > bst.sc) bst = { vr, vg, vb, sc, m, rmark };
     }
     if (!bst) return null;
+    /* ВТРАЧЕНИЙ КАНАЛ.
+       Канал читається цілком або ніяк: одна перевернута клітинка ламає
+       UTF-8, і bytesToText повертає null. Якщо це код виду «один текст,
+       розкладений по R/G/B», втрата каналу означає втрату третини тексту —
+       а зворотна звірка цього не бачить, вона перевіряє лише те, що
+       прочиталося. Саме звідси беруться обрізані вірші з ідеальною звіркою.
+       Порожній канал (короткий текст) — інша річ, він і має бути null. */
+    let lost = 0;
+    if (bst.rmark) {
+      const chArr = [cand.cr, cand.cg, cand.cb];
+      const txts = [bst.vr, bst.vg, bst.vb];
+      for (let c = 0; c < 3; c++) {
+        if (txts[c] !== null) continue;
+        let ones = 0;
+        for (let i = 0; i < N; i++) ones += chArr[c][i];
+        if (ones > N * 0.02) lost++;        // канал не порожній, але не прочитався
+      }
+    }
     const ags = [], masks = [];
     const chs = [[bst.vr, cand.cr, true], [bst.vg, cand.cg, false], [bst.vb, cand.cb, false]];
     for (const [txt, ch, isR] of chs) {
@@ -445,7 +463,7 @@ function decodeCells(cells, Tz) {
       masks.push([ch, chk]);
     }
     const agree = ags.length ? ags.reduce((x, y) => x + y, 0) / ags.length : 0;
-    return { bst, agree, masks, cand, chans: ags.length };
+    return { bst, agree, masks, cand, chans: ags.length, lost };
   }
 
   let pick = null;
@@ -465,6 +483,7 @@ function decodeCells(cells, Tz) {
   if (!pick) return { kind: 'color', text: null, agree: 0, n, colored: true, palette: cls.name };
 
   const best = pick.bst, useCls = pick.cand, agree = pick.agree;
+  const lostChannels = pick.lost;
   const shape = mismatchShape(pick.masks, n);
 
   const parts = [best.vr, best.vg, best.vb].filter(t => t !== null);
@@ -473,6 +492,7 @@ function decodeCells(cells, Tz) {
     : parts.join(' · ');
 
   return { kind: best.rmark ? 'monolith' : 'three', text, parts, agree, shape,
+           lostChannels,
            mode: best.m, n, colored: true, palette: useCls.name, rmark: best.rmark,
            channels: [best.vr, best.vg, best.vb] };
 }
@@ -1043,6 +1063,15 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
         continue;
       }
 
+      /* ПЕРЕВІРКА 2б: цілісність каналів. Обрізаний текст гірший за
+         відмову: його не видно на око, і людина розносить його далі. */
+      if (dec.lostChannels) {
+        diag.rejected.push({ q: qi, k: h.label, T, why: 'втрачено канал',
+                             lost: dec.lostChannels, agree: +dec.agree.toFixed(3),
+                             text: dec.text.slice(0, 20) });
+        continue;
+      }
+
       /* ПЕРЕВІРКА 3: мінімальність поля.
          Генератор обирає найменше поле під обсяг даних. Якщо знятий текст
          влазить у менше поле — сітку зсунуто або це випадковий збіг. */
@@ -1203,9 +1232,10 @@ window.TainaDecoder = {
      Камеру и разбор файла имеет смысл запускать после него — без OpenCV
      декодер видит только весь кадр целиком и на фото с камеры не сработает. */
   ready: ensureOpenCV(),
+  last: null,               // результат останнього розбору, разом із діагностикою
   cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
-  version: '1.5',
+  version: '1.6',
   /* внутренности — для decoder-lab.html и автотестов */
   _internal: { decodePixels, warpGrayNN, warpRGB, insetCorners, insetCornersFrac, verifyZebra, zebraRing,
                outerFrameScore, sampleCells, decodeCells, findQuadsCV,
@@ -1221,7 +1251,10 @@ window.runDecodeAttempts = function (img, opts) {
   /* opts необязателен. Для видеокадров передавай { mode: 'camera' } —
      иначе на каждый кадр уйдёт бюджет неподвижной картинки и цикл камеры
      будет заметно подвисать. */
-  const r = decode(img, Object.assign({ mode: 'image' }, opts || {}));
+  const r = decode(img, Object.assign({ mode: 'image', diagnostic: true }, opts || {}));
+  /* Останній розбір лишаємо доступним ззовні — інтерфейс показує з нього
+     причини відмови прямо на екрані телефону, без консолі. */
+  window.TainaDecoder.last = r;
   if (!r.ok) return [];
   let kind = 'one', res = [r.text, null, null];
   if (r.kind === 'three') { kind = 'three'; res = r.channels || [r.text, null, null]; }
