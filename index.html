@@ -22,19 +22,15 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* ═══════════════ ТЕМИ ═══════════════
-   Лишилася одна темна. Перемикач прибрано; світлі правила нижче
-   збережені на випадок, якщо тема колись повернеться. */
+/* ═══════════════ ТЕМА ═══════════════ Одна, темна. Перемикач прибрано. */
 :root{
   --ink:#0d0a08;--panel:#15100b;--panel2:#1d1610;
   --acc:#c9a876;--acc-hot:#e8c890;--acc-dim:#8f7451;
   --parchment:#ede3d0;--muted:#94836a;--line:rgba(201,168,118,.22);
   --ok:#58d668;--bad:#e5705a;
-  --ch-r:#ff3b5c;--ch-g:#35d96a;--ch-b:#4b8dff;
-  --on-acc:#15100b;                 /* текст поверх заливки акцентом */
+  --on-acc:#15100b;
   --mono:'JetBrains Mono',monospace;--sans:'Inter',system-ui,sans-serif;
 }
-body.room-rgb{--acc:#5ec8e8;--acc-hot:#8fe4ff;--acc-dim:#3f7f96;--line:rgba(94,200,232,.24)}
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%}
 body{background:var(--ink);color:var(--parchment);font-family:var(--sans);line-height:1.5;
@@ -44,100 +40,123 @@ button{font-family:inherit}
 button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--acc-hot);outline-offset:2px}
 .hide{display:none!important}
 
+/* ═══════════════ ШАПКА: ліво / центр / право ═══════════════ */
 header{border-bottom:1px solid var(--line);flex:0 0 auto;background:color-mix(in srgb,var(--ink) 92%,transparent);
   backdrop-filter:blur(10px);position:sticky;top:0;z-index:60;transition:border-color .4s,background .4s}
-.nav{display:flex;align-items:center;gap:14px;height:62px;max-width:1560px;margin:0 auto;padding:0 20px}
-.mark{font-family:var(--mono);font-weight:700;font-size:19px;letter-spacing:.07em;color:var(--parchment);display:flex;align-items:center;gap:8px}
-.mark::after{content:'';width:7px;height:7px;background:var(--acc);transition:background .4s}
-.navbtns{margin-left:auto;display:flex;gap:6px;align-items:center}
-.phone{width:auto;padding:0 14px;gap:8px;text-decoration:none;font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.03em;white-space:nowrap}
-.phone .phone-num{display:inline}
-.phone:hover{color:var(--acc-hot);border-color:var(--acc-dim)}
-.nb{width:42px;height:42px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+.nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;
+  min-height:66px;max-width:1660px;margin:0 auto;padding:10px 20px}
+.nav-l{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.nav-c{display:flex;justify-content:center}
+.nav-r{display:flex;gap:8px;align-items:center;justify-content:flex-end}
+.mark{font-family:var(--mono);font-weight:700;font-size:21px;letter-spacing:.14em;color:var(--parchment);
+  display:flex;align-items:center;gap:10px;padding:10px 20px;border:1px solid var(--line);border-radius:12px;
+  background:var(--panel)}
+.mark::after{content:'';width:9px;height:9px;background:var(--acc);transition:background .4s}
+.roomtab{font-family:var(--mono);font-size:12.5px;font-weight:700;letter-spacing:.07em;color:var(--muted);
+  padding:12px 18px;border:1px solid var(--line);border-radius:10px;text-transform:uppercase;transition:.15s;
+  text-decoration:none;white-space:nowrap;background:transparent;cursor:pointer}
+.roomtab:hover{color:var(--acc-hot);border-color:var(--acc-dim)}
+.roomtab.on{color:var(--acc-hot);border-color:color-mix(in srgb,var(--acc) 55%,transparent);
+  background:color-mix(in srgb,var(--acc) 14%,transparent);cursor:default}
+.nb{width:44px;height:44px;border-radius:11px;border:1px solid var(--line);background:transparent;color:var(--muted);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;flex:0 0 auto}
 .nb svg{width:21px;height:21px}
 .nb:hover{color:var(--acc-hot);border-color:var(--acc-dim)}
-.roomnav{display:flex;gap:6px;margin-left:6px}
-.roomtab{font-family:var(--mono);font-size:12.5px;font-weight:700;letter-spacing:.07em;color:var(--muted);padding:12px 18px;border:1px solid var(--line);border-radius:10px;text-transform:uppercase;transition:.15s;text-decoration:none;white-space:nowrap;background:transparent;cursor:pointer}
-.roomtab:hover{color:var(--acc-hot);border-color:var(--acc-dim)}
-.roomtab.on{color:var(--acc-hot);border-color:color-mix(in srgb,var(--acc) 55%,transparent);background:color-mix(in srgb,var(--acc) 14%,transparent);cursor:default}
-.center{position:relative}
+.nb.contacts{width:auto;padding:0 16px;font-family:var(--mono);font-size:12.5px;font-weight:700;
+  letter-spacing:.07em;text-transform:uppercase}
+.phone-num{font-family:var(--mono);font-size:15px;font-weight:600;letter-spacing:.05em;color:var(--parchment);
+  text-decoration:none;white-space:nowrap}
+.phone-num:hover{color:var(--acc-hot)}
+.nb.phone{display:none}
 
-.intro-panel{position:absolute;inset:0;z-index:50;background:color-mix(in srgb,var(--ink) 93%,transparent);backdrop-filter:blur(3px);border-radius:14px;display:flex;align-items:center;justify-content:center;padding:16px}
-.intro-panel .intro-close{position:absolute;top:14px;right:14px;width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--muted);cursor:pointer;font-size:16px;line-height:1;z-index:2;transition:.15s}
-.intro-panel .intro-close:hover{color:var(--acc-hot);border-color:var(--acc-dim)}
-.intro-scroll{overflow-y:auto;max-height:100%;padding:30px 30px 26px;max-width:560px;width:100%}
-.intro-scroll h2{font-family:var(--sans);font-size:24px;font-weight:600;color:var(--acc-hot);margin-bottom:16px}
-.intro-scroll p{font-size:15px;line-height:1.66;color:var(--parchment);margin-bottom:14px}
-.intro-scroll p b{color:var(--acc-hot);font-weight:600}
-.intro-scroll a{color:var(--acc-hot);text-decoration:underline;text-underline-offset:3px}
+/* ═══════════════ СІТКА: 3 колонки на ПК ═══════════════ */
+.app{flex:1 1 auto;display:grid;width:100%;max-width:1660px;margin:0 auto;
+  grid-template-columns:330px minmax(0,1fr) 340px;
+  grid-template-rows:auto auto 1fr;
+  grid-template-areas:
+    "mode center shape"
+    "pal  center syms"
+    "stat center syms";}
+.cell{padding:20px 24px;min-width:0}
+.a-mode{grid-area:mode;border-right:1px solid var(--line)}
+.a-pal{grid-area:pal;border-right:1px solid var(--line)}
+.a-stat{grid-area:stat;border-right:1px solid var(--line);display:flex;flex-direction:column;justify-content:flex-end}
+.a-center{grid-area:center;display:flex;flex-direction:column;align-items:center;gap:14px;padding:18px 22px 26px;min-width:0}
+.a-shape{grid-area:shape;border-left:1px solid var(--line)}
+.a-syms{grid-area:syms;border-left:1px solid var(--line);min-height:0;overflow:hidden}
 
-.app{flex:1 1 auto;display:grid;grid-template-columns:340px minmax(0,1fr) 350px;max-width:1660px;width:100%;margin:0 auto}
-.side{padding:24px 26px;display:flex;flex-direction:column;gap:18px;overflow-y:auto}
-.side.left{border-right:1px solid var(--line)}
-.side.right{border-left:1px solid var(--line)}
-.center{display:flex;flex-direction:column;align-items:center;padding:18px 24px 26px;gap:14px;min-width:0}
-
-.sec-t{font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--acc-dim);text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.sec-t{font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--acc-dim);text-transform:uppercase;
+  display:flex;align-items:center;gap:8px;margin-bottom:11px}
 .sec-t::before{content:'';width:5px;height:5px;background:var(--acc);flex:0 0 auto;transition:background .4s}
-.grp{display:flex;flex-direction:column;gap:11px}
-.desc{font-size:13.5px;color:var(--muted);line-height:1.62}
-.desc b{color:var(--parchment);font-weight:600}
 
-/* ═══════════════ ПОЛЯ ВВОДУ ═══════════════
-   Три канали RGB мають бути АБСОЛЮТНО однаковими. Тому:
-   - ніяких inline-стилів на рядках, відступ дає gap у контейнера;
-   - однакові клас, min-height, padding, line-height, box-sizing;
-   - точка каналу вирівняна по центру поля, а не за фіксованим margin. */
-/* Висота зафіксована: перемикання Моно/RGB не зсуває орнамент і кнопки. */
-.txtzone{width:100%;max-width:660px;display:flex;flex-direction:column;justify-content:center;gap:10px}
-.inrow{display:flex;align-items:flex-start;gap:10px}
-/* Кнопки роботи з текстом — поруч із полем, а не в шапці.
-   На смартфоні шапка через них їхала вбік. */
-.txttools{display:flex;gap:8px;justify-content:center}
-.txttools .nb{width:46px;height:46px}
-/* Чипи-приклади: підставляють готовий текст одним тапом. */
-.chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-.chip{font-family:var(--mono);font-size:13px;padding:9px 14px;min-height:38px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;transition:.15s}
-.chip:hover{color:var(--acc-hot);border-color:var(--acc-dim)}
-.inp{flex:1 1 auto;width:100%;min-width:0;display:block;background:var(--panel);border:1px solid var(--line);
-  border-radius:12px;color:var(--parchment);font-family:var(--mono);outline:none;
+/* ═══════════════ ПОЛЕ ВВОДУ ═══════════════ */
+.txtzone{width:100%;max-width:680px;display:flex;flex-direction:column;gap:8px}
+.inp{width:100%;min-width:0;display:block;background:var(--panel);border:1px solid var(--line);
+  border-radius:14px;color:var(--parchment);font-family:var(--mono);outline:none;
   font-size:16px;letter-spacing:.03em;line-height:1.4;cursor:text;box-sizing:border-box}
-textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:16px 20px;resize:none;overflow-y:auto;min-height:60px;max-height:132px}
-/* ЄДИНЕ правило на всі три канали — жодних окремих input.inp.r/.g/.b */
+textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:18px 22px;resize:none;
+  overflow-y:auto;min-height:64px;max-height:132px}
 .inp:focus{border-color:var(--acc);box-shadow:0 0 22px color-mix(in srgb,var(--acc) 18%,transparent)}
 .inp::placeholder{color:var(--acc-dim)}
-.rt{font-family:var(--mono);font-size:13px;min-height:20px;text-align:center;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+.rt{font-family:var(--mono);font-size:13px;min-height:20px;text-align:center;display:flex;align-items:center;
+  justify-content:center;gap:10px;flex-wrap:wrap}
 .rt .g{color:var(--ok);font-weight:600}.rt .r{color:var(--bad);font-weight:600}
 .rt .w{color:#e5a053;font-weight:600}
 #dbg{font-size:11px;line-height:1.5;letter-spacing:.04em;color:var(--acc-dim);min-height:16px;
   white-space:pre-wrap;word-break:break-word;max-width:100%;text-align:center}
 #dbg .bad{color:var(--bad)} #dbg .ok{color:var(--ok)} #dbg .w{color:#e5a053}
-.linkbtn{font-family:var(--mono);font-size:12px;font-weight:700;padding:8px 14px;border-radius:8px;border:1px solid var(--acc);color:var(--on-acc);background:var(--acc);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:5px;transition:.15s}
+.linkbtn{font-family:var(--mono);font-size:12px;font-weight:700;padding:8px 14px;border-radius:8px;
+  border:1px solid var(--acc);color:var(--on-acc);background:var(--acc);cursor:pointer;text-decoration:none;
+  display:inline-flex;align-items:center;gap:5px;transition:.15s}
 
-.stage{width:100%;max-width:min(48vh,430px);aspect-ratio:1/1;position:relative;background:#0a0806;border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;align-items:center;justify-content:center;flex:0 0 auto;box-shadow:0 14px 44px rgba(0,0,0,.5);transition:border-color .4s,background .4s}
-.stage canvas{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;display:block;transition:filter .5s,opacity .6s,transform .6s}
+/* ═══════════════ ХОЛСТ ЗІ СТРІЛКАМИ І КОШИКОМ ═══════════════ */
+.stagewrap{display:flex;align-items:center;justify-content:center;gap:12px;width:100%}
+.arrow{width:48px;height:48px;flex:0 0 auto;border-radius:12px;border:1px solid var(--line);background:transparent;
+  color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+.arrow svg{width:22px;height:22px}
+.arrow:hover:not(:disabled){color:var(--acc-hot);border-color:var(--acc-dim)}
+.arrow:disabled{opacity:.28;cursor:default}
+.stagebox{position:relative;width:100%;max-width:min(52vh,440px);flex:0 1 auto}
+.stage{width:100%;aspect-ratio:1/1;position:relative;background:#0a0806;border:1px solid var(--line);
+  border-radius:16px;overflow:hidden;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 14px 44px rgba(0,0,0,.5);transition:border-color .4s,background .4s}
+.trash{position:absolute;right:12px;bottom:12px;z-index:22;width:44px;height:44px;border-radius:11px;
+  border:1px solid var(--line);background:color-mix(in srgb,var(--ink) 70%,transparent);backdrop-filter:blur(6px);
+  color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+.trash svg{width:20px;height:20px}
+.trash:hover{color:var(--bad);border-color:var(--bad)}
+.stage canvas{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;display:block;
+  transition:filter .5s,opacity .6s,transform .6s}
 .stage.scanning canvas{filter:brightness(.5) contrast(1.25)}
 .stage.failed canvas{opacity:0;transform:scale(.94);filter:blur(6px) grayscale(1)}
-.scanline{position:absolute;left:0;right:0;height:4px;top:0;opacity:0;z-index:11;pointer-events:none;background:linear-gradient(90deg,transparent,var(--acc-hot),transparent);box-shadow:0 0 24px var(--acc-hot),0 0 48px color-mix(in srgb,var(--acc) 40%,transparent)}
+.scanline{position:absolute;left:0;right:0;height:4px;top:0;opacity:0;z-index:11;pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--acc-hot),transparent);
+  box-shadow:0 0 24px var(--acc-hot),0 0 48px color-mix(in srgb,var(--acc) 40%,transparent)}
 .stage.scanning .scanline{animation:sweep 1.6s cubic-bezier(.45,0,.55,1) infinite}
 @keyframes sweep{0%{top:0;opacity:0}7%{opacity:1}93%{opacity:1}100%{top:calc(100% - 4px);opacity:0}}
 .grid-ov{position:absolute;inset:0;opacity:0;z-index:10;pointer-events:none}
 .stage.scanning .grid-ov{opacity:1;animation:gridpulse 1.6s ease-in-out infinite}
 @keyframes gridpulse{0%,100%{opacity:.3}50%{opacity:.7}}
-.veil{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;opacity:0;pointer-events:none;transition:opacity .45s;z-index:12}
+.veil{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;
+  opacity:0;pointer-events:none;transition:opacity .45s;z-index:12}
 .veil svg{width:44px;height:44px;color:var(--bad)}
 .veil p{font-family:var(--mono);font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--bad)}
 .stage.failed .veil{opacity:1}
 
-/* ═══════════════ КНОПКИ (великі, під палець) ═══════════════ */
-.action{width:100%;max-width:460px;display:flex;flex-direction:column;gap:10px;position:relative}
+/* ═══════════════ КНОПКИ ═══════════════ */
+.action{width:100%;max-width:470px;display:flex;flex-direction:column;gap:10px;position:relative}
 .mainbtn{width:100%;font-family:var(--mono);font-size:16px;font-weight:700;letter-spacing:.05em;
-  padding:21px 20px;border-radius:14px;cursor:pointer;transition:.18s;border:1px solid color-mix(in srgb,var(--acc) 60%,transparent);
+  padding:21px 20px;border-radius:14px;cursor:pointer;transition:.18s;
+  border:1px solid color-mix(in srgb,var(--acc) 60%,transparent);
   background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 32%,transparent),color-mix(in srgb,var(--acc) 12%,transparent));
   color:var(--acc-hot);display:flex;align-items:center;justify-content:center;gap:11px;text-transform:uppercase;min-height:62px}
 .mainbtn:hover{border-color:var(--acc-hot);box-shadow:0 0 30px color-mix(in srgb,var(--acc) 30%,transparent)}
 .mainbtn svg{width:21px;height:21px;flex:0 0 auto}
-.btn-main{display:inline-flex;align-items:center;justify-content:center;gap:9px;font-family:var(--mono);font-size:14.5px;font-weight:700;letter-spacing:.05em;padding:18px 24px;border-radius:14px;cursor:pointer;transition:.18s;border:1px solid color-mix(in srgb,var(--acc) 60%,transparent);background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 26%,transparent),color-mix(in srgb,var(--acc) 8%,transparent));color:var(--acc-hot);text-decoration:none;text-transform:uppercase;max-width:460px;width:100%;min-height:58px}
+.btn-main{display:inline-flex;align-items:center;justify-content:center;gap:9px;font-family:var(--mono);
+  font-size:14.5px;font-weight:700;letter-spacing:.05em;padding:18px 24px;border-radius:14px;cursor:pointer;
+  transition:.18s;border:1px solid color-mix(in srgb,var(--acc) 60%,transparent);
+  background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 26%,transparent),color-mix(in srgb,var(--acc) 8%,transparent));
+  color:var(--acc-hot);text-decoration:none;text-transform:uppercase;max-width:470px;width:100%;min-height:58px}
 .btn-main:hover{border-color:var(--acc-hot);box-shadow:0 0 30px color-mix(in srgb,var(--acc) 30%,transparent)}
 .menu{position:absolute;left:0;right:0;bottom:calc(100% + 10px);background:var(--panel);
   border:1px solid color-mix(in srgb,var(--acc) 45%,transparent);border-radius:14px;padding:15px;z-index:40;
@@ -145,161 +164,213 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:16px 2
 .menu-t{font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--acc-dim);text-transform:uppercase}
 .menu .row{display:flex;gap:9px}.menu .row button{flex:1}
 .menu input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;
-  color:var(--parchment);font-family:var(--mono);font-size:15px;padding:14px 14px;outline:none}
+  color:var(--parchment);font-family:var(--mono);font-size:15px;padding:14px;outline:none}
 .menu .hint{font-size:12.5px;color:#e5a053;line-height:1.55}
 .b{font-family:var(--mono);font-size:14px;font-weight:600;padding:16px 14px;border-radius:11px;
   border:1px solid var(--line);cursor:pointer;background:transparent;color:var(--muted);transition:.15s;min-height:54px}
 .b:hover{color:var(--acc-hot);border-color:var(--acc-dim)}
-.b.on{background:color-mix(in srgb,var(--acc) 18%,transparent);color:var(--acc-hot);border-color:color-mix(in srgb,var(--acc) 45%,transparent)}
+.b.on{background:color-mix(in srgb,var(--acc) 18%,transparent);color:var(--acc-hot);
+  border-color:color-mix(in srgb,var(--acc) 45%,transparent)}
 .b.gold{background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 26%,transparent),color-mix(in srgb,var(--acc) 8%,transparent));
   border-color:color-mix(in srgb,var(--acc) 55%,transparent);color:var(--acc-hot)}
 .b.wide{width:100%}
 
 .seg{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.seg.col{flex-direction:column}
-.seg button{flex:1;background:transparent;border:0;color:var(--muted);font-family:var(--mono);font-size:14.5px;font-weight:700;padding:17px 10px;cursor:pointer;transition:.15s;text-align:left;min-height:58px}
-.seg:not(.col) button{border-right:1px solid var(--line);text-align:center}
-.seg.col button{border-bottom:1px solid var(--line)}
-.seg button:last-child{border-right:0;border-bottom:0}
+.seg button{flex:1;background:transparent;border:0;color:var(--muted);font-family:var(--mono);font-size:14.5px;
+  font-weight:700;padding:17px 10px;cursor:pointer;transition:.15s;text-align:center;min-height:58px;
+  border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
 .seg button.on{background:color-mix(in srgb,var(--acc) 20%,transparent);color:var(--acc-hot)}
 .seg button:hover:not(.on){color:var(--acc-hot)}
-.seg .lbl{font-size:17px;font-weight:700}
-.seg .sub{display:block;font-size:11px;font-weight:400;color:var(--acc-dim);letter-spacing:.04em;margin-top:3px}
 
 .palette-pop{position:relative}
-.palette-panel{position:absolute;top:calc(100% + 8px);left:0;right:0;background:var(--panel);border:1px solid color-mix(in srgb,var(--acc) 45%,transparent);border-radius:12px;padding:14px;z-index:30;box-shadow:0 12px 34px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:12px}
+.palette-panel{position:absolute;top:calc(100% + 8px);left:0;right:0;min-width:250px;background:var(--panel);
+  border:1px solid color-mix(in srgb,var(--acc) 45%,transparent);border-radius:12px;padding:14px;z-index:30;
+  box-shadow:0 12px 34px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:12px}
 .pal-row{display:flex;flex-direction:column;gap:7px}
 .pal-row .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--acc-dim)}
 .swatches{display:flex;gap:7px;flex-wrap:wrap;background:#8a8580;padding:9px;border-radius:9px}
 .sw{width:30px;height:30px;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:.12s}
 .sw.on{border-color:var(--acc-hot);box-shadow:0 0 8px color-mix(in srgb,var(--acc) 50%,transparent)}
 
-.stat{font-family:var(--mono);display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--line);padding-top:14px}
-.stat-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
-.stat-row:last-of-type{border-bottom:0}
-.stat-row span{font-size:13px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
-.stat-row b{font-size:22px;font-weight:700;color:var(--acc-hot)}
-.stat .warn{color:#e5a053;font-size:12.5px;padding-top:8px}
+/* ═══════════════ СТАТИСТИКА ═══════════════ */
+.stat{font-family:var(--mono);display:flex;flex-direction:column}
+.stat-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:14px 0;
+  border-bottom:1px solid var(--line)}
+.stat-row:first-child{border-top:1px solid var(--line)}
+.stat-row span{font-size:13px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.stat-row b{font-size:26px;font-weight:700;color:var(--acc-hot);line-height:1}
+.stat .warn{color:#e5a053;font-size:12.5px;padding-top:10px}
 
-.symtabs{display:flex;gap:7px;flex-wrap:wrap}
-.symtab{font-family:var(--mono);font-size:19px;padding:11px 15px;border:1px solid var(--line);border-radius:10px;background:transparent;cursor:pointer;color:var(--parchment);transition:.15s;line-height:1}
+/* ═══════════════ СИМВОЛИ ═══════════════ */
+.symtabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:11px}
+.symtab{font-family:var(--mono);font-size:19px;padding:11px 15px;border:1px solid var(--line);border-radius:10px;
+  background:transparent;cursor:pointer;color:var(--parchment);transition:.15s;line-height:1;flex:0 0 auto}
 .symtab.on{background:color-mix(in srgb,var(--acc) 20%,transparent);border-color:color-mix(in srgb,var(--acc) 45%,transparent)}
-.symgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;max-height:340px;overflow-y:auto;padding-right:6px}
+.symgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;max-height:360px;overflow-y:auto;padding-right:6px}
 .symgrid.tarot-row{grid-template-columns:1fr;gap:6px;max-height:400px}
 .symgrid.tarot-row button{font-size:128px;padding:0;line-height:1}
-.symgrid button{padding:16px 6px;font-size:34px;line-height:1;border:1px solid var(--line);border-radius:10px;background:transparent;cursor:pointer;color:var(--parchment);transition:.12s}
+.symgrid button{padding:16px 6px;font-size:34px;line-height:1;border:1px solid var(--line);border-radius:10px;
+  background:transparent;cursor:pointer;color:var(--parchment);transition:.12s}
 .symgrid button:hover{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 10%,transparent);transform:scale(1.06)}
 
+/* ═══════════════ МОДАЛКИ (Що це? / Тариф / Контакти) ═══════════════ */
+#modal{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px}
+#modal.hide{display:none}
+#modal .mveil{position:absolute;inset:0;background:rgba(0,0,0,.66);backdrop-filter:blur(4px)}
+#modal .mcard{position:relative;z-index:2;background:var(--panel);
+  border:1px solid color-mix(in srgb,var(--acc) 40%,transparent);
+  border-radius:16px;max-width:560px;width:100%;max-height:86vh;overflow-y:auto;padding:30px 28px 26px;
+  box-shadow:0 20px 60px rgba(0,0,0,.6);animation:mpop .2s ease}
+@keyframes mpop{from{transform:scale(.97);opacity:0}to{transform:scale(1);opacity:1}}
+#modal .mclose{position:absolute;top:14px;right:14px;width:38px;height:38px;border-radius:10px;border:1px solid var(--line);
+  background:var(--panel2);color:var(--muted);cursor:pointer;font-size:16px;line-height:1;transition:.15s}
+#modal .mclose:hover{color:var(--acc-hot);border-color:var(--acc-dim)}
+#modal h2{font-size:24px;font-weight:600;color:var(--acc-hot);margin-bottom:16px;padding-right:44px}
+#modal p{font-size:15px;line-height:1.66;margin-bottom:14px}
+#modal p b{color:var(--acc-hot);font-weight:600}
+#modal a{color:var(--acc-hot);text-decoration:underline;text-underline-offset:3px}
+.copyrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel2);border:1px solid var(--line);
+  border-radius:12px;padding:14px 16px;margin:6px 0 16px}
+.copyrow .card{font-family:var(--mono);font-size:19px;font-weight:700;letter-spacing:.08em;color:var(--parchment);
+  word-break:break-all;flex:1 1 auto;cursor:pointer}
+.copyrow button{font-family:var(--mono);font-size:12.5px;font-weight:700;padding:11px 16px;border-radius:10px;
+  border:1px solid var(--acc);background:var(--acc);color:var(--on-acc);cursor:pointer;transition:.15s}
+.copyrow button:hover{background:var(--acc-hot);border-color:var(--acc-hot)}
+.clist{list-style:none;display:flex;flex-direction:column;gap:12px;font-size:15px}
+.clist li{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.clist .k{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--acc-dim);
+  min-width:92px;flex:0 0 auto}
+
 .flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:200;transition:opacity .28s}
-.stage video.cam-live{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:5;border-radius:14px}
+.stage video.cam-live{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:5;border-radius:16px}
 .vf{position:absolute;inset:8%;z-index:8;pointer-events:none}
 .vf span{position:absolute;width:26px;height:26px;border:3px solid var(--acc-hot);opacity:.9}
-.vf span:nth-child(1){top:0;left:0;border-right:0;border-bottom:0}.vf span:nth-child(2){top:0;right:0;border-left:0;border-bottom:0}.vf span:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}.vf span:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
+.vf span:nth-child(1){top:0;left:0;border-right:0;border-bottom:0}
+.vf span:nth-child(2){top:0;right:0;border-left:0;border-bottom:0}
+.vf span:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}
+.vf span:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
 
 #toast{position:fixed;left:50%;transform:translateX(-50%) translateY(20px);bottom:calc(88px + env(safe-area-inset-bottom));
   background:var(--panel);border:1px solid color-mix(in srgb,var(--acc) 50%,transparent);color:var(--parchment);
-  font-family:var(--mono);font-size:13.5px;padding:14px 20px;border-radius:12px;z-index:300;opacity:0;pointer-events:none;
+  font-family:var(--mono);font-size:13.5px;padding:14px 20px;border-radius:12px;z-index:9500;opacity:0;pointer-events:none;
   transition:.22s;max-width:88vw;text-align:center;box-shadow:0 10px 32px rgba(0,0,0,.5)}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
-/* ═══════════════ СВІТЛА ТЕМА — явний контраст ═══════════════
-   Перемикач тем прибрано, клас light-mode більше не вмикається.
-   Правила лишені на випадок повернення теми. */
-body.light-mode{background-image:radial-gradient(ellipse 80% 50% at 50% -10%,color-mix(in srgb,var(--acc) 12%,transparent),transparent)}
-body.light-mode header{background:color-mix(in srgb,var(--panel) 94%,transparent)}
-body.light-mode .stage{background:var(--panel);box-shadow:0 14px 44px rgba(60,45,25,.18)}
-body.light-mode .mainbtn,
-body.light-mode .btn-main,
-body.light-mode .b.gold,
-body.light-mode #mobabar button:not(:disabled){background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
-body.light-mode .mainbtn:hover,
-body.light-mode .btn-main:hover{background:var(--acc-hot);border-color:var(--acc-hot);box-shadow:0 6px 20px rgba(60,45,25,.25)}
-body.light-mode .b,
-body.light-mode .seg button,
-body.light-mode .roomtab,
-body.light-mode .symtab,
-body.light-mode .chip,
-body.light-mode .symgrid button{color:var(--parchment);border-color:var(--line)}
-body.light-mode .b.on,
-body.light-mode .seg button.on,
-body.light-mode .roomtab.on,
-body.light-mode .symtab.on{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
-body.light-mode .seg button.on .sub{color:var(--on-acc);opacity:.78}
-body.light-mode .nb{color:var(--parchment)}
-body.light-mode .inp{background:var(--panel)}
-body.light-mode .inp::placeholder{color:var(--muted)}
-body.light-mode .menu,
-body.light-mode .palette-panel{box-shadow:0 12px 34px rgba(60,45,25,.22)}
-body.light-mode .menu input{background:var(--panel)}
-body.light-mode #mobabar{background:color-mix(in srgb,var(--panel) 96%,transparent)}
-body.light-mode #sheet .sh-b{background:var(--panel);color:var(--parchment)}
-body.light-mode #toast{box-shadow:0 10px 32px rgba(60,45,25,.25)}
-body.light-mode .linkbtn{color:var(--on-acc)}
-body.light-mode .rt .w{color:#9a5a00}
-body.light-mode .stat .warn{color:#9a5a00}
-body.light-mode .menu .hint{color:#8a4e00}
-body.light-mode .intro-panel{background:color-mix(in srgb,var(--ink) 94%,transparent)}
+/* ═══════════════ МОБІЛЬНА СТРІЧКА ═══════════════ */
+#mobabar{display:none}
+@media(max-width:820px){
+  .nav{grid-template-columns:auto 1fr auto;gap:8px;padding:8px 12px;min-height:58px}
+  .nav-c{order:0;justify-content:flex-start}
+  .nav-l{order:1;justify-content:flex-start;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}
+  .nav-l::-webkit-scrollbar{display:none}
+  .nav-r{order:2}
+  .mark{font-size:17px;padding:8px 12px;letter-spacing:.1em}
+  .roomtab{padding:10px 12px;font-size:11.5px}
+  .roomtab.on{display:none!important}
+  .phone-num,.nb.contacts{display:none}
+  .nb.phone{display:flex}
 
-#mobabar{display:none;}
-@media(max-width:768px){
-  /* На смартфоні в шапці лишається тільки трубка, тап по ній — виклик. */
-  .phone{width:42px;padding:0}
-  .phone .phone-num{display:none}
-  .app{grid-template-columns:1fr!important;max-width:100%!important;padding-bottom:96px!important;}
-  .center{order:1!important;padding:12px 14px 8px!important;gap:12px!important;}
-  .side.left{order:2!important;}.side.right{order:3!important;}
-  .side{border:0!important;border-top:1px solid var(--line)!important;padding:18px 16px!important;gap:14px!important;}
-  .stage{max-width:min(88vw,340px)!important;transition:max-width .25s,max-height .25s;}
-  body.kbd .stage{max-width:min(66vw,260px)!important;}
-  /* Клавіатура відкрита — чипи ховаємо, щоб орнамент не з'їхав. */
-  body.kbd .chips{display:none!important;}
-  .txtzone{min-height:auto!important;max-width:100%!important;}
-  .chip{font-size:12.5px;padding:8px 12px;min-height:36px}
-  .roomtab.on{display:none!important;}
-  .action{display:none!important;}#mobabar{display:flex!important;}
-  .nav{height:58px;gap:10px;padding:0 14px}
-  .roomtab{padding:11px 14px;font-size:12px}
-  .seg button{padding:19px 10px;font-size:15.5px;min-height:62px}
-  .seg .lbl{font-size:18px}
-  .b{font-size:15px;padding:18px 14px;min-height:58px}
-  .symgrid{max-height:280px}
+  /* одна стрічка: холст → режим → інструменти → символи → статистика */
+  .app{grid-template-columns:1fr 1fr;grid-template-rows:none;
+    grid-template-areas:
+      "center center"
+      "mode   mode"
+      "pal    shape"
+      "syms   syms"
+      "stat   stat";
+    padding-bottom:98px}
+  .cell{padding:14px;border:0!important}
+  .a-mode,.a-pal,.a-shape,.a-syms,.a-stat{border-top:1px solid var(--line)!important}
+  .a-pal{border-right:1px solid var(--line)!important}
+  .a-center{padding:12px 12px 6px;gap:12px}
+  .a-stat{justify-content:flex-start}
+  .sec-t{margin-bottom:9px}
+  .stagebox{max-width:min(78vw,330px)}
+  body.kbd .stagebox{max-width:min(58vw,240px)}
+  .arrow{width:42px;height:42px}
+  .trash{width:40px;height:40px;right:9px;bottom:9px}
+  .action{display:none!important}
+  #mobabar{display:flex!important}
+  .seg button{padding:18px 8px;font-size:14.5px;min-height:60px}
+  .b{font-size:14.5px;padding:17px 12px;min-height:56px}
+  /* символи — горизонтальна стрічка */
+  .symtabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .symtabs::-webkit-scrollbar{display:none}
+  .symgrid{display:flex!important;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;max-height:none;
+    gap:8px;padding:0 0 6px;scrollbar-width:none}
+  .symgrid::-webkit-scrollbar{display:none}
+  .symgrid button{flex:0 0 auto;width:62px;height:62px;padding:0;font-size:30px}
+  .symgrid.tarot-row button{width:96px;height:96px;font-size:60px}
+  .palette-panel{left:0;right:auto;width:min(86vw,300px)}
+  .stat-row{padding:11px 0}
+  .stat-row b{font-size:22px}
 }
-#mobabar{position:fixed;left:0;right:0;bottom:0;z-index:80;gap:10px;padding:12px 14px calc(12px + env(safe-area-inset-bottom));background:color-mix(in srgb,var(--ink) 95%,transparent);backdrop-filter:blur(10px);border-top:1px solid var(--line);}
-#mobabar button{flex:1;font-family:var(--mono);font-size:15.5px;font-weight:700;letter-spacing:.04em;padding:19px 12px;border-radius:13px;cursor:pointer;text-transform:uppercase;border:1px solid color-mix(in srgb,var(--acc) 58%,transparent);background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 28%,transparent),color-mix(in srgb,var(--acc) 10%,transparent));color:var(--acc-hot);display:flex;align-items:center;justify-content:center;gap:8px;min-height:62px;}
-#mobabar button:disabled{opacity:.4;cursor:default;border-color:var(--line);background:transparent;color:var(--muted);}
-#sheet{position:fixed;inset:0;z-index:10000;display:none;}#sheet.on{display:block;}
-#sheet .veil2{position:absolute;inset:0;background:rgba(0,0,0,.55);}
-#sheet .card{position:absolute;left:0;right:0;bottom:0;background:var(--panel);border-top-left-radius:18px;border-top-right-radius:18px;padding:14px 16px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;box-shadow:0 -12px 40px rgba(0,0,0,.6);animation:sheetup .22s ease;}
+#mobabar{position:fixed;left:0;right:0;bottom:0;z-index:80;gap:10px;
+  padding:12px 14px calc(12px + env(safe-area-inset-bottom));
+  background:color-mix(in srgb,var(--ink) 95%,transparent);backdrop-filter:blur(10px);border-top:1px solid var(--line)}
+#mobabar button{flex:1;font-family:var(--mono);font-size:15.5px;font-weight:700;letter-spacing:.04em;padding:19px 12px;
+  border-radius:13px;cursor:pointer;text-transform:uppercase;border:1px solid color-mix(in srgb,var(--acc) 58%,transparent);
+  background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 28%,transparent),color-mix(in srgb,var(--acc) 10%,transparent));
+  color:var(--acc-hot);display:flex;align-items:center;justify-content:center;gap:8px;min-height:62px}
+#mobabar button:disabled{opacity:.4;cursor:default;border-color:var(--line);background:transparent;color:var(--muted)}
+#sheet{position:fixed;inset:0;z-index:10000;display:none}#sheet.on{display:block}
+#sheet .veil2{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+#sheet .card{position:absolute;left:0;right:0;bottom:0;background:var(--panel);border-top-left-radius:18px;
+  border-top-right-radius:18px;padding:14px 16px calc(18px + env(safe-area-inset-bottom));display:flex;
+  flex-direction:column;gap:10px;box-shadow:0 -12px 40px rgba(0,0,0,.6);animation:sheetup .22s ease}
 @keyframes sheetup{from{transform:translateY(100%)}to{transform:translateY(0)}}
-#sheet .sh-t{font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--acc-dim);text-transform:uppercase;text-align:center;padding:4px 0 6px;}
-#sheet .sh-b{font-family:var(--mono);font-size:16px;font-weight:600;padding:20px;border-radius:13px;border:1px solid var(--line);background:var(--panel2);color:var(--parchment);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;min-height:62px;}
-#sheet .sh-b:active{background:color-mix(in srgb,var(--acc) 16%,transparent);}
-#sheet .sh-cancel{color:var(--muted);border-style:dashed;}
+#sheet .sh-t{font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--acc-dim);text-transform:uppercase;
+  text-align:center;padding:4px 0 6px}
+#sheet .sh-b{font-family:var(--mono);font-size:16px;font-weight:600;padding:20px;border-radius:13px;
+  border:1px solid var(--line);background:var(--panel2);color:var(--parchment);cursor:pointer;display:flex;
+  align-items:center;justify-content:center;gap:10px;min-height:62px}
+#sheet .sh-b:active{background:color-mix(in srgb,var(--acc) 16%,transparent)}
+#sheet .sh-cancel{color:var(--muted);border-style:dashed}
 </style>
 </head>
 <body class="room-mono">
 
 <header><div class="nav">
- <span class="mark">taina</span>
-  <div class="roomnav">
+  <div class="nav-l">
     <a href="index.html" class="roomtab on">Лабораторія</a>
     <a href="gallery.html" class="roomtab">Галерея</a>
     <a href="services.html" class="roomtab">Послуги</a>
     <button class="roomtab" id="introBtn" type="button">Що це?</button>
+    <button class="roomtab" id="tarifBtn" type="button">Тариф</button>
   </div>
-  <div class="navbtns">
-    <a class="nb phone" id="phoneBtn" href="tel:+380682752859" title="Зателефонувати">
+  <div class="nav-c"><span class="mark">taina</span></div>
+  <div class="nav-r">
+    <button class="nb contacts" id="contactsBtn" type="button" title="Контакти">контакти</button>
+    <a class="phone-num" href="tel:+380682752859">068 275 28 59</a>
+    <a class="nb phone" href="tel:+380682752859" title="Зателефонувати">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1 1 .3 1.9.6 2.8a2 2 0 01-.5 2.1L8.1 9.9a16 16 0 006 6l1.3-1.1a2 2 0 012.1-.5c.9.3 1.8.5 2.8.6a2 2 0 011.7 2z"/></svg>
-      <span class="phone-num">+380 68 275 28 59</span>
     </a>
   </div>
 </div></header>
 
 <div class="app">
-  <aside class="side left">
-    <div class="grp"><div class="sec-t">Режим</div><div class="seg" id="layers"><button data-l="1" class="on">Монохром</button><button data-l="3">Кольоровий · RGB</button></div></div>
 
+  <!-- ЛІВА КОЛОНКА -->
+  <section class="cell a-mode">
+    <div class="sec-t">Режим</div>
+    <div class="seg" id="layers">
+      <button data-l="1" class="on">Монохром</button>
+      <button data-l="3">Кольоровий · RGB</button>
+    </div>
+  </section>
 
+  <section class="cell a-pal">
+    <div class="palette-pop">
+      <button class="b wide" id="pal-btn">🎨 Палітра</button>
+      <div class="palette-panel hide" id="pal-panel">
+        <div class="pal-row"><span class="lbl">одиниця</span><div class="swatches" id="sw-one"></div></div>
+        <div class="pal-row"><span class="lbl">нуль і фон</span><div class="swatches" id="sw-zero"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cell a-stat">
     <div class="stat">
       <div class="stat-row"><span>Символів</span><b id="s-ch">0</b></div>
       <div class="stat-row"><span>Байтів</span><b id="s-by">0</b></div>
@@ -307,100 +378,86 @@ body.light-mode .intro-panel{background:color-mix(in srgb,var(--ink) 94%,transpa
       <div class="stat-row"><span>Поле</span><b id="s-fld">—</b></div>
       <div class="warn" id="s-warn" style="display:none">Даних більше, ніж уміщає поле</div>
     </div>
-    <!-- технічний звіт після сканування: прихований, потрібен коду -->
     <div class="report hide" id="report">—</div>
-  </aside>
+  </section>
 
-  <main class="center">
-    <div class="intro-panel hide" id="introPanel">
-      <button class="intro-close" id="introClose" type="button" aria-label="Закрити">✕</button>
-      <div class="intro-scroll">
-        <h2>Що це?</h2>
-        <p>Кожен орнамент на цьому сайті <b>містить текст</b>. Будь-яке введене вами слово або повідомлення перетворюється на симетричний візерунок, з якого можна відновити вихідний текст.</p>
-        <p>Орнамент можна зберегти у форматі PNG та використовувати на власний розсуд.</p>
-        <p>Метод не змінює спосіб зберігання інформації. Він лише показує, як текст, записаний у вигляді байтів, може бути представлений симетричним орнаментом.</p>
-        <p>Детальний опис методу: <a href="https://zenodo.org/records/21709832" target="_blank" rel="noopener">стаття на Zenodo</a>.</p>
-      </div>
-    </div>
-
+  <!-- ЦЕНТР -->
+  <main class="a-center">
     <div class="txtzone">
-      <div class="inrow"><textarea id="txt" class="inp big" maxlength="200" rows="1" placeholder="Напиши щось…" autocomplete="off" spellcheck="false"></textarea></div>
-      <div class="txttools">
-        <button class="nb" id="undo" title="Назад" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-        <button class="nb" id="redo" title="Вперед" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
-        <button class="nb" id="clr" title="Очистити"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
-      </div>
-      <div class="chips" id="chips"></div>
+      <textarea id="txt" class="inp big" maxlength="200" rows="1" placeholder="зашифруй послання" autocomplete="off" spellcheck="false"></textarea>
       <div class="rt" id="rt"></div>
-      <!-- журнал сканера: видимий завжди, і на телефоні теж -->
       <div class="rt" id="dbg"></div>
     </div>
 
-    <div class="stage" id="stage">
-      <canvas id="cv" width="512" height="512"></canvas>
-      <video id="cam-video" playsinline muted class="cam-live hide"></video>
-      <div class="vf hide" id="vf"><span></span><span></span><span></span><span></span></div>
-      <div class="grid-ov"></div><div class="scanline"></div>
-      <div class="veil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg><p>Код не розпізнано</p></div>
+    <div class="stagewrap">
+      <button class="arrow" id="undo" title="Назад" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div class="stagebox">
+        <div class="stage" id="stage">
+          <canvas id="cv" width="512" height="512"></canvas>
+          <video id="cam-video" playsinline muted class="cam-live hide"></video>
+          <div class="vf hide" id="vf"><span></span><span></span><span></span><span></span></div>
+          <div class="grid-ov"></div><div class="scanline"></div>
+          <div class="veil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg><p>Код не розпізнано</p></div>
+        </div>
+        <button class="trash" id="clr" title="Очистити"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+      </div>
+      <button class="arrow" id="redo" title="Вперед" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
     </div>
 
     <div class="action">
       <button id="cam-btn" class="mainbtn" style="display:none">📷 Камера</button>
       <div class="menu hide" id="menu"></div>
-      <div class="menu hide" id="mob-split-menu" style="position:fixed;left:16px;right:16px;bottom:96px;z-index:9998;max-width:none"></div>
       <button class="mainbtn" id="mainbtn"></button>
     </div>
-    <a href="services.html" class="btn-main" style="margin-top:10px;">Приміряти на мерч →</a>
+    <a href="services.html" class="btn-main">Приміряти на мерч →</a>
   </main>
 
-  <aside class="side right">
-    <div class="grp">
-      <div class="sec-t">Вигляд</div>
-      <div class="palette-pop">
-        <button class="b wide" id="pal-btn">🎨 Палітра</button>
-        <div class="palette-panel hide" id="pal-panel">
-          <div class="pal-row"><span class="lbl">одиниця</span><div class="swatches" id="sw-one"></div></div>
-          <div class="pal-row"><span class="lbl">нуль і фон</span><div class="swatches" id="sw-zero"></div></div>
-        </div>
-      </div>
-      <div class="seg" id="shape"><button data-s="square" class="on">Квадрат</button><button data-s="circle">Кружечок</button></div>
-    </div>
-    <div class="grp"><div class="sec-t">Символи</div><div class="symtabs" id="symtabs"></div><div class="symgrid" id="symgrid"></div></div>
-  </aside>
+  <!-- ПРАВА КОЛОНКА -->
+  <section class="cell a-shape">
+    <div class="sec-t">Вигляд</div>
+    <div class="seg" id="shape"><button data-s="square" class="on">Квадрат</button><button data-s="circle">Кружечок</button></div>
+  </section>
+
+  <section class="cell a-syms">
+    <div class="sec-t">Символи</div>
+    <div class="symtabs" id="symtabs"></div>
+    <div class="symgrid" id="symgrid"></div>
+  </section>
+</div>
+
+<div id="modal" class="hide">
+  <div class="mveil"></div>
+  <div class="mcard">
+    <button class="mclose" type="button" aria-label="Закрити">✕</button>
+    <div id="mbody"></div>
+  </div>
 </div>
 
 <input type="file" id="file" accept="image/*" hidden>
 <div class="flash" id="flash"></div>
 
-<!-- OpenCV вантажиться паралельно з версткою; decoder.js це бачить і дубль не створює -->
 <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
-<!-- ?v=12 збиває кеш браузера і GitHub Pages. Міняй цифру при кожній заміні декодера. -->
 <script src="decoder.js?v=17"></script>
 
 <script>
 const $=id=>document.getElementById(id);
-(function(){const pn=$('introPanel');function open(){pn.classList.remove('hide');}function close(){pn.classList.add('hide');try{localStorage.setItem('taina_intro_seen','1');}catch(e){}}$('introBtn').onclick=open;$('introClose').onclick=close;document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!pn.classList.contains('hide'))close();});let seen='0';try{seen=localStorage.getItem('taina_intro_seen')||'0';}catch(e){}if(seen!=='1')open();})();
 const enc=new TextEncoder();
 const decFatal=new TextDecoder('utf-8',{fatal:true});
 const CH=['r','g','b'];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
-/* ═══ СИМЕТРІЯ: ТІЛЬКИ ×8 ═══
-   ×4, ×2 і ×1 вилучені з формату повністю — і з генератора, і з декодера.
-   На тестовому наборі ×4 дала 55 читань, ×2 — 41, і всі до єдиного
-   виявилися сміттям. Жодного правильного. Константа, не змінювати. */
+/* ═══ СИМЕТРІЯ: ТІЛЬКИ ×8 ═══ Константа формату, не змінювати. */
 const mode='oct';
 let layers=1;
 let W=11,H=11, grid={r:null,g:null,b:null}, dmask={r:null,g:null,b:null};
 let shape='square';
-/* Маркерна рамка обов'язкова для роботи декодера і більше не вимикається
-   користувачем. Значення 2 = подвійна рамка із зеброю. Не змінювати. */
 const frameW=2;
 let hasImage=false, menuOpen=false, busy=false, palOpen=false;
 let colOne='#f5f5f5', colZero='#333333';
 let monoMark=0;
 let scannedImg=null;
-const RGBTHR=125;
+let prevLen=0;
+let isDemo=false;
 const D={single:'', ch:['','','']};
 
 const CV=$('cv'), CTX=CV.getContext('2d',{willReadFrequently:true});
@@ -408,10 +465,68 @@ const OFF=document.createElement('canvas'), OCTX=OFF.getContext('2d',{willReadFr
 function blit(){CTX.imageSmoothingEnabled=false;CTX.fillStyle='#0a0806';CTX.fillRect(0,0,CV.width,CV.height);if(!OFF.width)return;const s=Math.min(CV.width/OFF.width,CV.height/OFF.height);const w=OFF.width*s,h=OFF.height*s;CTX.drawImage(OFF,0,0,OFF.width,OFF.height,(CV.width-w)/2,(CV.height-h)/2,w,h);}
 function clearStage(){OFF.width=OFF.height=0;hasImage=false;blit();syncMain();$('stage').classList.remove('scanning','failed');}
 
-/* ── Повідомлення (раніше toast викликався, але не існував — падало) ── */
-/* ═══ ВІДЛАГОДЖЕННЯ НА ЕКРАНІ ═══
-   Рядок під орнаментом: у спокої — версія декодера і стан OpenCV,
-   після сканування — цифри, за якими результат був прийнятий. */
+function toast(msg){let t=$('toast');if(!t){t=document.createElement('div');t.id='toast';document.body.appendChild(t);}t.textContent=msg;t.classList.add('on');clearTimeout(window._toastTO);window._toastTO=setTimeout(()=>t.classList.remove('on'),2600);}
+
+let AC=null;
+function ac(){try{if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();return AC}catch(e){return null}}
+function tone(f,d=.15,v=.08,t='sine'){const c=ac();if(!c)return;const o=c.createOscillator(),g=c.createGain();o.type=t;o.frequency.value=f;o.connect(g);g.connect(c.destination);g.gain.setValueAtTime(v,c.currentTime);g.gain.exponentialRampToValueAtTime(.00001,c.currentTime+d);o.start();o.stop(c.currentTime+d);}
+function keyClick(){tone(1750+Math.random()*260,.014,.03,'square')}
+function typeClick(){tone(1400+Math.random()*400,.016,.04,'triangle')}
+function okChime(){tone(587,.09,.08);setTimeout(()=>tone(784,.1,.08),85);setTimeout(()=>tone(1047,.11,.08),175);setTimeout(()=>tone(1568,.32,.06),290)}
+function sadSound(){tone(392,.2,.08,'triangle');setTimeout(()=>tone(311,.24,.08,'triangle'),170);setTimeout(()=>tone(233,.5,.09,'triangle'),360)}
+let scanNodes=null;
+function startScanSound(){scanNodes=null;try{tone(660,.08,.05);setTimeout(function(){tone(880,.08,.05);},140);}catch(e){}}
+function stopScanSound(){if(!scanNodes)return;const{c,nodes,gains}=scanNodes;scanNodes=null;try{gains.forEach(g=>g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+.2));nodes.forEach(n=>{try{n.stop(c.currentTime+.26)}catch(e){}})}catch(e){}}
+function flash(){const f=$('flash');f.style.opacity='.7';setTimeout(()=>f.style.opacity='0',240)}
+function typeOut(el,text,speed=30){return new Promise(res=>{el.value='';let i=0;const isTA=el.tagName==='TEXTAREA';if(!text.length){res();return}const t=setInterval(()=>{el.value=text.slice(0,++i);if(isTA){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,200)+'px';}try{el.selectionStart=el.selectionEnd=el.value.length}catch(e){}if(i%2===1)typeClick();if(i>=text.length){clearInterval(t);res()}},speed);});}
+
+/* ═══ МОДАЛКИ ═══ одна коробка на «Що це?», «Тариф» і «Контакти» */
+function openModal(html){$('mbody').innerHTML=html;$('modal').classList.remove('hide');}
+function closeModal(){$('modal').classList.add('hide');$('mbody').innerHTML='';}
+$('modal').querySelector('.mveil').onclick=closeModal;
+$('modal').querySelector('.mclose').onclick=closeModal;
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+const HTML_INTRO=`<h2>Що це?</h2>
+<p>Кожен орнамент на цьому сайті <b>містить текст</b>. Будь-яке введене вами слово або повідомлення перетворюється на симетричний візерунок, з якого можна відновити вихідний текст.</p>
+<p>Орнамент можна зберегти у форматі PNG та використовувати на власний розсуд.</p>
+<p>Метод не змінює спосіб зберігання інформації. Він лише показує, як текст, записаний у вигляді байтів, може бути представлений симетричним орнаментом.</p>
+<p>Детальний опис методу: <a href="https://zenodo.org/records/21709832" target="_blank" rel="noopener">стаття на Zenodo</a>.</p>`;
+
+const CARD_NO='4874070062500416';
+const HTML_TARIF=`<h2>Тариф</h2>
+<p>Використання сайту <b>абсолютно безкоштовне</b>.</p>
+<p>Якщо ви бажаєте підтримати автора та розвиток проєкту:</p>
+<p style="margin-bottom:6px">💳 Монобанк (Біла картка)</p>
+<div class="copyrow"><span class="card" id="cardNo">4874 0700 6250 0416</span><button type="button" id="copyCard">Копіювати</button></div>
+<p style="color:var(--muted);font-size:13.5px;margin-bottom:0">Дякую за підтримку.</p>`;
+
+const HTML_CONTACTS=`<h2>Контакти</h2>
+<ul class="clist">
+  <li><span class="k">Email</span><a href="mailto:bakminsterfuler@gmail.com">bakminsterfuler@gmail.com</a></li>
+  <li><span class="k">Телефон</span><a href="tel:+380682752859">+380 68 275 28 59</a></li>
+  <li><span class="k">Instagram</span><a href="https://instagram.com/mixailkashkarov" target="_blank" rel="noopener">@mixailkashkarov</a></li>
+  <li><span class="k">OpenSea</span><a href="https://opensea.io/MihailKashkarov" target="_blank" rel="noopener">MihailKashkarov</a></li>
+</ul>`;
+
+$('introBtn').onclick=()=>{openModal(HTML_INTRO);try{localStorage.setItem('taina_intro_seen','1');}catch(e){}};
+$('contactsBtn').onclick=()=>openModal(HTML_CONTACTS);
+$('tarifBtn').onclick=()=>{
+  openModal(HTML_TARIF);
+  const doCopy=async()=>{
+    try{
+      if(navigator.clipboard&&navigator.clipboard.writeText){await navigator.clipboard.writeText(CARD_NO);}
+      else{const ta=document.createElement('textarea');ta.value=CARD_NO;ta.style.position='fixed';ta.style.opacity='0';
+        document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();}
+      toast('Номер картки скопійовано');tone(880,.08,.06);
+    }catch(e){toast('Не вдалося скопіювати');}
+  };
+  $('copyCard').onclick=doCopy; $('cardNo').onclick=doCopy;
+};
+(function(){let seen='0';try{seen=localStorage.getItem('taina_intro_seen')||'0';}catch(e){}
+  if(seen!=='1')setTimeout(()=>{openModal(HTML_INTRO);try{localStorage.setItem('taina_intro_seen','1');}catch(e){}},400);})();
+
+/* ═══ ВІДЛАГОДЖЕННЯ НА ЕКРАНІ ═══ */
 function dbgIdle(){
   const el=$('dbg');if(!el)return;
   const v=(window.TainaDecoder&&TainaDecoder.version)||null;
@@ -434,8 +549,6 @@ function showConf(best){
   ];
   el.innerHTML='<span class="ok">'+rows.filter(Boolean).join('\n')+'</span>';
 }
-
-/* Чому кадр не прочитався — списком причин, прямо на екрані. */
 function showFail(){
   const el=$('dbg');if(!el)return;
   const last=(window.TainaDecoder&&TainaDecoder.last)||{};
@@ -452,22 +565,12 @@ function showFail(){
   el.innerHTML='<span class="bad">'+rows.join('\n')+'</span>';
 }
 
-/* ═══ РОЗКЛАДКА РЕЗУЛЬТАТУ СКАНУ ═══
-   Три випадки, і розрізняє їх прапорець rmark із декодера:
-     rmark=1 → один текст, розкладений по R/G/B: орнамент кольоровий, поле одне
-     three   → три різні тексти: орнамент кольоровий, полів три
-     інакше  → звичайний монохром: орнамент одношаровий */
 async function applyScan(best){
   const parts=(best.parts&&best.parts.length?best.parts:[best.res[0]||'']).filter(t=>t);
   const colored = best.kind==='three' || !!best.rmark || !!best.colored;
   let txt;
-  if(best.kind==='three'){
-    /* Три різні тексти — формат старих кодів. Поле тепер одне,
-       тому зшиваємо канали через роздільник і показуємо разом. */
-    txt=parts.join(' · ');
-  }else{
-    txt=best.text||best.res[0]||'';
-  }
+  if(best.kind==='three'){txt=parts.join(' · ');}else{txt=best.text||best.res[0]||'';}
+  isDemo=false;
   setLayers(colored?3:1);
   D.single=txt; okChime(); $('txt').value='';
   await typeOut($('txt'),txt,26); grow($('txt'),200);
@@ -476,21 +579,6 @@ async function applyScan(best){
     +(best.kind==='three'?' · три канали':(colored?' · кольоровий':''))
     +(best.tinted?' · підфарбований':''), txt);
 }
-
-function toast(msg){let t=$('toast');if(!t){t=document.createElement('div');t.id='toast';document.body.appendChild(t);}t.textContent=msg;t.classList.add('on');clearTimeout(window._toastTO);window._toastTO=setTimeout(()=>t.classList.remove('on'),2600);}
-
-let AC=null;
-function ac(){try{if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();return AC}catch(e){return null}}
-function tone(f,d=.15,v=.08,t='sine'){const c=ac();if(!c)return;const o=c.createOscillator(),g=c.createGain();o.type=t;o.frequency.value=f;o.connect(g);g.connect(c.destination);g.gain.setValueAtTime(v,c.currentTime);g.gain.exponentialRampToValueAtTime(.00001,c.currentTime+d);o.start();o.stop(c.currentTime+d);}
-function keyClick(){tone(1750+Math.random()*260,.014,.03,'square')}
-function typeClick(){tone(1400+Math.random()*400,.016,.04,'triangle')}
-function okChime(){tone(587,.09,.08);setTimeout(()=>tone(784,.1,.08),85);setTimeout(()=>tone(1047,.11,.08),175);setTimeout(()=>tone(1568,.32,.06),290)}
-function sadSound(){tone(392,.2,.08,'triangle');setTimeout(()=>tone(311,.24,.08,'triangle'),170);setTimeout(()=>tone(233,.5,.09,'triangle'),360)}
-let scanNodes=null;
-function startScanSound(){scanNodes=null;try{tone(660,.08,.05);setTimeout(function(){tone(880,.08,.05);},140);}catch(e){}}
-function stopScanSound(){if(!scanNodes)return;const{c,nodes,gains}=scanNodes;scanNodes=null;try{gains.forEach(g=>g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+.2));nodes.forEach(n=>{try{n.stop(c.currentTime+.26)}catch(e){}})}catch(e){}}
-function flash(){const f=$('flash');f.style.opacity='.7';setTimeout(()=>f.style.opacity='0',240)}
-function typeOut(el,text,speed=30){return new Promise(res=>{el.value='';let i=0;const isTA=el.tagName==='TEXTAREA';if(!text.length){res();return}const t=setInterval(()=>{el.value=text.slice(0,++i);if(isTA){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,200)+'px';}try{el.selectionStart=el.selectionEnd=el.value.length}catch(e){}if(i%2===1)typeClick();if(i>=text.length){clearInterval(t);res()}},speed);});}
 
 const MINN=7, MAXN=145;
 function Rof(n){return (n-1)/2}
@@ -508,9 +596,6 @@ function markCell(g,n,m){const [x,y]=baseCells(m,n)[0];return g[y*n+x]?1:0;}
 function rowBuild(text,maxB){const chars=[...text],w=maxB*8,h=Math.max(chars.length,1);const g=new Uint8Array(w*h);chars.forEach((c,r)=>{const bs=enc.encode(c);for(let i=0;i<maxB;i++){const v=i<bs.length?bs[i]:0;for(let b=0;b<8;b++)g[r*w+i*8+b]=(v>>(7-b))&1;}});return {g,w,h};}
 function rowDecode(g,w,h){if(w%8)return null;const maxB=w/8;if(maxB<1||maxB>4)return null;let out='';for(let r=0;r<h;r++){const bs=[];for(let i=0;i<maxB;i++){let v=0;for(let b=0;b<8;b++)v=(v<<1)|g[r*w+i*8+b];bs.push(v)}while(bs.length&&bs[bs.length-1]===0)bs.pop();if(!bs.length)continue;try{out+=decFatal.decode(new Uint8Array(bs))}catch(e){return null}}return (out&&isClean(out))?out:null;}
 
-/* Поле вводу одне на обидва режими. У RGB текст завжди розкладається
-   по каналах автоматично, з mark-бітом у R — саме так, як раніше робила
-   кнопка «Розкласти на три». Ручного введення трьох текстів більше немає. */
 function texts(){
   if(layers===1) return [D.single,'',''];
   D.ch=splitThree(D.single); monoMark=1;
@@ -535,7 +620,7 @@ function build(){
     $('s-fld').textContent=n+'×'+n;}
 
   $('s-ch').textContent=nch;$('s-by').textContent=nby;$('s-bits').textContent=maxBits;$('s-warn').style.display=ovf?'block':'none';render();
-let ok;
+  let ok;
   if(mode==='row'){const got=CH.map(k=>rowDecode(grid[k],W,H));ok=CH.every((k,i)=>(got[i]||'')===(T[i]||''));}
   else if(layers===1){ok=decodeSector(grid.r,W,mode,0)===D.single;}
   else if(monoMark===1){const rR=decodeSector(grid.r,W,mode,1),rG=decodeSector(grid.g,W,mode,0),rB=decodeSector(grid.b,W,mode,0);ok=((rR||'')+(rG||'')+(rB||''))===T.join('');}
@@ -559,8 +644,6 @@ function paint(ctx,cell,pad,qz){
     for(let cx=2;cx<CW-2;cx++){cellAt(cx,2,((cx+2)%2===0)?FRAME_A:FRAME_B);cellAt(cx,CH-3,((cx+CH-3)%2===0)?FRAME_A:FRAME_B);}
     for(let cy=3;cy<CH-3;cy++){cellAt(2,cy,((2+cy)%2===0)?FRAME_A:FRAME_B);cellAt(CW-3,cy,((CW-3+cy)%2===0)?FRAME_A:FRAME_B);}
   }else if(pad>0){ctx.fillStyle=FRAME_COL;ctx.fillRect(ox,oy,TW,TH);}
-  /* У RGB тло зони даних строго чорне: будь-яка домішка лізе в усі три
-     канали одразу і з'їдає запас. У моно тло лишається на вибір користувача. */
   ctx.fillStyle=(layers===3)?'#000000':colZero;
   ctx.fillRect(ox+pad*cell,oy+pad*cell,W*cell,H*cell);
   const put=(x,y,col)=>{ctx.fillStyle=col;const px=ox+(x+pad)*cell,py=oy+(y+pad)*cell;if(shape==='circle'){ctx.beginPath();ctx.arc(px+cell/2,py+cell/2,cell/2*.94,0,6.2832);ctx.fill()}else ctx.fillRect(px,py,cell,cell)};
@@ -572,8 +655,6 @@ function camEls(){return {v:$('cam-video'),vf:$('vf'),btn:$('cam-btn')};}
 async function startCam(){
   const {v,vf,btn}=camEls();if(camStream){stopCam();}
   try{
-    /* Чекаємо OpenCV ДО getUserMedia: інакше 10-секундний таймер з'їсть
-       час завантаження модуля і камера вимкнеться, не встигнувши сканувати. */
     if(window.TainaDecoder&&TainaDecoder.ready){$('rt').innerHTML='<span class="w">завантаження модуля…</span>';await TainaDecoder.ready;}
     camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1920}}});v.srcObject=camStream; v.setAttribute('playsinline','');await v.play();CV.classList.add('hide'); v.classList.remove('hide'); vf.classList.remove('hide');$('stage').classList.add('scanning');btn.textContent='⏹ Зупинити'; $('rt').innerHTML='<span class="w">наведи на код…</span>';camLastText=null; camTimer=0; camBusy=false;startScanSound();camLoop();clearTimeout(window._camTO);clearInterval(window._camTick);window._camTick=setInterval(function(){tone(1200,.03,.03,'sine');},900);window._camTO=setTimeout(function(){if(camStream){stopCam();$('rt').innerHTML='<span class="w">не знайдено — спробуй ще</span>';}},10000);}catch(e){ alert('Камера недоступна: '+e); }
 }
@@ -590,8 +671,6 @@ function camLoop(){
       const cx=c.getContext('2d',{willReadFrequently:true});
       cx.drawImage(v,0,0);
       let found=[];
-      /* mode:'camera' — бюджет 500 мс на кадр. Без цього на кожен кадр
-         іде бюджет нерухомої картинки і цикл камери підвисає. */
       try{ found=runDecodeAttempts(c,{mode:'camera'}); }catch(e){}
       if(!found.length) showFail();
       if(found.length){
@@ -607,15 +686,12 @@ function camLoop(){
           return;
         }
         camLastText=txt;
-      }else{
-        camLastText=null;
-      }
+      }else{camLastText=null;}
     }catch(e){}
     camBusy=false;
   }
   camRAF=requestAnimationFrame(camLoop);
 }
-
 $('cam-btn').onclick = () => { camStream ? stopCam() : startCam(); };
 
 async function showCamResult(found,shotURL){
@@ -623,15 +699,12 @@ async function showCamResult(found,shotURL){
   await applyScan(best);
   scannedImg=null;build();showConf(best);
 }
-
 function drawScanned(url){return new Promise(res=>{const im=new Image();im.onload=()=>{OFF.width=OFF.height=512;OCTX.imageSmoothingEnabled=false;OCTX.drawImage(im,0,0,512,512);blit();res()};im.onerror=()=>res();im.src=url;});}
 
 $('file').onchange=e=>{
   const f=e.target.files[0];if(!f)return;const url=URL.createObjectURL(f),im=new Image();
   im.onload=async()=>{
     URL.revokeObjectURL(url);busy=true;
-    /* Перший файл після відкриття сторінки може потрапити в декодер
-       раніше, ніж завантажиться OpenCV. Чекаємо. */
     if(window.TainaDecoder&&TainaDecoder.ready){try{await TainaDecoder.ready;}catch(e){}}
     const shot=document.createElement('canvas');shot.width=shot.height=512;const sx=shot.getContext('2d');sx.imageSmoothingEnabled=false;const mn=Math.min(im.naturalWidth,im.naturalHeight);sx.drawImage(im,(im.naturalWidth-mn)/2,(im.naturalHeight-mn)/2,mn,mn,0,0,512,512);
     const shotURL=shot.toDataURL('image/png');const st=$('stage');st.classList.remove('failed');await drawScanned(shotURL);st.classList.add('scanning');startScanSound();$('rt').innerHTML='<span class="w">сканування…</span>';
@@ -677,23 +750,15 @@ function detectLang(t){if(/[\u0400-\u04FF]/.test(t))return 'uk';if(/[\u4E00-\u9F
 function openPublish(){const mainWord=D.single;if(!mainWord.trim()){toast('Спершу напиши щось');return;}const m=$('menu');menuOpen=true;m.classList.remove('hide');m.innerHTML=`<div class="menu-t">Опублікувати в галерею</div><div class="hint">⚠ Байткод — відкритий код. Будь-хто зможе прочитати ваш текст. Не публікуйте таємниць.</div><input id="pub-title" placeholder="Назва (видима всім)" autocomplete="off" spellcheck="false"><div class="row"><button class="b gold" id="pub-yes">✦ Так, опублікувати</button></div><div class="row"><button class="b" id="pub-no">Скасувати</button></div>`;$('pub-yes').onclick=e=>{e.stopPropagation();doPublish(mainWord)};$('pub-no').onclick=e=>{e.stopPropagation();closeMenu()};}
 async function doPublish(word){const btn=$('pub-yes');if(btn){btn.textContent='Публікую…';btn.disabled=true;}const settings={colOne, colZero, frame:frameW, monoMark, words:layers===3?D.ch.slice():undefined};let image_url=null;try{const scale=Math.max(1,Math.round(1000/Math.max(OFF.width,1)));const ex=document.createElement('canvas');ex.width=OFF.width*scale;ex.height=OFF.height*scale;const cx=ex.getContext('2d');cx.imageSmoothingEnabled=false;cx.drawImage(OFF,0,0,OFF.width,OFF.height,0,0,ex.width,ex.height);const blob=await new Promise(function(res){ex.toBlob(res,'image/png');});const fname='o_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.png';const up=await fetch(SUPA_URL+'/storage/v1/object/ornaments/'+fname,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'image/png'},body:blob});if(up.ok)image_url=SUPA_URL+'/storage/v1/object/public/ornaments/'+fname;else console.log('upload err',up.status);}catch(e){console.log('img err',e);}const pubTitle=($('pub-title')||{}).value||'';const row={word,mode,layers,settings,lang:detectLang(word),image_url,title:pubTitle||word};try{const resp=await fetch(`${SUPA_URL}/rest/v1/bytecodes`,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(row)});closeMenu();if(resp.ok){toast('✦ Опубліковано в галерею!');okChime();}else{const t=await resp.text();toast('Помилка: '+resp.status);console.log('publish err',t);}}catch(e){closeMenu();toast('Немає зв\'язку з галереєю');}}
 
-/* 12 кольорів одиниці: 6 спектрально чистих + пастель, серед якої
-   чисто білий — найнадійніший варіант для сканування на будь-якому нулі. */
 const ONE_COLORS=[
   '#ff2d2d','#22c55e','#2b6bff','#ffe000','#00d4e8','#b83dff',
   '#ffb3b3','#ffffff','#b3c9ff','#fff2a8','#aeeef5','#e0bcff'
 ];
-/* 12 темних варіантів нуля і тла. Усі темніші за будь-яку одиницю —
-   інакше канал інвертується і декодер читає сміття. */
 const ZERO_COLORS=[
   '#660000','#666600','#006600','#006666',
   '#000066','#660066','#666666','#081800',
   '#4d4d00','#4d0000','#003300','#333333'
 ];
-/* ЧИСТІ КАНАЛИ. Спектрально строгі значення без домішок: при розкладі
-   орнамента на канали кожен дає суворо 0 або 255, запас між нулем і
-   одиницею 255 замість колишніх 75. Не пом'якшувати — це не про красу,
-   це опорні точки, за якими декодер розрізняє біти. */
 const RGB_PURE = {r:[255,0,0], g:[0,255,0], b:[0,0,255]};
 function buildSwatches(){const mk=(box,arr,getCur,set)=>{box.innerHTML='';arr.forEach(col=>{const s=document.createElement('div');s.className='sw'+(col===getCur()?' on':'');s.style.background=col;s.onclick=()=>{set(col);[...box.children].forEach(c=>c.classList.remove('on'));s.classList.add('on');render();tone(700,.05,.05);};box.appendChild(s);});};mk($('sw-one'),ONE_COLORS,()=>colOne,c=>colOne=c);mk($('sw-zero'),ZERO_COLORS,()=>colZero,c=>colZero=c);}
 $('pal-btn').onclick=e=>{e.stopPropagation();palOpen=!palOpen;$('pal-panel').classList.toggle('hide',!palOpen);$('pal-btn').classList.toggle('on',palOpen);};
@@ -702,7 +767,7 @@ const SYMS={'☺':{name:'смайли',list:[...'😀😃😄😁😆😅😂�
 let curSym='☺';
 function buildSymTabs(){const box=$('symtabs');box.innerHTML='';Object.keys(SYMS).forEach(k=>{const b=document.createElement('button');b.className='symtab'+(k===curSym?' on':'');b.textContent=k;b.title=SYMS[k].name;b.onclick=()=>{curSym=k;buildSymTabs();buildSymGrid();};box.appendChild(b);});}
 function activeInput(){return $('txt');}
-function buildSymGrid(){const box=$('symgrid');box.innerHTML='';const isTarot=(curSym==='🃏');box.classList.toggle('tarot-row',isTarot);SYMS[curSym].list.forEach(s=>{const b=document.createElement('button');b.type='button';b.textContent=s;b.onmousedown=e=>e.preventDefault();b.onclick=()=>{const el=activeInput();el.value=[...el.value,s].join('').slice(0,200);el.dispatchEvent(new Event('input'));};box.appendChild(b);});}
+function buildSymGrid(){const box=$('symgrid');box.innerHTML='';const isTarot=(curSym==='🃏');box.classList.toggle('tarot-row',isTarot);SYMS[curSym].list.forEach(s=>{const b=document.createElement('button');b.type='button';b.textContent=s;b.onmousedown=e=>e.preventDefault();b.onclick=()=>{const el=activeInput();if(isDemo){isDemo=false;el.value='';}el.value=[...el.value,s].join('').slice(0,200);el.dispatchEvent(new Event('input'));};box.appendChild(b);});}
 
 function syncSeg(id,attr,val){const box=$(id);if(!box)return;for(const b of box.children)b.classList.toggle('on',b.dataset[attr]===val)}
 function setLayers(n){
@@ -710,13 +775,10 @@ function setLayers(n){
   monoMark = (n===3)?1:0;
   document.body.classList.toggle('room-rgb',n===3);
   document.body.classList.toggle('room-mono',n!==3);
-  if(typeof refreshThemeAccent==='function')refreshThemeAccent();
-  /* У RGB кольори задають самі канали, палітра там ні до чого. Ховаємо
-     через visibility+height, щоб бокова панель не стрибала. */
+  refreshThemeAccent();
+  /* У RGB кольори задають самі канали, палітра там ні до чого. */
   const pp=$('pal-btn').parentElement;
   pp.style.visibility=(n===3)?'hidden':'visible';
-  pp.style.height=(n===3)?'0':'';
-  pp.style.overflow=(n===3)?'hidden':'';
   if(n===3&&palOpen){palOpen=false;$('pal-panel').classList.add('hide');$('pal-btn').classList.remove('on')}
 }
 function refreshInputs(){$('txt').value=D.single;autoGrow();}
@@ -731,81 +793,47 @@ function snapshot(){return layers+'|'+D.single}
 function syncHist(){$('undo').disabled=hPos<=0;$('redo').disabled=hPos>=HIST.length-1}
 function pushHist(){const snap=snapshot();if(HIST[hPos]===snap)return;HIST.splice(hPos+1);HIST.push(snap);if(HIST.length>60)HIST.shift();hPos=HIST.length-1;syncHist();}
 function schedHist(){clearTimeout(hTimer);hTimer=setTimeout(pushHist,700)}
-function applyHist(){const snap=HIST[hPos]||'1|';setLayers(snap[0]==='3'?3:1);D.single=snap.slice(2);refreshInputs();build();syncHist();tone(560,.06,.05);}
+function applyHist(){const snap=HIST[hPos]||'1|';isDemo=false;setLayers(snap[0]==='3'?3:1);D.single=snap.slice(2);refreshInputs();prevLen=D.single.length;build();syncHist();tone(560,.06,.05);}
 $('undo').onclick=()=>{if(hPos>0){hPos--;applyHist()}};
 $('redo').onclick=()=>{if(hPos<HIST.length-1){hPos++;applyHist()}};
-$('clr').onclick=()=>{clearTimeout(hTimer);D.single='';D.ch=['','',''];refreshInputs();pushHist();build();activeInput().focus();tone(320,.09,.06,'triangle');};
+$('clr').onclick=()=>{clearTimeout(hTimer);isDemo=false;D.single='';D.ch=['','',''];refreshInputs();prevLen=0;pushHist();build();activeInput().focus();tone(320,.09,.06,'triangle');};
 
-let prevLen=0;
-
-/* ═══ ЧИПИ-ПРИКЛАДИ ═══
-   Один тап — і в полі вже є текст, орнамент побудований. Потрібні,
-   щоб людина побачила результат, не вигадуючи, що написати. */
-const CHIPS=['Привіт','Люблю тебе','2026','Слава Україні'];
-(function(){
-  const box=$('chips');if(!box)return;
-  CHIPS.forEach(t=>{
-    const b=document.createElement('button');
-    b.type='button';b.className='chip';b.textContent=t;
-    b.onclick=()=>{
-      scannedImg=null;D.single=t;prevLen=t.length;
-      refreshInputs();build();pushHist();tone(660,.08,.06);
-    };
-    box.appendChild(b);
-  });
-})();
-
-$('txt').oninput=e=>{const v=e.target.value;if(v.length>prevLen)keyClick();prevLen=v.length;scannedImg=null;D.single=v;autoGrow();build();schedHist();};
+/* ═══ ДЕМО-ОРНАМЕНТ ═══
+   Сторінка відкривається не з порожнім квадратом, а з готовим кодом.
+   Клік у поле — демо зникає, звільняючи місце. Пішов з поля, нічого
+   не написавши, — демо повертається. */
+const DEMO='taina';
+function showDemo(){isDemo=true;D.single=DEMO;$('txt').value=DEMO;prevLen=DEMO.length;autoGrow();build();}
+$('txt').addEventListener('focus',()=>{
+  if(!isDemo)return;
+  isDemo=false;D.single='';$('txt').value='';prevLen=0;autoGrow();build();
+});
+$('txt').addEventListener('blur',()=>{
+  if($('txt').value.trim())return;
+  showDemo();
+});
+$('txt').oninput=e=>{const v=e.target.value;isDemo=false;if(v.length>prevLen)keyClick();prevLen=v.length;scannedImg=null;D.single=v;autoGrow();build();schedHist();};
 
 document.addEventListener('dragover',e=>e.preventDefault());
 document.addEventListener('drop',e=>{e.preventDefault();if(busy)return;const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/')){const dt=new DataTransfer();dt.items.add(f);$('file').files=dt.files;$('file').dispatchEvent(new Event('change'))}});
 
-/* ═══════════════ ТЕМА: тільки темна ═══════════════
-   Перемикач прибрано. Масив лишився одним записом, щоб не переписувати
-   applyMode і refreshThemeAccent — вони потрібні RGB-режиму. */
-const MODES=[
-  {id:'dark', light:false, acc:'#c9a876',hot:'#e8c890',dim:'#8f7451',
-   ink:'#0d0a08',panel:'#15100b',panel2:'#1d1610',line:'rgba(201,168,118,.24)',
-   parch:'#ede3d0',muted:'#a4927a',on:'#15100b'}
-];
-let modeIdx=0;
-function applyMode(idx){
-  modeIdx=((idx%MODES.length)+MODES.length)%MODES.length;
-  const m=MODES[modeIdx],r=document.body.style;
-  document.body.classList.toggle('light-mode',m.light);
-  r.setProperty('--ink',m.ink);r.setProperty('--panel',m.panel);r.setProperty('--panel2',m.panel2);
-  r.setProperty('--parchment',m.parch);r.setProperty('--muted',m.muted);r.setProperty('--on-acc',m.on);
-  baseAcc={acc:m.acc,hot:m.hot,dim:m.dim,line:m.line};
-  refreshThemeAccent();
-}
-let baseAcc={acc:'#c9a876',hot:'#e8c890',dim:'#8f7451',line:'rgba(201,168,118,.24)'};
+/* ═══ АКЦЕНТ ТЕМИ ═══ у RGB-режимі інтерфейс синіє */
 function refreshThemeAccent(){
-  const r=document.body.style,isLight=MODES[modeIdx].light;
+  const r=document.body.style;
   if(layers===3){
-    if(isLight){r.setProperty('--acc','#0d5a72');r.setProperty('--acc-hot','#083f52');r.setProperty('--acc-dim','#2f6f85');r.setProperty('--line','rgba(13,90,114,.40)');}
-    else{r.setProperty('--acc','#5ec8e8');r.setProperty('--acc-hot','#8fe4ff');r.setProperty('--acc-dim','#3f7f96');r.setProperty('--line','rgba(94,200,232,.24)');}
+    r.setProperty('--acc','#5ec8e8');r.setProperty('--acc-hot','#8fe4ff');
+    r.setProperty('--acc-dim','#3f7f96');r.setProperty('--line','rgba(94,200,232,.24)');
   }else{
-    r.setProperty('--acc',baseAcc.acc);r.setProperty('--acc-hot',baseAcc.hot);
-    r.setProperty('--acc-dim',baseAcc.dim);r.setProperty('--line',baseAcc.line);
+    r.setProperty('--acc','#c9a876');r.setProperty('--acc-hot','#e8c890');
+    r.setProperty('--acc-dim','#8f7451');r.setProperty('--line','rgba(201,168,118,.24)');
   }
 }
-applyMode(0);buildSwatches();buildSymTabs();buildSymGrid();setLayers(1);build();autoGrow();
+buildSwatches();buildSymTabs();buildSymGrid();setLayers(1);showDemo();
 dbgIdle(); setInterval(()=>{ if(!busy && !camStream) dbgIdle(); },2000);
-
-/* ═══ ПЛЕЙСХОЛДЕР, ЩО МІНЯЄТЬСЯ ═══
-   Тільки поки поле порожнє і не у фокусі — щоб під час набору
-   нічого не смикалось. */
-const PH=['Напиши щось…','Напиши секрет…','Зашифруй послання…','Створи орнамент…'];
-let phI=0;
-setInterval(()=>{
-  const t=$('txt');
-  if(!t||t.value||document.activeElement===t)return;
-  phI=(phI+1)%PH.length;t.placeholder=PH[phI];
-},3500);
 
 /* МОБІЛЬНА ЛОГІКА */
 (function(){
-  const mq=window.matchMedia('(max-width:768px)');
+  const mq=window.matchMedia('(max-width:820px)');
   const bar=document.createElement('div');bar.id='mobabar';
   bar.innerHTML='<button id="mb-save" disabled>⤓ Зберегти</button><button id="mb-scan">⌖ Сканувати</button>';
   document.body.appendChild(bar);
@@ -821,9 +849,8 @@ setInterval(()=>{
   sheet.querySelector('.veil2').onclick=closeSheet; $('sh-x').onclick=closeSheet;
   $('sh-cam').onclick=()=>{closeSheet();if(typeof startCam==='function')startCam();};
   $('sh-file').onclick=()=>{closeSheet();const f=$('file');if(f)f.click();};
-  function setupAccordion(){if(!mq.matches)return;document.querySelectorAll('.side .grp > .sec-t').forEach(t=>{if(t.dataset.acc)return;t.dataset.acc='1';t.addEventListener('click',()=>{t.parentElement.classList.toggle('mclosed');});});}
-  setupAccordion(); mq.addEventListener?.('change',setupAccordion);
-  const vv=window.visualViewport; function onKbd(){if(!mq.matches){document.body.classList.remove('kbd');return;}const kb = vv ? (window.innerHeight - vv.height > 140) : false;document.body.classList.toggle('kbd',kb);}
+  const vv=window.visualViewport;
+  function onKbd(){if(!mq.matches){document.body.classList.remove('kbd');return;}const kb = vv ? (window.innerHeight - vv.height > 140) : false;document.body.classList.toggle('kbd',kb);}
   if(vv){vv.addEventListener('resize',onKbd);vv.addEventListener('scroll',onKbd);}
   document.addEventListener('focusin',e=>{if(mq.matches&&e.target.classList&&e.target.classList.contains('inp'))document.body.classList.add('kbd');});
   document.addEventListener('focusout',()=>{setTimeout(onKbd,60);});
