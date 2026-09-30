@@ -261,6 +261,49 @@ function refsFor(S) {
   return REFBITS.map(c => ({ bits: c, col: mix(c[0], c[1], c[2]) }));
 }
 
+/**
+ * Поканальний поріг за Отсу — без опори на абсолютні кольори палітри.
+ * Еталонна палітра ламається від балансу білого: тепле світло тягне
+ * червоний угору, синій униз, і зіставлення з абсолютним кольором
+ * починає промахуватись. Розподіл усередині КАНАЛУ від цього не їде:
+ * нулі лишаються знизу, одиниці зверху, поріг просто зсувається разом
+ * із ними. Тому це основний шлях, а палітра — запасний.
+ */
+function classifyOtsu(cells, n) {
+  const N = n * n;
+  const cr = new Uint8Array(N), cg = new Uint8Array(N), cb = new Uint8Array(N);
+  const out = [cr, cg, cb];
+  let sep = 0;
+  for (let c = 0; c < 3; c++) {
+    const hist = new Int32Array(256);
+    let mn = 255, mx = 0;
+    for (let i = 0; i < N; i++) {
+      const v = Math.max(0, Math.min(255, Math.round(cells[i * 3 + c])));
+      hist[v]++; if (v < mn) mn = v; if (v > mx) mx = v;
+    }
+    /* Канал без розмаху несе не дані, а шум: підфарбований монохром має
+       порожній третій канал. Ділити шум порогом не можна — вийде хаос. */
+    if (mx - mn < 40) { for (let i = 0; i < N; i++) out[c][i] = 0; continue; }
+    let thr = (mn + mx) >> 1;
+    {
+      let sum = 0;
+      for (let i = 0; i < 256; i++) sum += i * hist[i];
+      let wb = 0, sb = 0, best = -1;
+      for (let t = 0; t < 256; t++) {
+        wb += hist[t]; if (!wb) continue;
+        const wf = N - wb; if (!wf) break;
+        sb += t * hist[t];
+        const mb = sb / wb, mf = (sum - sb) / wf;
+        const v = wb * wf * (mb - mf) * (mb - mf);
+        if (v > best) { best = v; thr = t; }
+      }
+    }
+    sep += (mx - mn);
+    for (let i = 0; i < N; i++) out[c][i] = cells[i * 3 + c] > thr ? 1 : 0;
+  }
+  return { name: 'поканальна', cr, cg, cb, sep: sep / 3 };
+}
+
 function classifyCells(cells, n) {
   let best = null;
   for (const [name, S] of [['насичена', RGB_MAIN], ['галерейна', RGB_GAL]]) {
@@ -333,7 +376,9 @@ function decodeCells(cells, Tz) {
              mode: best.mode, n, colored: false, palette: null, shape };
   }
 
-  const cls = classifyCells(cells, n);
+  const clsOtsu = classifyOtsu(cells, n);
+  const clsPal  = classifyCells(cells, n);
+  const cls = clsOtsu;
 
   /* ПІДФАРБОВАНИЙ МОНОХРОМ.
      Користувач пофарбував одноколірний код з палітри: жовтий = R+G,
@@ -372,31 +417,55 @@ function decodeCells(cells, Tz) {
     cB[i] = Math.min(1, Math.abs(cells[i*3+2] - 128) / 90);
   }
 
-  let best = null;
-  for (const m of MODES) {
-    const rmark = markCell(cls.cr, n, m);
-    let vr = decodeVoted(cls.cr, n, m, rmark ? 1 : 0, cR);
-    if (rmark && vr === null) vr = decodeVoted(cls.cr, n, m, 0, cR);
-    const vg = decodeVoted(cls.cg, n, m, 0, cG);
-    const vb = decodeVoted(cls.cb, n, m, 0, cB);
-    const nn = [vr, vg, vb].filter(t => t !== null);
-    if (!nn.length) continue;
-    const sc = nn.length * 1000 + nn.reduce((a, t) => a + t.length, 0);
-    if (!best || sc > best.sc) best = { vr, vg, vb, sc, m, rmark };
+  /* Пробуємо ОБИДВА способи розбору кольору і беремо той, що дав кращу
+     зворотну звірку. Поканальний поріг виграє на знятих камерою кадрах,
+     еталонна палітра — на чистих PNG зі старою галерейною гамою.
+     Обирати «перший, що спрацював» не можна: спрацьовують часто обидва,
+     і хибний варіант тоді витісняє правильний. */
+  function tryCls(cand) {
+    let bst = null;
+    for (const m of MODES) {
+      const rmark = markCell(cand.cr, n, m);
+      let vr = decodeVoted(cand.cr, n, m, rmark ? 1 : 0, cR);
+      if (rmark && vr === null) vr = decodeVoted(cand.cr, n, m, 0, cR);
+      const vg = decodeVoted(cand.cg, n, m, 0, cG);
+      const vb = decodeVoted(cand.cb, n, m, 0, cB);
+      const nn = [vr, vg, vb].filter(t => t !== null);
+      if (!nn.length) continue;
+      const sc = nn.length * 1000 + nn.reduce((a, t) => a + t.length, 0);
+      if (!bst || sc > bst.sc) bst = { vr, vg, vb, sc, m, rmark };
+    }
+    if (!bst) return null;
+    const ags = [], masks = [];
+    const chs = [[bst.vr, cand.cr, true], [bst.vg, cand.cg, false], [bst.vb, cand.cb, false]];
+    for (const [txt, ch, isR] of chs) {
+      if (txt === null) continue;
+      const chk = fillChannel(txt, n, bst.m, isR ? bst.rmark : null);
+      ags.push(agreeOf(ch, chk, n));
+      masks.push([ch, chk]);
+    }
+    const agree = ags.length ? ags.reduce((x, y) => x + y, 0) / ags.length : 0;
+    return { bst, agree, masks, cand, chans: ags.length };
   }
-  if (!best) return { kind: 'color', text: null, agree: 0, n, colored: true, palette: cls.name };
 
-  /* обратная сверка по каждому непустому каналу */
-  const ags = [], masks = [];
-  const chans = [[best.vr, cls.cr, true], [best.vg, cls.cg, false], [best.vb, cls.cb, false]];
-  for (const [txt, ch, isR] of chans) {
-    if (txt === null) continue;
-    const chk = fillChannel(txt, n, best.m, isR ? best.rmark : null);
-    ags.push(agreeOf(ch, chk, n));
-    masks.push([ch, chk]);
+  let pick = null;
+  for (const cand of [clsOtsu, clsPal]) {
+    const r = tryCls(cand);
+    if (!r) continue;
+    /* Порядок порівняння: спершу СКІЛЬКИ каналів вдалося прочитати —
+       втрачений канал означає втрачений шматок тексту, і зворотна звірка
+       цього не бачить: вона перевіряє лише те, що прочиталося. Далі —
+       звірка, далі — довжина. */
+    if (!pick ||
+        r.chans > pick.chans ||
+        (r.chans === pick.chans && r.agree > pick.agree + 1e-9) ||
+        (r.chans === pick.chans && Math.abs(r.agree - pick.agree) < 1e-9 && r.bst.sc > pick.bst.sc))
+      pick = r;
   }
-  const shape = mismatchShape(masks, n);
-  const agree = ags.length ? ags.reduce((a, b) => a + b, 0) / ags.length : 0;
+  if (!pick) return { kind: 'color', text: null, agree: 0, n, colored: true, palette: cls.name };
+
+  const best = pick.bst, useCls = pick.cand, agree = pick.agree;
+  const shape = mismatchShape(pick.masks, n);
 
   const parts = [best.vr, best.vg, best.vb].filter(t => t !== null);
   const text = best.rmark
@@ -404,7 +473,7 @@ function decodeCells(cells, Tz) {
     : parts.join(' · ');
 
   return { kind: best.rmark ? 'monolith' : 'three', text, parts, agree, shape,
-           mode: best.m, n, colored: true, palette: cls.name, rmark: best.rmark,
+           mode: best.m, n, colored: true, palette: useCls.name, rmark: best.rmark,
            channels: [best.vr, best.vg, best.vb] };
 }
 
@@ -1136,7 +1205,7 @@ window.TainaDecoder = {
   ready: ensureOpenCV(),
   cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
-  version: '1.4',
+  version: '1.5',
   /* внутренности — для decoder-lab.html и автотестов */
   _internal: { decodePixels, warpGrayNN, warpRGB, insetCorners, insetCornersFrac, verifyZebra, zebraRing,
                outerFrameScore, sampleCells, decodeCells, findQuadsCV,
