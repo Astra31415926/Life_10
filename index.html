@@ -105,7 +105,9 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:16px 2
 .rt{font-family:var(--mono);font-size:13px;min-height:20px;text-align:center;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
 .rt .g{color:var(--ok);font-weight:600}.rt .r{color:var(--bad);font-weight:600}
 .rt .w{color:#e5a053;font-weight:600}
-#dbg{font-size:11px;letter-spacing:.06em;color:var(--acc-dim);min-height:16px}
+#dbg{font-size:11px;line-height:1.5;letter-spacing:.04em;color:var(--acc-dim);min-height:16px;
+  white-space:pre-wrap;word-break:break-word;max-width:100%;text-align:center}
+#dbg .bad{color:var(--bad)} #dbg .ok{color:var(--ok)} #dbg .w{color:#e5a053}
 .linkbtn{font-family:var(--mono);font-size:12px;font-weight:700;padding:8px 14px;border-radius:8px;border:1px solid var(--acc);color:var(--on-acc);background:var(--acc);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:5px;transition:.15s}
 
 .stage{width:100%;max-width:min(48vh,430px);aspect-ratio:1/1;position:relative;background:#0a0806;border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;align-items:center;justify-content:center;flex:0 0 auto;box-shadow:0 14px 44px rgba(0,0,0,.5);transition:border-color .4s,background .4s}
@@ -323,8 +325,8 @@ body.light-mode .intro-panel{background:color-mix(in srgb,var(--ink) 94%,transpa
         <button class="nb" id="clr" title="Очистити"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
       </div>
       <div class="rt" id="rt"></div>
-      <!-- діагностика прихована; показується, якщо додати ?debug до адреси -->
-      <div class="rt hide" id="dbg"></div>
+      <!-- журнал сканера: видимий завжди, і на телефоні теж -->
+      <div class="rt" id="dbg"></div>
     </div>
 
     <div class="stage" id="stage">
@@ -366,7 +368,7 @@ body.light-mode .intro-panel{background:color-mix(in srgb,var(--ink) 94%,transpa
 <!-- OpenCV вантажиться паралельно з версткою; decoder.js це бачить і дубль не створює -->
 <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
 <!-- ?v=12 збиває кеш браузера і GitHub Pages. Міняй цифру при кожній заміні декодера. -->
-<script src="decoder.js?v=16"></script>
+<script src="decoder.js?v=17"></script>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -413,12 +415,34 @@ function dbgIdle(){
 function showConf(best){
   const el=$('dbg');if(!el)return;
   const c=best&&best.confidence;
-  if(!c){el.textContent='декодер без діагностики — старий файл';el.style.color='var(--bad)';return;}
-  el.style.color='var(--acc-dim)';
-  let t='T='+best.T+' · звірка '+c.agree+' · рамка '+c.frame+' · голосів '+c.votes;
-  if(c.blobArea>0.02) t+=' · пляма '+Math.round(c.blobArea*100)+'%';
-  if(best.tinted) t+=' · підфарбований';
-  el.textContent=t;
+  if(!c){el.innerHTML='<span class="bad">декодер без діагностики — старий файл</span>';return;}
+  const last=(window.TainaDecoder&&TainaDecoder.last)||{};
+  const chans=(best.channels||[]).filter(t=>t!==null&&t!=='').length;
+  const rows=[
+    'T='+best.T+'  поле '+best.n+'×'+best.n,
+    'звірка '+c.agree+'   рамка '+c.frame+'   голосів '+c.votes,
+    (best.rmark?('канали '+chans+'/3  (один текст у трьох)'):(best.kind==='three'?'канали '+chans+'/3  (три тексти)':'монохром'))
+      +(best.tinted?'  підфарбований':''),
+    (c.blobArea>0.02?('пляма '+Math.round(c.blobArea*100)+'%   '):'')+(last.ms!=null?last.ms+' мс':'')
+  ];
+  el.innerHTML='<span class="ok">'+rows.filter(Boolean).join('\n')+'</span>';
+}
+
+/* Чому кадр не прочитався — списком причин, прямо на екрані. */
+function showFail(){
+  const el=$('dbg');if(!el)return;
+  const last=(window.TainaDecoder&&TainaDecoder.last)||{};
+  const d=last.diagnostic||{};
+  const cnt={};
+  (d.rejected||[]).forEach(x=>{cnt[x.why]=(cnt[x.why]||0)+1});
+  const reasons=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).map(k=>k+' × '+cnt[k]);
+  const cand=(d.stages||[]).find(x=>x.stage==='CANDIDATES');
+  const rows=[
+    'NO CODE'+(last.ms!=null?'   '+last.ms+' мс':''),
+    'чотирикутників: '+(cand?cand.found:'—')+(d.timeout?'   вичерпано час':''),
+    reasons.length?('відхилено: '+reasons.join(',  ')):'жодна гіпотеза не дійшла до перевірок'
+  ];
+  el.innerHTML='<span class="bad">'+rows.join('\n')+'</span>';
 }
 
 /* ═══ РОЗКЛАДКА РЕЗУЛЬТАТУ СКАНУ ═══
@@ -562,6 +586,7 @@ function camLoop(){
       /* mode:'camera' — бюджет 500 мс на кадр. Без цього на кожен кадр
          іде бюджет нерухомої картинки і цикл камери підвисає. */
       try{ found=runDecodeAttempts(c,{mode:'camera'}); }catch(e){}
+      if(!found.length) showFail();
       if(found.length){
         const txt=found[0].res.filter(x=>x).join('\u0001');
         if(txt){
@@ -609,7 +634,7 @@ $('file').onchange=e=>{
     ]).catch(err => { console.error('Scan error:', err); return []; });
     stopScanSound();st.classList.remove('scanning');
 
-    if(!found || !found.length){st.classList.add('failed');sadSound();$('rt').innerHTML='<span class="r">✕ код не розпізнано</span>';$('dbg').textContent='NO CODE — жодна гіпотеза не пройшла перевірки';$('report').textContent='—';await sleep(1600);st.classList.remove('failed');clearStage();busy=false;e.target.value='';return;}
+    if(!found || !found.length){st.classList.add('failed');sadSound();$('rt').innerHTML='<span class="r">✕ код не розпізнано</span>';showFail();$('report').textContent='—';await sleep(1600);st.classList.remove('failed');clearStage();busy=false;e.target.value='';return;}
 
     flash();const best=found[0];scannedImg=shotURL;showConf(best);
     await applyScan(best);
@@ -741,11 +766,7 @@ $('themeBtn').onclick=()=>applyMode(modeIdx+1);
 let startIdx=0;try{startIdx=parseInt(localStorage.getItem('taina_mode_idx'))||0;}catch(e){}
 if(!(startIdx>=0&&startIdx<MODES.length))startIdx=0;
 applyMode(startIdx);buildSwatches();buildSymTabs();buildSymGrid();setLayers(1);build();autoGrow();
-/* Рядок діагностики прихований. Щоб увімкнути — додай ?debug до адреси. */
-if(location.search.indexOf('debug')>=0){
-  $('dbg').classList.remove('hide');
-  dbgIdle(); setInterval(()=>{ if(!busy && !camStream) dbgIdle(); },2000);
-}
+dbgIdle(); setInterval(()=>{ if(!busy && !camStream) dbgIdle(); },2000);
 
 /* МОБІЛЬНА ЛОГІКА */
 (function(){
