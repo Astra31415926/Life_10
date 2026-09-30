@@ -81,7 +81,7 @@ header{border-bottom:1px solid var(--line);flex:0 0 auto;background:color-mix(in
 .a-mode{grid-area:mode;border-right:1px solid var(--line)}
 .a-pal{grid-area:pal;border-right:1px solid var(--line)}
 .a-stat{grid-area:stat;border-right:1px solid var(--line);display:flex;flex-direction:column;justify-content:flex-end}
-.a-center{grid-area:center;display:flex;flex-direction:column;align-items:center;gap:14px;padding:18px 22px 26px;min-width:0}
+.a-center{grid-area:center;display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px 22px 18px;min-width:0}
 .a-shape{grid-area:shape;border-left:1px solid var(--line)}
 .a-syms{grid-area:syms;border-left:1px solid var(--line);min-height:0;overflow:hidden}
 
@@ -90,19 +90,19 @@ header{border-bottom:1px solid var(--line);flex:0 0 auto;background:color-mix(in
 .sec-t::before{content:'';width:5px;height:5px;background:var(--acc);flex:0 0 auto;transition:background .4s}
 
 /* ═══════════════ ПОЛЕ ВВОДУ ═══════════════ */
-.txtzone{width:100%;max-width:680px;display:flex;flex-direction:column;gap:8px}
+.txtzone{width:100%;max-width:680px;display:flex;flex-direction:column;gap:6px}
 .inp{width:100%;min-width:0;display:block;background:var(--panel);border:1px solid var(--line);
   border-radius:14px;color:var(--parchment);font-family:var(--mono);outline:none;
   font-size:16px;letter-spacing:.03em;line-height:1.4;cursor:text;box-sizing:border-box}
-textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:18px 22px;resize:none;
-  overflow-y:auto;min-height:64px;max-height:132px}
+textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:15px 20px;resize:none;
+  overflow-y:auto;min-height:58px;max-height:132px}
 .inp:focus{border-color:var(--acc);box-shadow:0 0 22px color-mix(in srgb,var(--acc) 18%,transparent)}
 .inp::placeholder{color:var(--acc-dim)}
-.rt{font-family:var(--mono);font-size:13px;min-height:20px;text-align:center;display:flex;align-items:center;
+.rt{font-family:var(--mono);font-size:13px;min-height:0;text-align:center;display:flex;align-items:center;
   justify-content:center;gap:10px;flex-wrap:wrap}
 .rt .g{color:var(--ok);font-weight:600}.rt .r{color:var(--bad);font-weight:600}
 .rt .w{color:#e5a053;font-weight:600}
-#dbg{font-size:11px;line-height:1.5;letter-spacing:.04em;color:var(--acc-dim);min-height:16px;
+#dbg{font-size:11px;line-height:1.5;letter-spacing:.04em;color:var(--acc-dim);min-height:0;
   white-space:pre-wrap;word-break:break-word;max-width:100%;text-align:center}
 #dbg .bad{color:var(--bad)} #dbg .ok{color:var(--ok)} #dbg .w{color:#e5a053}
 .linkbtn{font-family:var(--mono);font-size:12px;font-weight:700;padding:8px 14px;border-radius:8px;
@@ -111,6 +111,7 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:18px 2
 
 /* ═══════════════ ХОЛСТ ЗІ СТРІЛКАМИ І КОШИКОМ ═══════════════ */
 .stagewrap{display:flex;align-items:center;justify-content:center;gap:12px;width:100%}
+.spacer{width:48px;height:48px;display:block}
 .arrow{width:48px;height:48px;flex:0 0 auto;border-radius:12px;border:1px solid var(--line);background:transparent;
   color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
 .arrow svg{width:22px;height:22px}
@@ -120,11 +121,11 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:18px 2
 .stage{width:100%;aspect-ratio:1/1;position:relative;background:#0a0806;border:1px solid var(--line);
   border-radius:16px;overflow:hidden;display:flex;align-items:center;justify-content:center;
   box-shadow:0 14px 44px rgba(0,0,0,.5);transition:border-color .4s,background .4s}
-.trash{position:absolute;right:12px;bottom:12px;z-index:22;width:44px;height:44px;border-radius:11px;
-  border:1px solid var(--line);background:color-mix(in srgb,var(--ink) 70%,transparent);backdrop-filter:blur(6px);
-  color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
-.trash svg{width:20px;height:20px}
-.trash:hover{color:var(--bad);border-color:var(--bad)}
+.rightcol{display:flex;flex-direction:column;align-items:center;gap:14px;flex:0 0 auto}
+.trash{width:48px;height:48px;border:0;background:transparent;color:var(--muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:.15s}
+.trash svg{width:22px;height:22px}
+.trash:hover{color:var(--bad)}
 .stage canvas{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;display:block;
   transition:filter .5s,opacity .6s,transform .6s}
 .stage.scanning canvas{filter:brightness(.5) contrast(1.25)}
@@ -283,13 +284,15 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:18px 2
   .cell{padding:14px;border:0!important}
   .a-mode,.a-pal,.a-shape,.a-syms,.a-stat{border-top:1px solid var(--line)!important}
   .a-pal{border-right:1px solid var(--line)!important}
-  .a-center{padding:12px 12px 6px;gap:12px}
+  .a-center{padding:8px 12px 4px;gap:9px}
   .a-stat{justify-content:flex-start}
   .sec-t{margin-bottom:9px}
   .stagebox{max-width:min(78vw,330px)}
   body.kbd .stagebox{max-width:min(58vw,240px)}
   .arrow{width:42px;height:42px}
-  .trash{width:40px;height:40px;right:9px;bottom:9px}
+  .spacer{width:42px;height:42px}
+  .trash{width:42px;height:42px}
+  .rightcol{gap:10px}
   .action{display:none!important}
   #mobabar{display:flex!important}
   .seg button{padding:18px 8px;font-size:14.5px;min-height:60px}
@@ -336,7 +339,7 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:18px 2
     <a href="index.html" class="roomtab on">Лабораторія</a>
     <a href="gallery.html" class="roomtab">Галерея</a>
     <a href="services.html" class="roomtab">Послуги</a>
-    <button class="roomtab" id="introBtn" type="button">Що це?</button>
+    <button class="roomtab" id="introBtn" type="button">Проєкт</button>
     <button class="roomtab" id="tarifBtn" type="button">Тариф</button>
   </div>
   <div class="nav-c"><span class="mark">taina</span></div>
@@ -390,7 +393,10 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:18px 2
     </div>
 
     <div class="stagewrap">
-      <button class="arrow" id="undo" title="Назад" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div class="rightcol">
+        <button class="arrow" id="undo" title="Назад" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <span class="spacer" aria-hidden="true"></span>
+      </div>
       <div class="stagebox">
         <div class="stage" id="stage">
           <canvas id="cv" width="512" height="512"></canvas>
@@ -399,9 +405,11 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:18px 2
           <div class="grid-ov"></div><div class="scanline"></div>
           <div class="veil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg><p>Код не розпізнано</p></div>
         </div>
+      </div>
+      <div class="rightcol">
+        <button class="arrow" id="redo" title="Вперед" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
         <button class="trash" id="clr" title="Очистити"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
       </div>
-      <button class="arrow" id="redo" title="Вперед" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
     </div>
 
     <div class="action">
@@ -487,10 +495,8 @@ $('modal').querySelector('.mveil').onclick=closeModal;
 $('modal').querySelector('.mclose').onclick=closeModal;
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
-const HTML_INTRO=`<h2>Що це?</h2>
-<p>Кожен орнамент на цьому сайті <b>містить текст</b>. Будь-яке введене вами слово або повідомлення перетворюється на симетричний візерунок, з якого можна відновити вихідний текст.</p>
-<p>Орнамент можна зберегти у форматі PNG та використовувати на власний розсуд.</p>
-<p>Метод не змінює спосіб зберігання інформації. Він лише показує, як текст, записаний у вигляді байтів, може бути представлений симетричним орнаментом.</p>
+const HTML_INTRO=`<h2>Проєкт</h2>
+<p>TAINA — це сканований 2D-код. Дані кодуються двійковою послідовністю, потоком байтів: темний модуль — одиниця, світлий — нуль. Симетрична структура піксельних модулів робить його схожим на український орнамент.</p>
 <p>Детальний опис методу: <a href="https://zenodo.org/records/21709832" target="_blank" rel="noopener">стаття на Zenodo</a>.</p>`;
 
 const CARD_NO='4874070062500416';
@@ -527,13 +533,9 @@ $('tarifBtn').onclick=()=>{
   if(seen!=='1')setTimeout(()=>{openModal(HTML_INTRO);try{localStorage.setItem('taina_intro_seen','1');}catch(e){}},400);})();
 
 /* ═══ ВІДЛАГОДЖЕННЯ НА ЕКРАНІ ═══ */
-function dbgIdle(){
-  const el=$('dbg');if(!el)return;
-  const v=(window.TainaDecoder&&TainaDecoder.version)||null;
-  const cv=!!(window.cv&&window.cv.Mat);
-  el.textContent=v?('декодер '+v+' · opencv '+(cv?'ok':'чекає…')):'декодер: СТАРИЙ ФАЙЛ';
-  el.style.color=v?'var(--acc-dim)':'var(--bad)';
-}
+/* У спокої рядок порожній: службова інформація про декодер з екрана
+   прибрана. Після сканування сюди все одно лягає звіт showConf/showFail. */
+function dbgIdle(){const el=$('dbg');if(el)el.textContent='';}
 function showConf(best){
   const el=$('dbg');if(!el)return;
   const c=best&&best.confidence;
@@ -802,7 +804,7 @@ $('clr').onclick=()=>{clearTimeout(hTimer);isDemo=false;D.single='';D.ch=['','',
    Сторінка відкривається не з порожнім квадратом, а з готовим кодом.
    Клік у поле — демо зникає, звільняючи місце. Пішов з поля, нічого
    не написавши, — демо повертається. */
-const DEMO='taina';
+const DEMO='напиши свій текст';
 function showDemo(){isDemo=true;D.single=DEMO;$('txt').value=DEMO;prevLen=DEMO.length;autoGrow();build();}
 $('txt').addEventListener('focus',()=>{
   if(!isDemo)return;
