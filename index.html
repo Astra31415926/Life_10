@@ -58,8 +58,10 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 .inp{width:100%;min-width:0;display:block;background:var(--panel);border:1px solid var(--line);
   border-radius:14px;color:var(--parchment);font-family:var(--mono);outline:none;
   font-size:16px;letter-spacing:.03em;line-height:1.4;cursor:text;box-sizing:border-box}
+/* Поле фіксованої висоти — рівно дві строки. Довший текст їде вгору
+   й гортається повзунком, а холст під полем не зрушує ні на піксель. */
 textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:15px 20px;resize:none;
-  overflow-y:auto;min-height:58px;max-height:132px}
+  overflow-y:auto;height:calc(2.8em + 32px);min-height:0;max-height:none}
 .inp:focus{border-color:var(--acc);box-shadow:0 0 22px color-mix(in srgb,var(--acc) 18%,transparent)}
 .inp::placeholder{color:var(--acc-dim)}
 .rt{font-family:var(--mono);font-size:13px;min-height:0;text-align:center;display:flex;align-items:center;
@@ -68,6 +70,11 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:15px 2
 .rt .w{color:#e5a053;font-weight:600}
 #dbg{font-size:11px;line-height:1.5;letter-spacing:.04em;color:var(--acc-dim);min-height:0;
   white-space:pre-wrap;word-break:break-word;max-width:100%;text-align:center}
+/* Під полем показуємо тільки «прочитано» / «код не розпізнано»
+   і кнопку «Відкрити» для посилань. Технічний журнал сканера прибрано.
+   Висота рядка зарезервована, щоб поява кнопки не штовхала холст. */
+#dbg{display:none!important}
+#rt{min-height:40px}
 #dbg .bad{color:var(--bad)} #dbg .ok{color:var(--ok)} #dbg .w{color:#e5a053}
 .linkbtn{font-family:var(--mono);font-size:12px;font-weight:700;padding:8px 14px;border-radius:8px;
   border:1px solid var(--acc);color:var(--on-acc);background:var(--acc);cursor:pointer;text-decoration:none;
@@ -199,6 +206,9 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:15px 2
 .vf span:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}
 .vf span:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
 
+/* Кнопка мерчу на ПК прибрана; на телефоні вмикається в мобільному блоці. */
+.a-center .btn-main{display:none}
+
 /* ═══════════════ СВІТЛА ТЕМА: сторінка ═══════════════ */
 body.light-mode{background-image:radial-gradient(ellipse 80% 50% at 50% -10%,color-mix(in srgb,var(--acc) 12%,transparent),transparent)}
 body.light-mode .stage{background:var(--panel);box-shadow:0 14px 44px rgba(60,45,25,.18)}
@@ -253,7 +263,9 @@ body.light-mode .menu .hint{color:#8a4e00}
   .txtzone{grid-area:txt;max-width:none;padding:6px 10px 2px;gap:2px}
   .stagewrap{grid-area:stage;padding:4px 10px}
   .a-center .action{display:none!important}
-  .a-center .btn-main{grid-area:merch;width:auto;max-width:none;margin:6px 12px 0;
+  #rt{min-height:0}
+  textarea.inp.big{height:48px}
+  .a-center .btn-main{display:flex;grid-area:merch;width:auto;max-width:none;margin:6px 12px 0;
     min-height:46px;padding:10px 14px;font-size:13px}
   .cell{padding:6px 12px;border:0!important}
   .sec-t{display:none!important}
@@ -359,7 +371,7 @@ body.light-mode .menu .hint{color:#8a4e00}
   <!-- ЦЕНТР -->
   <main class="a-center">
     <div class="txtzone">
-      <textarea id="txt" class="inp big" maxlength="200" rows="1" placeholder="зашифруй послання" autocomplete="off" spellcheck="false"></textarea>
+      <textarea id="txt" class="inp big" maxlength="200" rows="1" placeholder="" autocomplete="off" spellcheck="false"></textarea>
       <div class="rt" id="rt"></div>
       <div class="rt" id="dbg"></div>
     </div>
@@ -478,7 +490,7 @@ let scanNodes=null;
 function startScanSound(){scanNodes=null;try{tone(660,.08,.05);setTimeout(function(){tone(880,.08,.05);},140);}catch(e){}}
 function stopScanSound(){if(!scanNodes)return;const{c,nodes,gains}=scanNodes;scanNodes=null;try{gains.forEach(g=>g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+.2));nodes.forEach(n=>{try{n.stop(c.currentTime+.26)}catch(e){}})}catch(e){}}
 function flash(){const f=$('flash');f.style.opacity='.7';setTimeout(()=>f.style.opacity='0',240)}
-function typeOut(el,text,speed=30){return new Promise(res=>{el.value='';let i=0;const isTA=el.tagName==='TEXTAREA';if(!text.length){res();return}const t=setInterval(()=>{el.value=text.slice(0,++i);if(isTA){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,200)+'px';}try{el.selectionStart=el.selectionEnd=el.value.length}catch(e){}if(i%2===1)typeClick();if(i>=text.length){clearInterval(t);res()}},speed);});}
+function typeOut(el,text,speed=30){return new Promise(res=>{el.value='';let i=0;const isTA=el.tagName==='TEXTAREA';if(!text.length){res();return}const t=setInterval(()=>{el.value=text.slice(0,++i);if(isTA){el.scrollTop=el.scrollHeight;}try{el.selectionStart=el.selectionEnd=el.value.length}catch(e){}if(i%2===1)typeClick();if(i>=text.length){clearInterval(t);res()}},speed);});}
 
 /* ═══ ВІДЛАГОДЖЕННЯ НА ЕКРАНІ ═══ */
 /* У спокої рядок порожній: службова інформація про декодер з екрана
@@ -585,7 +597,10 @@ const FRAME_COL='#8f8f8f';const FRAME_A='#0a0806';const FRAME_B='#f4efe6';
 function paint(ctx,cell,pad,qz){
   qz=qz||0;const ox=qz*cell,oy=qz*cell;
   const TW=(W+pad*2)*cell,TH=(H+pad*2)*cell;
-  if(qz>0){ctx.fillStyle=FRAME_B;ctx.fillRect(0,0,TW+ox*2,TH+oy*2);}
+  /* Окантовка навколо коду контрастує з темою: у темній — світла,
+     у світлій — темна. Рамка коду всередині від цього не залежить. */
+  const QUIET=(window.TAINA_ACC&&TAINA_ACC.light)?'#1a1208':FRAME_B;
+  if(qz>0){ctx.fillStyle=QUIET;ctx.fillRect(0,0,TW+ox*2,TH+oy*2);}
   if(pad>=3){
     /* Рамка фарбується палітрою: темні смуги рамки — колір нуля, світлі —
        колір одиниці. Порядок «темне → світле → зебра» для декодера
@@ -740,7 +755,7 @@ function setLayers(n){
   if(n===3&&palOpen){palOpen=false;$('pal-panel').classList.add('hide');$('pal-btn').classList.remove('on')}
 }
 function refreshInputs(){$('txt').value=D.single;autoGrow();}
-function grow(el,max){if(!el)return;el.style.height='auto';el.style.height=Math.min(el.scrollHeight,max)+'px';}
+function grow(el){if(el)el.scrollTop=el.scrollHeight;}  /* висота поля фіксована в CSS — лише прокручуємо до кінця */
 function autoGrow(){grow($('txt'),200);}
 
 $('layers').onclick=e=>{const b=e.target.closest('button');if(!b)return;scannedImg=null;setLayers(+b.dataset.l);build()};
@@ -811,8 +826,10 @@ function refreshThemeAccent(){
     r.setProperty('--acc',A.acc);r.setProperty('--acc-hot',A.hot);
     r.setProperty('--acc-dim',A.dim);r.setProperty('--line',A.line);
   }
+  /* окантовка коду залежить від теми — перемальовуємо готовий орнамент */
+  if(hasImage&&OFF.width&&!scannedImg&&grid.r)render();
 }
-window.refreshThemeAccent=refreshThemeAccent;
+/* refreshThemeAccent — глобальна функція, оболонка викликає її при зміні теми. */
 $('themeBtn').onclick=()=>{if(window.TainaShell)TainaShell.toggleTheme();};
 buildSwatches();buildSymTabs();buildSymGrid();restoreState();
 dbgIdle(); setInterval(()=>{ if(!busy && !camStream) dbgIdle(); },2000);
@@ -857,7 +874,7 @@ function applyLang(){
   const st=qa('.stat-row span'), keys=['chars','bytes','bits','field'];
   st.forEach((el,i)=>{if(keys[i])el.textContent=t(keys[i]);});
   $('s-warn').textContent=t('warn');
-  $('txt').placeholder=t('ph');
+  $('txt').placeholder='';   /* у фокусі поле має бути зовсім порожнім */
   const merch=q('.a-center .btn-main'); if(merch)merch.textContent=t('merch');
   $('undo').title=t('undo'); $('redo').title=t('redo'); $('clr').title=t('clear');
   $('themeBtn').title=t('theme');

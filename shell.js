@@ -28,9 +28,9 @@ var TABS = [
 /* Підписи шапки двома мовами. Мову обирає кнопка UA/EN у Лабораторії,
    вибір лежить у localStorage і діє на шапку всіх сторінок. */
 var HDR = {
-  uk: { lab:'Лабораторія', gal:'Галерея', srv:'Послуги', proj:'Проєкт', tarif:'Тариф',
+  uk: { lab:'Лабораторія', gal:'Галерея', srv:'Візуалізація', proj:'Проєкт', tarif:'Тариф',
         contacts:'контакти', call:'Зателефонувати' },
-  en: { lab:'Laboratory',  gal:'Gallery', srv:'Services', proj:'Project', tarif:'Pricing',
+  en: { lab:'Laboratory',  gal:'Gallery', srv:'Visualization', proj:'Project', tarif:'Pricing',
         contacts:'contacts', call:'Call' }
 };
 function curLang() {
@@ -91,6 +91,27 @@ var M = {
   }
 };
 
+/* Знак TAINA. Т — шеврони й хрестик, A — з «зірочкою» замість перекладини,
+   i — колонка шевронів під ромбом, N — суцільна. Тимчасовий, до остаточного лого. */
+var LOGO_SVG =
+  '<svg viewBox="0 0 172 46" fill="none" stroke="currentColor" stroke-linecap="square" stroke-linejoin="miter">' +
+  /* T */
+  '<g stroke-width="3.2"><path d="M2 4l4 4-4 4M8 4l4 4-4 4"/><path d="M15 4l8 8M23 4l-8 8"/>' +
+  '<path d="M34 4l-4 4 4 4M40 4l-4 4 4 4"/>' +
+  '<path d="M15 17l8 8M23 17l-8 8"/><path d="M14 33l5-5 5 5M14 40l5-5 5 5"/></g>' +
+  /* A */
+  '<path d="M48 44L61 3l13 41" stroke-width="6.5"/>' +
+  '<path d="M57.5 23l7 7M64.5 23l-7 7" stroke-width="2.6"/>' +
+  /* i */
+  '<path d="M86 2l5 5-5 5-5-5z" fill="currentColor" stroke="none"/>' +
+  '<path d="M81 16l5 5 5-5M81 23l5 5 5-5M81 30l5 5 5-5M81 37l5 5 5-5" stroke-width="3"/>' +
+  /* N */
+  '<path d="M102 44V3l23 41V3" stroke-width="6.5"/>' +
+  /* A */
+  '<path d="M134 44L147 3l13 41" stroke-width="6.5"/>' +
+  '<path d="M143.5 23l7 7M150.5 23l-7 7" stroke-width="2.6"/>' +
+  '</svg>';
+
 var PHONE_SVG =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
   '<path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1 1 .3 1.9.6 2.8a2 2 0 01-.5 2.1L8.1 9.9a16 16 0 006 6l1.3-1.1a2 2 0 012.1-.5c.9.3 1.8.5 2.8.6a2 2 0 011.7 2z"/></svg>';
@@ -112,7 +133,7 @@ function buildHeader() {
   var html =
     '<header><div class="nav">' +
       '<div class="nav-l">' + tabs + '</div>' +
-      '<div class="nav-c"><a href="index.html" class="mark">taina</a></div>' +
+      '<div class="nav-c"><a href="index.html" class="mark logo" aria-label="TAINA">' + LOGO_SVG + '</a></div>' +
       '<div class="nav-r">' +
         '<button class="nb contacts" type="button" data-modal="contacts" title="' + L.contacts + '">' + L.contacts + '</button>' +
         '<a class="phone-num" href="tel:' + PHONE_TEL + '">' + PHONE_TEXT + '</a>' +
