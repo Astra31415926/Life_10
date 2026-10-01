@@ -152,7 +152,7 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:15px 2
 .seg{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .seg button{flex:1;background:transparent;border:0;color:var(--muted);font-family:var(--mono);font-size:14.5px;
   font-weight:700;padding:17px 10px;cursor:pointer;transition:.15s;text-align:center;min-height:58px;
-  border-right:1px solid var(--line)}
+  border-right:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .seg button:last-child{border-right:0}
 .seg button.on{background:color-mix(in srgb,var(--acc) 20%,transparent);color:var(--acc-hot)}
 .seg button:hover:not(.on){color:var(--acc-hot)}
@@ -231,49 +231,68 @@ body.light-mode .menu .hint{color:#8a4e00}
 #mobabar{display:none}
 @media(max-width:820px){
   /* ВСЕ НА ОДНОМУ ЕКРАНІ, без вертикального скролу.
-     Гортаються тільки символи — вбік. Холст підлаштовує розмір під
-     висоту телефону: 100svh мінус усе інше (≈ 460px). svh не реагує
-     на клавіатуру, тож холст при наборі тексту не стискається. */
+     Центральний блок розгортається (display:contents), і його частини
+     стають окремими рядками сітки — так кнопку мерчу можна поставити
+     під символи, а не під холст.
+     Порядок: поле → холст → режим → палітра|форма → символи → мерч. */
   html,body{height:100%;overflow:hidden;overscroll-behavior:none}
   .app{flex:1 1 auto;min-height:0;overflow:visible;
-    grid-template-columns:1fr 1fr;grid-template-rows:auto auto auto auto;
+    grid-template-columns:1fr 1fr;grid-template-rows:none;
     grid-template-areas:
-      "center center"
-      "mode   mode"
-      "pal    shape"
-      "syms   syms";
+      "txt   txt"
+      "stage stage"
+      "mode  mode"
+      "pal   shape"
+      "syms  syms"
+      "merch merch";
     align-content:start;
     padding-bottom:calc(80px + env(safe-area-inset-bottom))}
+  .a-center{display:contents}
+  .txtzone{grid-area:txt;max-width:none;padding:6px 10px 2px;gap:2px}
+  .stagewrap{grid-area:stage;padding:4px 10px}
+  .a-center .action{display:none!important}
+  .a-center .btn-main{grid-area:merch;width:auto;max-width:none;margin:6px 12px 0;
+    min-height:46px;padding:10px 14px;font-size:13px}
   .cell{padding:6px 12px;border:0!important}
   .sec-t{display:none!important}
   .a-stat{display:none!important}
-  .a-center{padding:6px 10px 4px;gap:6px}
-  .txtzone{gap:2px}
   textarea.inp.big{min-height:48px;max-height:48px;padding:11px 14px;font-size:17px}
-  /* журнал сканера на телефоні не поміщається — лишаємо тільки статус */
   #dbg{display:none}
-  .stagebox{max-width:min(76vw,calc(100svh - 460px))}
+  /* Холст: ширину обмежують стрілки, висоту — решта екрана (≈ 560px). */
+  .stagebox{max-width:min(76vw,calc(100svh - 560px))}
   .arrow{width:40px;height:40px}
   .cornbtn{width:40px;height:40px;font-size:13px}
   .trash{width:40px;height:40px}
-  .a-center .btn-main{display:none}
-  .action{display:none!important}
   #mobabar{display:flex!important}
   .seg button{padding:10px 6px;font-size:14px;min-height:46px}
   .b{font-size:14px;padding:10px 10px;min-height:46px}
-  /* символи — дві горизонтальні стрічки, вбік */
+  /* символи: вкладки — одна стрічка, самі знаки — два ряди, гортаються вбік */
   .symtabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-bottom:6px;gap:6px}
   .symtabs::-webkit-scrollbar{display:none}
   .symtab{font-size:17px;padding:8px 11px}
-  .symgrid{display:flex!important;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;max-height:none;
-    gap:6px;padding:0;scrollbar-width:none}
+  .symgrid,.symgrid.tarot-row{display:grid!important;grid-auto-flow:column;
+    grid-template-columns:none;grid-template-rows:repeat(2,50px);grid-auto-columns:50px;
+    overflow-x:auto;overflow-y:hidden;max-height:none;gap:6px;padding:0;scrollbar-width:none}
   .symgrid::-webkit-scrollbar{display:none}
-  .symgrid button{flex:0 0 auto;width:50px;height:50px;padding:0;font-size:26px}
-  .symgrid.tarot-row button{width:50px;height:50px;font-size:34px}
-  /* палітра відкривається ВГОРУ — знизу місця немає */
-  .palette-panel{top:auto;bottom:calc(100% + 8px);left:0;right:auto;width:min(86vw,300px)}
+  .symgrid button,.symgrid.tarot-row button{width:50px;height:50px;padding:0;font-size:26px}
+  .symgrid.tarot-row button{font-size:34px}
+  /* палітра випадає ВНИЗ, поверх символів і нижньої панелі */
+  .palette-panel{top:calc(100% + 8px);bottom:auto;left:0;right:auto;width:min(86vw,300px);z-index:90}
   #mobabar{padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
   #mobabar button{padding:14px 10px;min-height:52px;font-size:14.5px}
+}
+/* НИЗЬКІ ТЕЛЕФОНИ (iPhone SE, 8, mini): два ряди символів і кнопка мерчу
+   з'їли б холст до розміру марки. Тут лишаємо один ряд і ховаємо мерч. */
+@media(max-width:820px) and (max-height:780px){
+  .app{grid-template-areas:
+      "txt   txt"
+      "stage stage"
+      "mode  mode"
+      "pal   shape"
+      "syms  syms"}
+  .a-center .btn-main{display:none}
+  .symgrid,.symgrid.tarot-row{grid-template-rows:50px}
+  .stagebox{max-width:min(76vw,calc(100svh - 455px))}
 }
 #mobabar{position:fixed;left:0;right:0;bottom:0;z-index:80;gap:10px;
   padding:12px 14px calc(12px + env(safe-area-inset-bottom));
@@ -309,7 +328,7 @@ body.light-mode .menu .hint{color:#8a4e00}
     <div class="sec-t">Режим</div>
     <div class="seg" id="layers">
       <button data-l="1" class="on">Монохром</button>
-      <button data-l="3">Кольоровий · RGB</button>
+      <button data-l="3">Кольоровий</button>
     </div>
   </section>
 
@@ -401,14 +420,14 @@ const $=id=>document.getElementById(id);
    українськими — там свій набір текстів.
    Словник один; якщо ключа немає в en, береться український. */
 const DICT={
- uk:{mono:'Монохром',rgb:'Кольоровий · RGB',pal:'🎨 Палітра',one:'одиниця',zero:'нуль і фон',
+ uk:{mono:'Монохром',rgb:'Кольоровий',pal:'🎨 Палітра',one:'одиниця',zero:'нуль і фон',
      sq:'Квадрат',ci:'Кружечок',chars:'Символів',bytes:'Байтів',bits:'Біт даних',field:'Поле',
      warn:'Даних більше, ніж уміщає поле',ph:'зашифруй послання',demo:'напиши свій текст',
      merch:'Приміряти на мерч →',save:'Зберегти',load:'Завантажити · сканувати',
      undo:'Назад',redo:'Вперед',clear:'Очистити',theme:'Тема',
      mbSave:'⤓ Зберегти',mbScan:'⌖ Сканувати',shTitle:'Сканувати код',shCam:'📷 Камера',
      shFile:'🖼 Завантажити з галереї',shCancel:'Скасувати'},
- en:{mono:'Monochrome',rgb:'Colour · RGB',pal:'🎨 Palette',one:'one',zero:'zero & background',
+ en:{mono:'Monochrome',rgb:'Colour',pal:'🎨 Palette',one:'one',zero:'zero & background',
      sq:'Square',ci:'Circle',chars:'Characters',bytes:'Bytes',bits:'Data bits',field:'Field',
      warn:'More data than the field can hold',ph:'encode a message',demo:'write your text',
      merch:'Try it on merch →',save:'Save',load:'Load · scan',
@@ -693,7 +712,7 @@ function buildSwatches(){const mk=(box,arr,getCur,set)=>{box.innerHTML='';arr.fo
 $('pal-btn').onclick=e=>{e.stopPropagation();palOpen=!palOpen;$('pal-panel').classList.toggle('hide',!palOpen);$('pal-btn').classList.toggle('on',palOpen);};
 
 const SYMS={'☺':{name:'смайли',list:[...'😀😃😄😁😆😅😂🤣🙂🙃😉😊😇🥰😍🤩😘😗😚😙🥲😋😛😜🤪😝🤗🤭🤫🤔🫡😐😑😶😏😒🙄😬🤥😌😔😪🤤😴😷🤒🤕🤢🤮🥵🥶😵🤯🤠🥳🥸😎🤓🧐😕😟🙁😮😯😲😳🥺🥹😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀💩🤡👹👺👻👽👾🤖']},'♥':{name:'символи',list:[...'♥★☆✦✧❄☀☾☯☮♪♫✚∞♦♠♣☘✿❀⚘⚡✝☦☪🕉✡☸⚛✴❇✳❈❉']},'♈':{name:'зодіак',list:[...'♈♉♊♋♌♍♎♏♐♑♒♓⛎☉☽☿♀♁♂♃♄♅♆']},'₿':{name:'крипта й гроші',list:[...'₿ΞŁ$€£¥₽¢₹₩₪₴₺₮₦₱₡₫💰💵💴💶💷🪙💸💳']},'ᚠ':{name:'руни',list:[...'ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗᛚᛜᛞᛟᚪᚫᚬᛘᛦᛨ']},'福':{name:'ієрогліфи',list:[...'福愛龍虎鳳凰道德仁義禮智信和平安康壽喜財富貴春夏秋冬日月山水火風雷電花鳥魚']},'☩':{name:'обереги',list:[...'☩⚕☯♁✠☥⚚☫☬〄卐꙰ᛝᛞ☘♧⚜⁂❋⚛☸♆⊕✶✷✸']},'🃏':{name:'таро',list:[...'🃏🂠🂡🂢🂣🂤🂥🂦🂧🂨🂩🂪🂫🂭🂮🃁🃂🃃🃄🃅🃆🃇🃈🃉🃊🃋🃍🃎']},'🌸':{name:'природа',list:[...'🌸🌼🌻🌺🌷🌹🥀💐🌵🌲🌳🌴🌱🍀🍁🍂🍃🌾🌿☘🍄🌰⭐🌟✨⚡☄🔥💧🌊❄☃⛄🌈☀🌙']},'🎵':{name:'різне',list:[...'🎵🎶🎼🎹🎸🎺🎻🥁♟♜♞♝♛♚⚀⚁⚂⚃⚄⚅🀄🎲🎯🎰🎴⚽⚾🏀🏐🏈']}};
-let curSym='☺';
+let curSym='☩';   /* за замовчуванням — обереги */
 function buildSymTabs(){const box=$('symtabs');box.innerHTML='';Object.keys(SYMS).forEach(k=>{const b=document.createElement('button');b.className='symtab'+(k===curSym?' on':'');b.textContent=k;b.title=SYMS[k].name;b.onclick=()=>{curSym=k;buildSymTabs();buildSymGrid();};box.appendChild(b);});}
 function activeInput(){return $('txt');}
 function buildSymGrid(){const box=$('symgrid');box.innerHTML='';const isTarot=(curSym==='🃏');box.classList.toggle('tarot-row',isTarot);SYMS[curSym].list.forEach(s=>{const b=document.createElement('button');b.type='button';b.textContent=s;b.onmousedown=e=>e.preventDefault();b.onclick=()=>{const el=activeInput();if(isDemo){isDemo=false;el.value='';}el.value=[...el.value,s].join('').slice(0,200);el.dispatchEvent(new Event('input'));};box.appendChild(b);});}
@@ -836,6 +855,8 @@ function applyLang(){
   if(sh){sh.querySelector('.sh-t').textContent=t('shTitle');
     $('sh-cam').textContent=t('shCam'); $('sh-file').textContent=t('shFile'); $('sh-x').textContent=t('shCancel');}
   syncMain();
+  /* Шапку малює оболонка — просимо її перемалюватися новою мовою. */
+  if(window.TainaShell&&TainaShell.setLang)TainaShell.setLang(LANG);
   /* Демо — теж текст інтерфейсу, тож міняється разом з мовою. */
   if(isDemo)showDemo();
 }

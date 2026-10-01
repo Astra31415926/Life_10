@@ -19,12 +19,25 @@ var CARD_NO    = '4874070062500416';
 var CARD_SHOWN = '4874 0700 6250 0416';
 
 var TABS = [
-  { href: 'index.html',    label: 'Лабораторія' },
-  { href: 'gallery.html',  label: 'Галерея' },
-  { href: 'services.html', label: 'Послуги' },
-  { modal: 'project',      label: 'Проєкт' },
-  { modal: 'tarif',        label: 'Тариф' }
+  { href: 'index.html',    key: 'lab' },
+  { href: 'gallery.html',  key: 'gal' },
+  { href: 'services.html', key: 'srv' },
+  { modal: 'project',      key: 'proj' },
+  { modal: 'tarif',        key: 'tarif' }
 ];
+/* Підписи шапки двома мовами. Мову обирає кнопка UA/EN у Лабораторії,
+   вибір лежить у localStorage і діє на шапку всіх сторінок. */
+var HDR = {
+  uk: { lab:'Лабораторія', gal:'Галерея', srv:'Послуги', proj:'Проєкт', tarif:'Тариф',
+        contacts:'контакти', call:'Зателефонувати' },
+  en: { lab:'Laboratory',  gal:'Gallery', srv:'Services', proj:'Project', tarif:'Pricing',
+        contacts:'contacts', call:'Call' }
+};
+function curLang() {
+  var l = 'uk';
+  try { l = localStorage.getItem('taina_lang') || 'uk'; } catch (e) {}
+  return (l === 'en') ? 'en' : 'uk';
+}
 
 /* ───────────────── вміст модалок ───────────────── */
 var M = {
@@ -65,11 +78,11 @@ function currentPage() {
 }
 
 function buildHeader() {
-  var here = currentPage();
+  var here = currentPage(), L = HDR[curLang()];
   var tabs = TABS.map(function (t) {
-    if (t.modal) return '<button class="roomtab" type="button" data-modal="' + t.modal + '">' + t.label + '</button>';
+    if (t.modal) return '<button class="roomtab" type="button" data-modal="' + t.modal + '">' + L[t.key] + '</button>';
     var on = (t.href === here) ? ' on' : '';
-    return '<a href="' + t.href + '" class="roomtab' + on + '">' + t.label + '</a>';
+    return '<a href="' + t.href + '" class="roomtab' + on + '">' + L[t.key] + '</a>';
   }).join('');
 
   var html =
@@ -77,9 +90,9 @@ function buildHeader() {
       '<div class="nav-l">' + tabs + '</div>' +
       '<div class="nav-c"><a href="index.html" class="mark">taina</a></div>' +
       '<div class="nav-r">' +
-        '<button class="nb contacts" type="button" data-modal="contacts" title="Контакти">контакти</button>' +
+        '<button class="nb contacts" type="button" data-modal="contacts" title="' + L.contacts + '">' + L.contacts + '</button>' +
         '<a class="phone-num" href="tel:' + PHONE_TEL + '">' + PHONE_TEXT + '</a>' +
-        '<a class="nb phone" href="tel:' + PHONE_TEL + '" title="Зателефонувати">' + PHONE_SVG + '</a>' +
+        '<a class="nb phone" href="tel:' + PHONE_TEL + '" title="' + L.call + '">' + PHONE_SVG + '</a>' +
       '</div>' +
     '</div></header>';
 
@@ -172,6 +185,8 @@ function toast(msg) {
 window.toast = toast;
 window.TainaShell = { openModal: openNamed, closeModal: closeModal, toast: toast,
                       applyTheme: applyTheme, toggleTheme: toggleTheme,
+                      /* мову зберігає Лабораторія; тут лише перемальовуємо шапку */
+                      setLang: function () { buildHeader(); },
                       theme: function () { return themeId; } };
 
 /* ───────────────── старт ───────────────── */
