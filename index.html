@@ -205,7 +205,20 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:15px 2
   .a-pal{border-right:1px solid var(--line)!important}
   .a-center{padding:8px 12px 4px;gap:9px}
   .a-stat{justify-content:flex-start}
-  .sec-t{margin-bottom:9px}
+  /* На телефоні заголовки колонок і цифри статистики лише з'їдають екран. */
+  .sec-t{display:none!important}
+  .a-stat{display:none!important}
+  .app{grid-template-areas:
+      "center center"
+      "mode   mode"
+      "pal    shape"
+      "syms   syms"!important}
+
+  /* Поле вводу і орнамент липнуть під шапкою: гортаєш палітру й символи —
+     код лишається перед очима. Решта контенту проїжджає під ними, тому
+     обидва блоки мають власне тло і вищий шар. */
+  .txtzone{position:sticky;top:var(--hdr-h);z-index:42;background:var(--ink);padding:6px 0 4px}
+  .stagewrap{position:sticky;top:calc(var(--hdr-h) + 74px);z-index:41;background:var(--ink);padding-bottom:8px}
   .stagebox{max-width:min(78vw,330px)}
   body.kbd .stagebox{max-width:min(58vw,240px)}
   .arrow{width:42px;height:42px}
