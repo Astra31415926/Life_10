@@ -132,6 +132,34 @@ function openNamed(name) {
   }
 }
 
+/* ───────────────── тема: темна / світла ─────────────────
+   Живе в оболонці, щоб шапка і сторінки мінялися разом, а вибір
+   пам'ятався між візитами. Кнопка стоїть на Лабораторії й смикає
+   TainaShell.toggleTheme(). */
+var TH = {
+  dark:  { ink:'#0d0a08', panel:'#15100b', panel2:'#1d1610', parch:'#ede3d0', muted:'#a4927a',
+           acc:'#c9a876', hot:'#e8c890', dim:'#8f7451', line:'rgba(201,168,118,.24)', on:'#15100b' },
+  light: { ink:'#f4efe4', panel:'#fffdf8', panel2:'#eae0cc', parch:'#1a1208', muted:'#4a3d2a',
+           acc:'#7a4e0c', hot:'#5c3a06', dim:'#6b5638', line:'rgba(60,45,25,.40)', on:'#fffdf8' }
+};
+var themeId = 'dark';
+function applyTheme(id) {
+  themeId = (id === 'light') ? 'light' : 'dark';
+  var t = TH[themeId], r = document.body.style;
+  document.body.classList.toggle('light-mode', themeId === 'light');
+  r.setProperty('--ink', t.ink); r.setProperty('--panel', t.panel); r.setProperty('--panel2', t.panel2);
+  r.setProperty('--parchment', t.parch); r.setProperty('--muted', t.muted); r.setProperty('--on-acc', t.on);
+  r.setProperty('--acc', t.acc); r.setProperty('--acc-hot', t.hot);
+  r.setProperty('--acc-dim', t.dim); r.setProperty('--line', t.line);
+  window.TAINA_ACC = { acc:t.acc, hot:t.hot, dim:t.dim, line:t.line, light:(themeId==='light') };
+  try { localStorage.setItem('taina_theme', themeId); } catch (e) {}
+  /* Лабораторія сама перефарбовує акцент у RGB-режимі — даємо їй знати. */
+  if (typeof window.refreshThemeAccent === 'function') window.refreshThemeAccent();
+  var b = document.getElementById('themeBtn');
+  if (b) b.textContent = (themeId === 'light') ? '☀' : '☾';
+}
+function toggleTheme() { applyTheme(themeId === 'light' ? 'dark' : 'light'); }
+
 /* ───────────────── тост ───────────────── */
 function toast(msg) {
   var t = document.getElementById('toast');
@@ -142,10 +170,15 @@ function toast(msg) {
   window._toastTO = setTimeout(function () { t.classList.remove('on'); }, 2600);
 }
 window.toast = toast;
-window.TainaShell = { openModal: openNamed, closeModal: closeModal, toast: toast };
+window.TainaShell = { openModal: openNamed, closeModal: closeModal, toast: toast,
+                      applyTheme: applyTheme, toggleTheme: toggleTheme,
+                      theme: function () { return themeId; } };
 
 /* ───────────────── старт ───────────────── */
 function init() {
+  var saved = 'dark';
+  try { saved = localStorage.getItem('taina_theme') || 'dark'; } catch (e) {}
+  applyTheme(saved);
   buildHeader();
   ensureModal();
   document.addEventListener('click', function (e) {

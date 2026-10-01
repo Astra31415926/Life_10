@@ -96,3 +96,16 @@ header{border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--in
   .phone-num,.nb.contacts{display:none}
   .nb.phone{display:flex}
 }
+
+/* ═══ СВІТЛА ТЕМА: шапка й модалки ═══
+   На світлому тлі заливки «акцент у прозорість» зливаються з фоном,
+   тому активні елементи отримують суцільний акцент і світлий текст. */
+body.light-mode header{background:color-mix(in srgb,var(--panel) 94%,transparent)}
+body.light-mode .roomtab,
+body.light-mode .nb{color:var(--parchment)}
+body.light-mode .roomtab.on{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+body.light-mode .mark{background:var(--panel)}
+body.light-mode #modal .mveil{background:rgba(40,30,15,.45)}
+body.light-mode #modal .mcard{box-shadow:0 20px 60px rgba(60,45,25,.25)}
+body.light-mode .copyrow{background:var(--panel2)}
+body.light-mode #toast{box-shadow:0 10px 32px rgba(60,45,25,.25)}

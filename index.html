@@ -75,7 +75,13 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:15px 2
 
 /* ═══════════════ ХОЛСТ ЗІ СТРІЛКАМИ І КОШИКОМ ═══════════════ */
 .stagewrap{display:flex;align-items:center;justify-content:center;gap:12px;width:100%}
-.spacer{width:48px;height:48px;display:block}
+.spacer{display:none}
+/* Кутові кнопки: мова ліворуч, тема праворуч, обидві на рівні
+   верхнього краю холста. */
+.cornbtn{position:absolute;top:0;left:50%;transform:translateX(-50%);width:48px;height:48px;border:0;
+  background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:14px;font-weight:700;transition:.15s;line-height:1}
+.cornbtn:hover{color:var(--acc-hot)}
 .arrow{width:48px;height:48px;flex:0 0 auto;border-radius:12px;border:1px solid var(--line);background:transparent;
   color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
 .arrow svg{width:22px;height:22px}
@@ -85,8 +91,11 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:15px 2
 .stage{width:100%;aspect-ratio:1/1;position:relative;background:#0a0806;border:1px solid var(--line);
   border-radius:16px;overflow:hidden;display:flex;align-items:center;justify-content:center;
   box-shadow:0 14px 44px rgba(0,0,0,.5);transition:border-color .4s,background .4s}
-.rightcol{display:flex;flex-direction:column;align-items:center;gap:14px;flex:0 0 auto}
-.trash{width:48px;height:48px;border:0;background:transparent;color:var(--muted);cursor:pointer;
+.rightcol{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:0 0 auto;
+  align-self:stretch;position:relative}
+/* Кошик притиснутий до низу колонки — рівно по нижньому краю холста. */
+.trash{position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+  width:48px;height:48px;border:0;background:transparent;color:var(--muted);cursor:pointer;
   display:flex;align-items:center;justify-content:center;transition:.15s}
 .trash svg{width:22px;height:22px}
 .trash:hover{color:var(--bad)}
@@ -188,6 +197,36 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:15px 2
 .vf span:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}
 .vf span:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
 
+/* ═══════════════ СВІТЛА ТЕМА: сторінка ═══════════════ */
+body.light-mode{background-image:radial-gradient(ellipse 80% 50% at 50% -10%,color-mix(in srgb,var(--acc) 12%,transparent),transparent)}
+body.light-mode .stage{background:var(--panel);box-shadow:0 14px 44px rgba(60,45,25,.18)}
+body.light-mode .mainbtn,
+body.light-mode .btn-main,
+body.light-mode .b.gold,
+body.light-mode #mobabar button:not(:disabled){background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+body.light-mode .mainbtn:hover,
+body.light-mode .btn-main:hover{background:var(--acc-hot);border-color:var(--acc-hot);box-shadow:0 6px 20px rgba(60,45,25,.25)}
+body.light-mode .b,
+body.light-mode .seg button,
+body.light-mode .symtab,
+body.light-mode .symgrid button,
+body.light-mode .arrow,
+body.light-mode .trash,
+body.light-mode .cornbtn{color:var(--parchment)}
+body.light-mode .b.on,
+body.light-mode .seg button.on,
+body.light-mode .symtab.on{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+body.light-mode .inp{background:var(--panel)}
+body.light-mode .inp::placeholder{color:var(--muted)}
+body.light-mode .menu,
+body.light-mode .palette-panel{box-shadow:0 12px 34px rgba(60,45,25,.22)}
+body.light-mode .menu input{background:var(--panel)}
+body.light-mode #mobabar{background:color-mix(in srgb,var(--panel) 96%,transparent)}
+body.light-mode #sheet .sh-b{background:var(--panel);color:var(--parchment)}
+body.light-mode .rt .w,
+body.light-mode .stat .warn{color:#9a5a00}
+body.light-mode .menu .hint{color:#8a4e00}
+
 /* ═══════════════ МОБІЛЬНА СТРІЧКА ═══════════════ */
 #mobabar{display:none}
 @media(max-width:820px){
@@ -220,9 +259,9 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:15px 2
   .txtzone{position:sticky;top:var(--hdr-h);z-index:42;background:var(--ink);padding:6px 0 4px}
   .stagewrap{position:sticky;top:calc(var(--hdr-h) + 74px);z-index:41;background:var(--ink);padding-bottom:8px}
   .stagebox{max-width:min(78vw,330px)}
-  body.kbd .stagebox{max-width:min(58vw,240px)}
   .arrow{width:42px;height:42px}
-  .spacer{width:42px;height:42px}
+  .cornbtn{width:42px;height:42px;font-size:13px}
+  .a-center .btn-main{display:none}
   .trash{width:42px;height:42px}
   .rightcol{gap:10px}
   .action{display:none!important}
@@ -310,6 +349,7 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:15px 2
 
     <div class="stagewrap">
       <div class="rightcol">
+        <button class="cornbtn" id="langBtn" type="button" title="Мова / Language">UA</button>
         <button class="arrow" id="undo" title="Назад" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
         <span class="spacer" aria-hidden="true"></span>
       </div>
@@ -323,6 +363,7 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:15px 2
         </div>
       </div>
       <div class="rightcol">
+        <button class="cornbtn" id="themeBtn" type="button" title="Тема">☾</button>
         <button class="arrow" id="redo" title="Вперед" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
         <button class="trash" id="clr" title="Очистити"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
       </div>
@@ -597,7 +638,7 @@ function showResult(msg,text){const url=findURL(text);let html='<span class="g">
 
 const IC_SAVE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>';
 const IC_LOAD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 3h14"/></svg>';
-function syncMain(){$('mainbtn').innerHTML=hasImage?IC_SAVE+'<span>Зберегти</span>':IC_LOAD+'<span>Завантажити · сканувати</span>';if(menuOpen)closeMenu();}
+function syncMain(){$('mainbtn').innerHTML=hasImage?IC_SAVE+'<span>'+t('save')+'</span>':IC_LOAD+'<span>'+t('load')+'</span>';if(menuOpen)closeMenu();}
 function closeMenu(){menuOpen=false;$('menu').classList.add('hide');$('menu').innerHTML=''}
 function openMenu(){
   const m=$('menu');menuOpen=true;m.classList.remove('hide');
@@ -668,8 +709,7 @@ $('clr').onclick=()=>{clearTimeout(hTimer);isDemo=false;D.single='';D.ch=['','',
    Сторінка відкривається не з порожнім квадратом, а з готовим кодом.
    Клік у поле — демо зникає, звільняючи місце. Пішов з поля, нічого
    не написавши, — демо повертається. */
-const DEMO='напиши свій текст';
-function showDemo(){isDemo=true;D.single=DEMO;$('txt').value=DEMO;prevLen=DEMO.length;autoGrow();build();}
+function showDemo(){const d=t('demo');isDemo=true;D.single=d;$('txt').value=d;prevLen=d.length;autoGrow();build();}
 
 /* ═══ ПАМ'ЯТЬ ЛАБОРАТОРІЇ ═══
    Пішов у Галерею й повернувся — текст, режим, форма і кольори на місці.
@@ -709,14 +749,20 @@ document.addEventListener('drop',e=>{e.preventDefault();if(busy)return;const f=e
 /* ═══ АКЦЕНТ ТЕМИ ═══ у RGB-режимі інтерфейс синіє */
 function refreshThemeAccent(){
   const r=document.body.style;
+  const A=window.TAINA_ACC||{acc:'#c9a876',hot:'#e8c890',dim:'#8f7451',line:'rgba(201,168,118,.24)',light:false};
   if(layers===3){
-    r.setProperty('--acc','#5ec8e8');r.setProperty('--acc-hot','#8fe4ff');
-    r.setProperty('--acc-dim','#3f7f96');r.setProperty('--line','rgba(94,200,232,.24)');
+    /* RGB-режим синіє. У світлій темі синій має бути темним, інакше не видно. */
+    if(A.light){r.setProperty('--acc','#0d5a72');r.setProperty('--acc-hot','#083f52');
+                r.setProperty('--acc-dim','#2f6f85');r.setProperty('--line','rgba(13,90,114,.40)');}
+    else{r.setProperty('--acc','#5ec8e8');r.setProperty('--acc-hot','#8fe4ff');
+         r.setProperty('--acc-dim','#3f7f96');r.setProperty('--line','rgba(94,200,232,.24)');}
   }else{
-    r.setProperty('--acc','#c9a876');r.setProperty('--acc-hot','#e8c890');
-    r.setProperty('--acc-dim','#8f7451');r.setProperty('--line','rgba(201,168,118,.24)');
+    r.setProperty('--acc',A.acc);r.setProperty('--acc-hot',A.hot);
+    r.setProperty('--acc-dim',A.dim);r.setProperty('--line',A.line);
   }
 }
+window.refreshThemeAccent=refreshThemeAccent;
+$('themeBtn').onclick=()=>{if(window.TainaShell)TainaShell.toggleTheme();};
 buildSwatches();buildSymTabs();buildSymGrid();restoreState();
 dbgIdle(); setInterval(()=>{ if(!busy && !camStream) dbgIdle(); },2000);
 
@@ -745,6 +791,63 @@ dbgIdle(); setInterval(()=>{ if(!busy && !camStream) dbgIdle(); },2000);
   document.addEventListener('focusout',()=>{setTimeout(onKbd,60);});
 })();
 (function(){var st=$('stage');if(st)st.addEventListener('click',function(){if(typeof camStream!=='undefined'&&camStream&&typeof stopCam==='function')stopCam();});})();
+
+/* ═══ МОВА ІНТЕРФЕЙСУ: UA / EN ═══
+   Поки що тільки Лабораторія. Шапка, Галерея та Послуги лишаються
+   українськими — там свій набір текстів.
+   Словник один; якщо ключа немає в en, береться український. */
+const DICT={
+ uk:{mono:'Монохром',rgb:'Кольоровий · RGB',pal:'🎨 Палітра',one:'одиниця',zero:'нуль і фон',
+     sq:'Квадрат',ci:'Кружечок',chars:'Символів',bytes:'Байтів',bits:'Біт даних',field:'Поле',
+     warn:'Даних більше, ніж уміщає поле',ph:'зашифруй послання',demo:'напиши свій текст',
+     merch:'Приміряти на мерч →',save:'Зберегти',load:'Завантажити · сканувати',
+     undo:'Назад',redo:'Вперед',clear:'Очистити',theme:'Тема',
+     mbSave:'⤓ Зберегти',mbScan:'⌖ Сканувати',shTitle:'Сканувати код',shCam:'📷 Камера',
+     shFile:'🖼 Завантажити з галереї',shCancel:'Скасувати'},
+ en:{mono:'Monochrome',rgb:'Colour · RGB',pal:'🎨 Palette',one:'one',zero:'zero & background',
+     sq:'Square',ci:'Circle',chars:'Characters',bytes:'Bytes',bits:'Data bits',field:'Field',
+     warn:'More data than the field can hold',ph:'encode a message',demo:'write your text',
+     merch:'Try it on merch →',save:'Save',load:'Load · scan',
+     undo:'Back',redo:'Forward',clear:'Clear',theme:'Theme',
+     mbSave:'⤓ Save',mbScan:'⌖ Scan',shTitle:'Scan a code',shCam:'📷 Camera',
+     shFile:'🖼 Pick from gallery',shCancel:'Cancel'}
+};
+let LANG='uk';
+try{LANG=localStorage.getItem('taina_lang')||'uk';}catch(e){}
+if(LANG!=='en')LANG='uk';
+function t(k){return (DICT[LANG]&&DICT[LANG][k])||DICT.uk[k]||k;}
+function applyLang(){
+  const q=sel=>document.querySelector(sel), qa=sel=>document.querySelectorAll(sel);
+  q('#layers button[data-l="1"]').textContent=t('mono');
+  q('#layers button[data-l="3"]').textContent=t('rgb');
+  q('#pal-btn').textContent=t('pal');
+  const labs=qa('.pal-row .lbl'); if(labs[0])labs[0].textContent=t('one'); if(labs[1])labs[1].textContent=t('zero');
+  q('#shape button[data-s="square"]').textContent=t('sq');
+  q('#shape button[data-s="circle"]').textContent=t('ci');
+  const st=qa('.stat-row span'), keys=['chars','bytes','bits','field'];
+  st.forEach((el,i)=>{if(keys[i])el.textContent=t(keys[i]);});
+  $('s-warn').textContent=t('warn');
+  $('txt').placeholder=t('ph');
+  const merch=q('.a-center .btn-main'); if(merch)merch.textContent=t('merch');
+  $('undo').title=t('undo'); $('redo').title=t('redo'); $('clr').title=t('clear');
+  $('themeBtn').title=t('theme');
+  $('langBtn').textContent=(LANG==='en')?'EN':'UA';
+  const mbS=$('mb-save'), mbC=$('mb-scan');
+  if(mbS)mbS.textContent=t('mbSave'); if(mbC)mbC.textContent=t('mbScan');
+  const sh=$('sheet');
+  if(sh){sh.querySelector('.sh-t').textContent=t('shTitle');
+    $('sh-cam').textContent=t('shCam'); $('sh-file').textContent=t('shFile'); $('sh-x').textContent=t('shCancel');}
+  syncMain();
+  /* Демо — теж текст інтерфейсу, тож міняється разом з мовою. */
+  if(isDemo)showDemo();
+}
+$('langBtn').onclick=()=>{
+  LANG=(LANG==='en')?'uk':'en';
+  try{localStorage.setItem('taina_lang',LANG);}catch(e){}
+  applyLang(); tone(680,.07,.05);
+};
+applyLang();
+
 </script>
 </body>
 </html>
