@@ -475,7 +475,10 @@ const D={single:'', ch:['','','']};
 
 const CV=$('cv'), CTX=CV.getContext('2d',{willReadFrequently:true});
 const OFF=document.createElement('canvas'), OCTX=OFF.getContext('2d',{willReadFrequently:true});
-function blit(){CTX.imageSmoothingEnabled=false;CTX.fillStyle='#0a0806';CTX.fillRect(0,0,CV.width,CV.height);if(!OFF.width)return;const s=Math.min(CV.width/OFF.width,CV.height/OFF.height);const w=OFF.width*s,h=OFF.height*s;CTX.drawImage(OFF,0,0,OFF.width,OFF.height,(CV.width-w)/2,(CV.height-h)/2,w,h);}
+/* Тло порожнього холста йде за темою: темне в темній, світле у світлій.
+   Сам орнамент зі світлою зоною навколо від теми не залежить. */
+function stageBg(){return (window.TAINA_ACC&&TAINA_ACC.light)?'#fffdf8':'#0a0806';}
+function blit(){CTX.imageSmoothingEnabled=false;CTX.fillStyle=stageBg();CTX.fillRect(0,0,CV.width,CV.height);if(!OFF.width)return;const s=Math.min(CV.width/OFF.width,CV.height/OFF.height);const w=OFF.width*s,h=OFF.height*s;CTX.drawImage(OFF,0,0,OFF.width,OFF.height,(CV.width-w)/2,(CV.height-h)/2,w,h);}
 function clearStage(){OFF.width=OFF.height=0;hasImage=false;blit();syncMain();$('stage').classList.remove('scanning','failed');}
 
 
@@ -597,10 +600,7 @@ const FRAME_COL='#8f8f8f';const FRAME_A='#0a0806';const FRAME_B='#f4efe6';
 function paint(ctx,cell,pad,qz){
   qz=qz||0;const ox=qz*cell,oy=qz*cell;
   const TW=(W+pad*2)*cell,TH=(H+pad*2)*cell;
-  /* Окантовка навколо коду контрастує з темою: у темній — світла,
-     у світлій — темна. Рамка коду всередині від цього не залежить. */
-  const QUIET=(window.TAINA_ACC&&TAINA_ACC.light)?'#1a1208':FRAME_B;
-  if(qz>0){ctx.fillStyle=QUIET;ctx.fillRect(0,0,TW+ox*2,TH+oy*2);}
+  if(qz>0){ctx.fillStyle=FRAME_B;ctx.fillRect(0,0,TW+ox*2,TH+oy*2);}
   if(pad>=3){
     /* Рамка фарбується палітрою: темні смуги рамки — колір нуля, світлі —
        колір одиниці. Порядок «темне → світле → зебра» для декодера
@@ -826,8 +826,8 @@ function refreshThemeAccent(){
     r.setProperty('--acc',A.acc);r.setProperty('--acc-hot',A.hot);
     r.setProperty('--acc-dim',A.dim);r.setProperty('--line',A.line);
   }
-  /* окантовка коду залежить від теми — перемальовуємо готовий орнамент */
-  if(hasImage&&OFF.width&&!scannedImg&&grid.r)render();
+  /* тло порожнього холста залежить від теми */
+  if(typeof CTX!=='undefined')blit();
 }
 /* refreshThemeAccent — глобальна функція, оболонка викликає її при зміні теми. */
 $('themeBtn').onclick=()=>{if(window.TainaShell)TainaShell.toggleTheme();};
