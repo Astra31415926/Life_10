@@ -65,8 +65,10 @@ header{border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--in
 #modal a{color:var(--acc-hot);text-decoration:underline;text-underline-offset:3px}
 .copyrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel2);border:1px solid var(--line);
   border-radius:12px;padding:14px 16px;margin:6px 0 16px}
-.copyrow .card{font-family:var(--mono);font-size:19px;font-weight:700;letter-spacing:.08em;color:var(--parchment);
-  word-break:break-all;flex:1 1 auto;cursor:pointer}
+/* Клас навмисно cardno, а не card: на сторінці «Послуги» .card — це
+   квадратна картка товару, і номер картки розтягувався в такий самий квадрат. */
+.copyrow .cardno{font-family:var(--mono);font-size:19px;font-weight:700;letter-spacing:.08em;color:var(--parchment);
+  word-break:break-all;flex:1 1 auto;cursor:pointer;aspect-ratio:auto;border:0;background:transparent;padding:0}
 .copyrow button{font-family:var(--mono);font-size:12.5px;font-weight:700;padding:11px 16px;border-radius:10px;
   border:1px solid var(--acc);background:var(--acc);color:var(--on-acc);cursor:pointer;transition:.15s}
 .copyrow button:hover{background:var(--acc-hot);border-color:var(--acc-hot)}

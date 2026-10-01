@@ -40,7 +40,7 @@ var M = {
     '<p>Використання сайту <b>абсолютно безкоштовне</b>.</p>' +
     '<p>Якщо ви бажаєте підтримати автора та розвиток проєкту:</p>' +
     '<p style="margin-bottom:6px">💳 Монобанк (Біла картка)</p>' +
-    '<div class="copyrow"><span class="card" id="cardNo">' + CARD_SHOWN + '</span>' +
+    '<div class="copyrow"><span class="cardno" id="cardNo">' + CARD_SHOWN + '</span>' +
     '<button type="button" id="copyCard">Копіювати</button></div>' +
     '<p style="color:var(--muted);font-size:13.5px;margin-bottom:0">Дякую за підтримку.</p>',
 
