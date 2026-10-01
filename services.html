@@ -143,7 +143,7 @@ button:focus-visible{outline:2px solid var(--acc-hot);outline-offset:2px}
 
 <div class="services-container">
   <section class="hero">
-    <h1>Фізичне втілення закодованих орнаментів</h1>
+    <h1 id="svcHero">Фізичне втілення закодованих орнаментів</h1>
   </section>
 
   <section class="catalog" id="catalog">
@@ -151,8 +151,8 @@ button:focus-visible{outline:2px solid var(--acc-hot);outline-offset:2px}
   </section>
 
 <section class="contacts-block">
-    <h2>Бажаєте зробити індивідуальне замовлення або виникли запитання?</h2>
-    <p class="sub">Напишіть нам — обговоримо матеріали, тираж та підготовку вашого коду до друку.</p>
+    <h2 id="svcAskH">Бажаєте зробити індивідуальне замовлення або виникли запитання?</h2>
+    <p class="sub" id="svcAskP">Напишіть нам — обговоримо матеріали, тираж та підготовку вашого коду до друку.</p>
     <a href="https://t.me/+hmCY-X-wZjgzZmMy" target="_blank" rel="noopener" class="btn-main" id="contactTg">Написати в Telegram</a>
   </section>
 </div>
@@ -160,35 +160,60 @@ button:focus-visible{outline:2px solid var(--acc-hot);outline-offset:2px}
 <div id="svc-toast"></div>
 
 <script>
+/* ═══ МОВА СТОРІНКИ ═══
+   Мову обирають кнопкою UA/EN у Лабораторії; тут лише читаємо вибір. */
+let SVC_LANG='uk';
+try{SVC_LANG=localStorage.getItem('taina_lang')==='en'?'en':'uk';}catch(e){}
+const SVC={
+  uk:{hero:'Фізичне втілення закодованих орнаментів',
+      askH:'Бажаєте зробити індивідуальне замовлення або виникли запитання?',
+      askP:'Напишіть нам — обговоримо матеріали, тираж та підготовку вашого коду до друку.',
+      tg:'Написати в Telegram', orn:'Ваш орнамент',
+      first:"Спершу створіть та збережіть орнамент у <a href='index.html' style='color:var(--acc-hot)'>Лабораторії</a>.",
+      title:'taina · Послуги'},
+  en:{hero:'Encoded ornaments, made physical',
+      askH:'Want a custom order or have a question?',
+      askP:'Write to us — we will discuss materials, print run and preparing your code for print.',
+      tg:'Message on Telegram', orn:'Your ornament',
+      first:"First create and save an ornament in the <a href='index.html' style='color:var(--acc-hot)'>Laboratory</a>.",
+      title:'taina · Services'}
+}[SVC_LANG];
+document.documentElement.lang=(SVC_LANG==='en')?'en':'uk';
+document.title=SVC.title;
+document.getElementById('svcHero').textContent=SVC.hero;
+document.getElementById('svcAskH').textContent=SVC.askH;
+document.getElementById('svcAskP').textContent=SVC.askP;
+document.getElementById('contactTg').textContent=SVC.tg;
+
 const products = [
   { 
     img: "tshirt.png", 
-    title: "Футболка", 
+    title: "Футболка", title_en: "T-shirt", 
     ornPos: "top:60%; left:50%; width:28%; height:auto;" 
   },
   { 
     img: "mug.png", 
-    title: "Кружка керамічна", 
+    title: "Кружка керамічна", title_en: "Ceramic mug", 
     ornPos: "top:49%; left:47%; width:34%; height:auto;" 
   },
   { 
     img: "bag.png", 
-    title: "Еко-шопер", 
+    title: "Еко-шопер", title_en: "Eco tote bag", 
     ornPos: "top:54%; left:50%; width:38%; height:auto;" 
   },
   { 
     img: "bracelet.png", 
-    title: "Силіконовий браслет", 
+    title: "Силіконовий браслет", title_en: "Silicone bracelet", 
     ornPos: "top:24%; left:50%; width:11%; height:auto;" 
   },
   { 
     img: "case.png", 
-    title: "Чохол для смартфона", 
+    title: "Чохол для смартфона", title_en: "Phone case", 
     ornPos: "top:58%; left:51%; width:34%; height:auto;" 
   },
   { 
     img: "pendant.png", 
-    title: "Медальйон", 
+    title: "Медальйон", title_en: "Pendant", 
     ornPos: "top:52.8%; left:49.8%; width:26%; height:auto;" 
   }
 ];
@@ -198,11 +223,12 @@ products.forEach(product => {
   const card = document.createElement('div');
   card.className = 'card';
 
+  const ttl = (SVC_LANG==='en') ? product.title_en : product.title;
   card.innerHTML = `
-    <img src="${product.img}" alt="${product.title}" class="card-img" onerror="this.style.opacity=0">
-    <div class="orn-overlay" style="${product.ornPos || ''}"><img alt="Ваш орнамент"></div>
+    <img src="${product.img}" alt="${ttl}" class="card-img" onerror="this.style.opacity=0">
+    <div class="orn-overlay" style="${product.ornPos || ''}"><img alt="${SVC.orn}"></div>
     <div class="card-bottom">
-      <h3>${product.title}</h3>
+      <h3>${ttl}</h3>
     </div>`;
 
   catalog.appendChild(card);
@@ -261,7 +287,7 @@ document.querySelectorAll('.card-bottom .action-btn').forEach(btn => {
     // Якщо орнаменту немає — зупиняємо перехід і переправляємо в Лабораторію
     if (!ornamentData) {
       e.preventDefault();
-      showToast("Спершу створіть та збережіть орнамент у <a href='index.html' style='color:var(--acc-hot)'>Лабораторії</a>.");
+      showToast(SVC.first);
       setTimeout(() => { window.location.href = 'index.html'; }, 2500);
       return;
     }

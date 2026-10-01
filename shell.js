@@ -39,32 +39,56 @@ function curLang() {
   return (l === 'en') ? 'en' : 'uk';
 }
 
-/* ───────────────── вміст модалок ───────────────── */
+/* ───────────────── вміст модалок: UA / EN ───────────────── */
+function cardRow(copyLabel) {
+  return '<div class="copyrow"><span class="cardno" id="cardNo">' + CARD_SHOWN + '</span>' +
+         '<button type="button" id="copyCard">' + copyLabel + '</button></div>';
+}
 var M = {
-  project:
-    '<h2>Проєкт</h2>' +
-    '<p>TAINA — це сканований 2D-код. Дані кодуються двійковою послідовністю, потоком байтів: ' +
-    'темний модуль — одиниця, світлий — нуль. Симетрична структура піксельних модулів робить ' +
-    'його схожим на український орнамент.</p>' +
-    '<p>Детальний опис методу: <a href="https://zenodo.org/records/21709832" target="_blank" rel="noopener">стаття на Zenodo</a>.</p>',
-
-  tarif:
-    '<h2>Тариф</h2>' +
-    '<p>Використання сайту <b>абсолютно безкоштовне</b>.</p>' +
-    '<p>Якщо ви бажаєте підтримати автора та розвиток проєкту:</p>' +
-    '<p style="margin-bottom:6px">💳 Монобанк (Біла картка)</p>' +
-    '<div class="copyrow"><span class="cardno" id="cardNo">' + CARD_SHOWN + '</span>' +
-    '<button type="button" id="copyCard">Копіювати</button></div>' +
-    '<p style="color:var(--muted);font-size:13.5px;margin-bottom:0">Дякую за підтримку.</p>',
-
-  contacts:
-    '<h2>Контакти</h2>' +
-    '<ul class="clist">' +
-    '<li><span class="k">Email</span><a href="mailto:bakminsterfuler@gmail.com">bakminsterfuler@gmail.com</a></li>' +
-    '<li><span class="k">Телефон</span><a href="tel:' + PHONE_TEL + '">+380 68 275 28 59</a></li>' +
-    '<li><span class="k">Instagram</span><a href="https://instagram.com/mixailkashkarov" target="_blank" rel="noopener">@mixailkashkarov</a></li>' +
-    '<li><span class="k">OpenSea</span><a href="https://opensea.io/MihailKashkarov" target="_blank" rel="noopener">MihailKashkarov</a></li>' +
-    '</ul>'
+  uk: {
+    project:
+      '<h2>Проєкт</h2>' +
+      '<p>TAINA — це сканований 2D-код. Дані кодуються двійковою послідовністю, потоком байтів: ' +
+      'темний модуль — одиниця, світлий — нуль. Симетрична структура піксельних модулів робить ' +
+      'його схожим на український орнамент.</p>' +
+      '<p>Детальний опис методу: <a href="https://zenodo.org/records/21709832" target="_blank" rel="noopener">стаття на Zenodo</a>.</p>',
+    tarif:
+      '<h2>Тариф</h2>' +
+      '<p>Використання сайту <b>абсолютно безкоштовне</b>.</p>' +
+      '<p>Якщо ви бажаєте підтримати автора та розвиток проєкту:</p>' +
+      '<p style="margin-bottom:6px">💳 Монобанк (Біла картка)</p>' + cardRow('Копіювати') +
+      '<p style="color:var(--muted);font-size:13.5px;margin-bottom:0">Дякую за підтримку.</p>',
+    contacts:
+      '<h2>Контакти</h2><ul class="clist">' +
+      '<li><span class="k">Email</span><a href="mailto:bakminsterfuler@gmail.com">bakminsterfuler@gmail.com</a></li>' +
+      '<li><span class="k">Телефон</span><a href="tel:' + PHONE_TEL + '">+380 68 275 28 59</a></li>' +
+      '<li><span class="k">Instagram</span><a href="https://instagram.com/mixailkashkarov" target="_blank" rel="noopener">@mixailkashkarov</a></li>' +
+      '<li><span class="k">OpenSea</span><a href="https://opensea.io/MihailKashkarov" target="_blank" rel="noopener">MihailKashkarov</a></li>' +
+      '</ul>',
+    copied: 'Номер картки скопійовано', copyFail: 'Не вдалося скопіювати'
+  },
+  en: {
+    project:
+      '<h2>Project</h2>' +
+      '<p>TAINA is a scannable 2D code. Data is encoded as a binary sequence, a stream of bytes: ' +
+      'a dark module is a one, a light module is a zero. The symmetric structure of the pixel modules ' +
+      'makes it resemble a Ukrainian ornament.</p>' +
+      '<p>Full description of the method: <a href="https://zenodo.org/records/21709832" target="_blank" rel="noopener">article on Zenodo</a>.</p>',
+    tarif:
+      '<h2>Pricing</h2>' +
+      '<p>Using the site is <b>completely free</b>.</p>' +
+      '<p>If you would like to support the author and the project:</p>' +
+      '<p style="margin-bottom:6px">💳 Monobank (White card)</p>' + cardRow('Copy') +
+      '<p style="color:var(--muted);font-size:13.5px;margin-bottom:0">Thank you for your support.</p>',
+    contacts:
+      '<h2>Contacts</h2><ul class="clist">' +
+      '<li><span class="k">Email</span><a href="mailto:bakminsterfuler@gmail.com">bakminsterfuler@gmail.com</a></li>' +
+      '<li><span class="k">Phone</span><a href="tel:' + PHONE_TEL + '">+380 68 275 28 59</a></li>' +
+      '<li><span class="k">Instagram</span><a href="https://instagram.com/mixailkashkarov" target="_blank" rel="noopener">@mixailkashkarov</a></li>' +
+      '<li><span class="k">OpenSea</span><a href="https://opensea.io/MihailKashkarov" target="_blank" rel="noopener">MihailKashkarov</a></li>' +
+      '</ul>',
+    copied: 'Card number copied', copyFail: 'Could not copy'
+  }
 };
 
 var PHONE_SVG =
@@ -125,18 +149,19 @@ function closeModal() {
   document.getElementById('mbody').innerHTML = '';
 }
 function openNamed(name) {
-  if (!M[name]) return;
-  openModal(M[name]);
+  var T = M[curLang()];
+  if (!T[name]) return;
+  openModal(T[name]);
   if (name === 'tarif') {
     var doCopy = function () {
-      var ok = function () { toast('Номер картки скопійовано'); };
+      var ok = function () { toast(T.copied); };
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(CARD_NO).then(ok, function () { toast('Не вдалося скопіювати'); });
+        navigator.clipboard.writeText(CARD_NO).then(ok, function () { toast(T.copyFail); });
       } else {
         var ta = document.createElement('textarea');
         ta.value = CARD_NO; ta.style.position = 'fixed'; ta.style.opacity = '0';
         document.body.appendChild(ta); ta.select();
-        try { document.execCommand('copy'); ok(); } catch (e) { toast('Не вдалося скопіювати'); }
+        try { document.execCommand('copy'); ok(); } catch (e) { toast(T.copyFail); }
         ta.remove();
       }
     };
@@ -156,6 +181,13 @@ var TH = {
            acc:'#7a4e0c', hot:'#5c3a06', dim:'#6b5638', line:'rgba(60,45,25,.40)', on:'#fffdf8' }
 };
 var themeId = 'dark';
+var ICON_SUN =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">' +
+  '<circle cx="12" cy="12" r="4.6" fill="currentColor"/>' +
+  '<path d="M12 1.8v2.6M12 19.6v2.6M1.8 12h2.6M19.6 12h2.6M4.8 4.8l1.85 1.85M17.35 17.35l1.85 1.85' +
+  'M4.8 19.2l1.85-1.85M17.35 6.65l1.85-1.85"/></svg>';
+var ICON_MOON =
+  '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.4 14.6A8.6 8.6 0 0 1 9.4 3.6a8.6 8.6 0 1 0 11 11z"/></svg>';
 function applyTheme(id) {
   themeId = (id === 'light') ? 'light' : 'dark';
   var t = TH[themeId], r = document.body.style;
@@ -169,7 +201,7 @@ function applyTheme(id) {
   /* Лабораторія сама перефарбовує акцент у RGB-режимі — даємо їй знати. */
   if (typeof window.refreshThemeAccent === 'function') window.refreshThemeAccent();
   var b = document.getElementById('themeBtn');
-  if (b) b.textContent = (themeId === 'light') ? '☀' : '☾';
+  if (b) b.innerHTML = (themeId === 'light') ? ICON_MOON : ICON_SUN;
 }
 function toggleTheme() { applyTheme(themeId === 'light' ? 'dark' : 'light'); }
 

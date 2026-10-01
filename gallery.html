@@ -177,7 +177,11 @@ function renderBytecode(cv,rec){
       const r=fillChannel(words[i]||'',n,mode,markBit);
       grid[k]=r.g;dmask[k]=r.dm;});
   }
-  const FRAME_A='#0a0806', FRAME_B='#f4efe6';
+  /* Роботи, опубліковані з кольоровою рамкою, мають прапорець frameColor.
+     Старі роботи його не мають — для них рамка лишається чорно-білою,
+     як була при публікації. */
+  const fc=!!s.frameColor&&layers!==3;
+  const FRAME_A=fc?colZero:'#0a0806', FRAME_B=fc?colOne:'#f4efe6';
   const qz=2;
   const pad=3,tw=W+pad*2+qz*2,th=H+pad*2+qz*2;
   const cell=Math.max(1,Math.floor(cv.width/Math.max(tw,th)));
