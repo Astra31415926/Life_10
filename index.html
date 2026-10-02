@@ -108,6 +108,10 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:15px 2
   display:flex;align-items:center;justify-content:center;transition:.15s}
 .trash svg{width:22px;height:22px}
 .trash:hover{color:var(--bad)}
+.invbtn:hover{color:var(--acc-hot)}
+.invbtn.on{color:var(--acc-hot)}
+.invbtn svg{transition:transform .25s}
+.invbtn.on svg{transform:rotate(180deg)}
 .stage canvas{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;display:block;
   transition:filter .5s,opacity .6s,transform .6s}
 .stage.scanning canvas{filter:brightness(.5) contrast(1.25)}
@@ -388,6 +392,7 @@ body.light-mode .menu .hint{color:#8a4e00}
         <button class="cornbtn" id="langBtn" type="button" title="Мова / Language">UA</button>
         <button class="arrow" id="undo" title="Назад" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
         <span class="spacer" aria-hidden="true"></span>
+        <button class="trash invbtn" id="invBtn" type="button" title="Негатив"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg></button>
       </div>
       <div class="stagebox">
         <div class="stage" id="stage">
@@ -430,7 +435,7 @@ body.light-mode .menu .hint{color:#8a4e00}
 <div class="flash" id="flash"></div>
 
 <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
-<script src="decoder.js?v=17"></script>
+<script src="decoder.js?v=18"></script>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -446,14 +451,14 @@ const DICT={
      sq:'Квадрат',ci:'Кружечок',chars:'Символів',bytes:'Байтів',bits:'Біт даних',field:'Поле',
      warn:'Даних більше, ніж уміщає поле',ph:'зашифруй послання',demo:'напиши свій текст',
      merch:'Приміряти на мерч →',save:'Зберегти',load:'Завантажити · сканувати',
-     undo:'Назад',redo:'Вперед',clear:'Очистити',theme:'Тема',
+     undo:'Назад',redo:'Вперед',clear:'Очистити',inv:'Негатив',theme:'Тема',
      mbSave:'⤓ Зберегти',mbScan:'⌖ Сканувати',shTitle:'Сканувати код',shCam:'📷 Камера',
      shFile:'🖼 Завантажити з галереї',shCancel:'Скасувати'},
  en:{secMode:'Mode',secLook:'Look',secSym:'Symbols',mono:'Monochrome',rgb:'Colour',pal:'🎨 Palette',one:'one',zero:'zero & background',
      sq:'Square',ci:'Circle',chars:'Characters',bytes:'Bytes',bits:'Data bits',field:'Field',
      warn:'More data than the field can hold',ph:'encode a message',demo:'write your text',
      merch:'Try it on merch →',save:'Save',load:'Load · scan',
-     undo:'Back',redo:'Forward',clear:'Clear',theme:'Theme',
+     undo:'Back',redo:'Forward',clear:'Clear',inv:'Negative',theme:'Theme',
      mbSave:'⤓ Save',mbScan:'⌖ Scan',shTitle:'Scan a code',shCam:'📷 Camera',
      shFile:'🖼 Pick from gallery',shCancel:'Cancel'}
 };
@@ -478,6 +483,7 @@ let monoMark=0;
 let scannedImg=null;
 let prevLen=0;
 let isDemo=false;
+let invert=false;   /* негатив */
 const D={single:'', ch:['','','']};
 
 const CV=$('cv'), CTX=CV.getContext('2d',{willReadFrequently:true});
@@ -555,6 +561,7 @@ async function applyScan(best){
   else if(best.kind==='three'){txt=parts[0];}
   else{txt=best.text||best.res[0]||'';}
   isDemo=false;
+  invert=!!best.negative; syncInv();
   setLayers(colored?3:1);
   D.single=txt; okChime(); $('txt').value='';
   await typeOut($('txt'),txt,26);
@@ -618,9 +625,15 @@ function build(){
 
 const FRAME_COL='#8f8f8f';const FRAME_A='#0a0806';const FRAME_B='#f4efe6';
 function paint(ctx,cell,pad,qz){
+  /* НЕГАТИВ (монохром): одиниця й нуль міняються кольорами, тиха зона
+     темніє — як в інвертованих QR-кодах. Сканер, не знайшовши звичайного
+     коду, перевертає яскравість кадру і читає такий код.
+     У RGB-режимі негатив робиться повною інверсією пікселів у render(). */
+  const NEG=invert&&layers!==3;
+  const c1=NEG?colZero:colOne, c0=NEG?colOne:colZero;
   qz=qz||0;const ox=qz*cell,oy=qz*cell;
   const TW=(W+pad*2)*cell,TH=(H+pad*2)*cell;
-  if(qz>0){ctx.fillStyle=FRAME_B;ctx.fillRect(0,0,TW+ox*2,TH+oy*2);}
+  if(qz>0){ctx.fillStyle=NEG?FRAME_A:FRAME_B;ctx.fillRect(0,0,TW+ox*2,TH+oy*2);}
   if(pad>=3){
     /* Рамка фарбується палітрою: темні смуги рамки — колір нуля, світлі —
        колір одиниці. Порядок «темне → світле → зебра» для декодера
@@ -628,8 +641,8 @@ function paint(ctx,cell,pad,qz){
        У RGB-режимі палітри немає — рамка лишається чорно-білою.
        Тиха зона навколо (FRAME_B) — завжди світла: по ній декодер
        знаходить контур коду. */
-    const FA=(layers===3)?FRAME_A:colZero, FB=(layers===3)?FRAME_B:colOne;
-    ctx.fillStyle=colZero;ctx.fillRect(ox,oy,TW,TH);const CW=W+pad*2, CH=H+pad*2;const cellAt=(cx,cy,col)=>{ctx.fillStyle=col;ctx.fillRect(ox+cx*cell,oy+cy*cell,cell,cell)};
+    const FA=(layers===3)?FRAME_A:c0, FB=(layers===3)?FRAME_B:c1;
+    ctx.fillStyle=c0;ctx.fillRect(ox,oy,TW,TH);const CW=W+pad*2, CH=H+pad*2;const cellAt=(cx,cy,col)=>{ctx.fillStyle=col;ctx.fillRect(ox+cx*cell,oy+cy*cell,cell,cell)};
     for(let cx=0;cx<CW;cx++){cellAt(cx,0,FA);cellAt(cx,CH-1,FA);}
     for(let cy=1;cy<CH-1;cy++){cellAt(0,cy,FA);cellAt(CW-1,cy,FA);}
     for(let cx=1;cx<CW-1;cx++){cellAt(cx,1,FB);cellAt(cx,CH-2,FB);}
@@ -637,13 +650,16 @@ function paint(ctx,cell,pad,qz){
     for(let cx=2;cx<CW-2;cx++){cellAt(cx,2,((cx+2)%2===0)?FA:FB);cellAt(cx,CH-3,((cx+CH-3)%2===0)?FA:FB);}
     for(let cy=3;cy<CH-3;cy++){cellAt(2,cy,((2+cy)%2===0)?FA:FB);cellAt(CW-3,cy,((CW-3+cy)%2===0)?FA:FB);}
   }else if(pad>0){ctx.fillStyle=FRAME_COL;ctx.fillRect(ox,oy,TW,TH);}
-  ctx.fillStyle=(layers===3)?'#000000':colZero;
+  ctx.fillStyle=(layers===3)?'#000000':c0;
   ctx.fillRect(ox+pad*cell,oy+pad*cell,W*cell,H*cell);
   const put=(x,y,col)=>{ctx.fillStyle=col;const px=ox+(x+pad)*cell,py=oy+(y+pad)*cell;if(shape==='circle'){ctx.beginPath();ctx.arc(px+cell/2,py+cell/2,cell/2*.94,0,6.2832);ctx.fill()}else ctx.fillRect(px,py,cell,cell)};
-  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;if(layers===3){const inAny=dmask.r[i]||dmask.g[i]||dmask.b[i];if(!inAny)continue;const on={r:dmask.r[i]&&grid.r[i],g:dmask.g[i]&&grid.g[i],b:dmask.b[i]&&grid.b[i]};if(!on.r&&!on.g&&!on.b)continue;let R=0,G=0,B=0;if(on.r){R+=RGB_PURE.r[0];G+=RGB_PURE.r[1];B+=RGB_PURE.r[2]}if(on.g){R+=RGB_PURE.g[0];G+=RGB_PURE.g[1];B+=RGB_PURE.g[2]}if(on.b){R+=RGB_PURE.b[0];G+=RGB_PURE.b[1];B+=RGB_PURE.b[2]}put(x,y,`rgb(${Math.min(255,R)},${Math.min(255,G)},${Math.min(255,B)})`);}else{if(!dmask.r[i])continue;if(!grid.r[i])continue;put(x,y,colOne);}}}
-function render(){const QZ=2;const pad=(frameW>=2?3:frameW),tw=W+pad*2,th=H+pad*2;const cell=Math.max(2,Math.floor(760/Math.max(tw+QZ*2,th+QZ*2)));OFF.width=(tw+QZ*2)*cell;OFF.height=(th+QZ*2)*cell;OCTX.imageSmoothingEnabled=false;paint(OCTX,cell,pad,QZ);blit();}
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;if(layers===3){const inAny=dmask.r[i]||dmask.g[i]||dmask.b[i];if(!inAny)continue;const on={r:dmask.r[i]&&grid.r[i],g:dmask.g[i]&&grid.g[i],b:dmask.b[i]&&grid.b[i]};if(!on.r&&!on.g&&!on.b)continue;let R=0,G=0,B=0;if(on.r){R+=RGB_PURE.r[0];G+=RGB_PURE.r[1];B+=RGB_PURE.r[2]}if(on.g){R+=RGB_PURE.g[0];G+=RGB_PURE.g[1];B+=RGB_PURE.g[2]}if(on.b){R+=RGB_PURE.b[0];G+=RGB_PURE.b[1];B+=RGB_PURE.b[2]}put(x,y,`rgb(${Math.min(255,R)},${Math.min(255,G)},${Math.min(255,B)})`);}else{if(!dmask.r[i])continue;if(!grid.r[i])continue;put(x,y,c1);}}}
+function render(){const QZ=2;const pad=(frameW>=2?3:frameW),tw=W+pad*2,th=H+pad*2;const cell=Math.max(2,Math.floor(760/Math.max(tw+QZ*2,th+QZ*2)));OFF.width=(tw+QZ*2)*cell;OFF.height=(th+QZ*2)*cell;OCTX.imageSmoothingEnabled=false;paint(OCTX,cell,pad,QZ);
+  /* RGB-негатив: повна інверсія пікселів */
+  if(invert&&layers===3){const d=OCTX.getImageData(0,0,OFF.width,OFF.height),a=d.data;for(let i=0;i<a.length;i+=4){a[i]=255-a[i];a[i+1]=255-a[i+1];a[i+2]=255-a[i+2];}OCTX.putImageData(d,0,0);}
+  blit();}
 
-let camStream=null, camRAF=null, camBusy=false, camLastText=null, camTimer=0;
+let camStream=null, camRAF=null, camBusy=false, camLastText=null, camTimer=0, camFlip=false;
 function camEls(){return {v:$('cam-video'),vf:$('vf'),btn:$('cam-btn')};}
 async function startCam(){
   const {v,vf,btn}=camEls();if(camStream){stopCam();}
@@ -664,7 +680,8 @@ function camLoop(){
       const cx=c.getContext('2d',{willReadFrequently:true});
       cx.drawImage(v,0,0);
       let found=[];
-      try{ found=runDecodeAttempts(c,{mode:'camera'}); }catch(e){}
+      camFlip=!camFlip;
+      try{ found=runDecodeAttempts(c,{mode:'camera',invert:camFlip}); }catch(e){}
       if(!found.length) showFail();
       if(found.length){
         const txt=found[0].res.filter(x=>x).join('\u0001');
@@ -741,7 +758,7 @@ function savePNG(name){const scale=Math.max(1,Math.round(1200/Math.max(OFF.width
 const SUPA_URL='https://iieahzklwngqugkovhrs.supabase.co';const SUPA_KEY='sb_publishable_FHtRNaLBvDgDTSLa_8eQnQ_oPMWCIxF';
 function detectLang(t){if(/[\u0400-\u04FF]/.test(t))return 'uk';if(/[\u4E00-\u9FFF]/.test(t))return 'zh';if(/[a-zA-Z]/.test(t))return 'en';return '';}
 function openPublish(){const mainWord=D.single;if(!mainWord.trim()){toast('Спершу напиши щось');return;}const m=$('menu');menuOpen=true;m.classList.remove('hide');m.innerHTML=`<div class="menu-t">Опублікувати в галерею</div><div class="hint">⚠ Байткод — відкритий код. Будь-хто зможе прочитати ваш текст. Не публікуйте таємниць.</div><input id="pub-title" placeholder="Назва (видима всім)" autocomplete="off" spellcheck="false"><div class="row"><button class="b gold" id="pub-yes">✦ Так, опублікувати</button></div><div class="row"><button class="b" id="pub-no">Скасувати</button></div>`;$('pub-yes').onclick=e=>{e.stopPropagation();doPublish(mainWord)};$('pub-no').onclick=e=>{e.stopPropagation();closeMenu()};}
-async function doPublish(word){const btn=$('pub-yes');if(btn){btn.textContent='Публікую…';btn.disabled=true;}const settings={colOne, colZero, frame:frameW, monoMark, frameColor:layers!==3, words:layers===3?D.ch.slice():undefined};let image_url=null;try{const scale=Math.max(1,Math.round(1000/Math.max(OFF.width,1)));const ex=document.createElement('canvas');ex.width=OFF.width*scale;ex.height=OFF.height*scale;const cx=ex.getContext('2d');cx.imageSmoothingEnabled=false;cx.drawImage(OFF,0,0,OFF.width,OFF.height,0,0,ex.width,ex.height);const blob=await new Promise(function(res){ex.toBlob(res,'image/png');});const fname='o_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.png';const up=await fetch(SUPA_URL+'/storage/v1/object/ornaments/'+fname,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'image/png'},body:blob});if(up.ok)image_url=SUPA_URL+'/storage/v1/object/public/ornaments/'+fname;else console.log('upload err',up.status);}catch(e){console.log('img err',e);}const pubTitle=($('pub-title')||{}).value||'';const row={word,mode,layers,settings,lang:detectLang(word),image_url,title:pubTitle||word};try{const resp=await fetch(`${SUPA_URL}/rest/v1/bytecodes`,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(row)});closeMenu();if(resp.ok){toast('✦ Опубліковано в галерею!');okChime();}else{const t=await resp.text();toast('Помилка: '+resp.status);console.log('publish err',t);}}catch(e){closeMenu();toast('Немає зв\'язку з галереєю');}}
+async function doPublish(word){const btn=$('pub-yes');if(btn){btn.textContent='Публікую…';btn.disabled=true;}const settings={colOne, colZero, frame:frameW, monoMark, frameColor:layers!==3, invert, words:layers===3?D.ch.slice():undefined};let image_url=null;try{const scale=Math.max(1,Math.round(1000/Math.max(OFF.width,1)));const ex=document.createElement('canvas');ex.width=OFF.width*scale;ex.height=OFF.height*scale;const cx=ex.getContext('2d');cx.imageSmoothingEnabled=false;cx.drawImage(OFF,0,0,OFF.width,OFF.height,0,0,ex.width,ex.height);const blob=await new Promise(function(res){ex.toBlob(res,'image/png');});const fname='o_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.png';const up=await fetch(SUPA_URL+'/storage/v1/object/ornaments/'+fname,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'image/png'},body:blob});if(up.ok)image_url=SUPA_URL+'/storage/v1/object/public/ornaments/'+fname;else console.log('upload err',up.status);}catch(e){console.log('img err',e);}const pubTitle=($('pub-title')||{}).value||'';const row={word,mode,layers,settings,lang:detectLang(word),image_url,title:pubTitle||word};try{const resp=await fetch(`${SUPA_URL}/rest/v1/bytecodes`,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(row)});closeMenu();if(resp.ok){toast('✦ Опубліковано в галерею!');okChime();}else{const t=await resp.text();toast('Помилка: '+resp.status);console.log('publish err',t);}}catch(e){closeMenu();toast('Немає зв\'язку з галереєю');}}
 
 const ONE_COLORS=[
   '#ff2d2d','#22c55e','#2b6bff','#ffe000','#00d4e8','#b83dff',
@@ -789,6 +806,8 @@ function schedHist(){clearTimeout(hTimer);hTimer=setTimeout(pushHist,700)}
 function applyHist(){const snap=HIST[hPos]||'1|';isDemo=false;setLayers(snap[0]==='3'?3:1);D.single=snap.slice(2);refreshInputs();prevLen=D.single.length;build();syncHist();tone(560,.06,.05);}
 $('undo').onclick=()=>{if(hPos>0){hPos--;applyHist()}};
 $('redo').onclick=()=>{if(hPos<HIST.length-1){hPos++;applyHist()}};
+function syncInv(){const b=$('invBtn');if(b)b.classList.toggle('on',invert);}
+$('invBtn').onclick=()=>{invert=!invert;syncInv();scannedImg=null;build();tone(invert?520:640,.07,.05);};
 $('clr').onclick=()=>{clearTimeout(hTimer);isDemo=false;D.single='';D.ch=['','',''];refreshInputs();prevLen=0;pushHist();build();activeInput().focus();tone(320,.09,.06,'triangle');};
 
 /* ═══ ДЕМО: ПРИМАРНА ДРУКАРКА ═══
@@ -848,13 +867,13 @@ const LAB_KEY='taina_lab_state';
 function saveState(){
   if(isDemo)return;
   try{sessionStorage.setItem(LAB_KEY,JSON.stringify(
-    {t:D.single,l:layers,sh:shape,c1:colOne,c0:colZero}));}catch(e){}
+    {t:D.single,l:layers,sh:shape,c1:colOne,c0:colZero,inv:invert}));}catch(e){}
 }
 function restoreState(){
   let st=null;
   try{st=JSON.parse(sessionStorage.getItem(LAB_KEY)||'null');}catch(e){}
   if(!st||!st.t){setLayers(1);build();return;}   /* порожньо — через мить почнеться демо */
-  colOne=st.c1||colOne; colZero=st.c0||colZero;
+  colOne=st.c1||colOne; colZero=st.c0||colZero; invert=!!st.inv; syncInv();
   shape=(st.sh==='circle')?'circle':'square'; syncSeg('shape','s',shape);
   buildSwatches();
   setLayers(st.l===3?3:1);
@@ -932,7 +951,7 @@ function applyLang(){
   $('s-warn').textContent=t('warn');
   $('txt').placeholder='';   /* у фокусі поле має бути зовсім порожнім */
   const merch=q('.a-center .btn-main'); if(merch)merch.textContent=t('merch');
-  $('undo').title=t('undo'); $('redo').title=t('redo'); $('clr').title=t('clear');
+  $('undo').title=t('undo'); $('redo').title=t('redo'); $('clr').title=t('clear'); $('invBtn').title=t('inv');
   $('themeBtn').title=t('theme');
   $('langBtn').textContent=(LANG==='en')?'EN':'UA';
   const mbS=$('mb-save'), mbC=$('mb-scan');

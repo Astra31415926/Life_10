@@ -390,10 +390,18 @@ function decodeCells(cells, Tz) {
       let ones = 0; for (let i = 0; i < N; i++) ones += ch[i];
       return ones > N * 0.02 && ones < N * 0.98;     // канал не порожній і не суцільний
     });
+    /* Канал може нести той самий візерунок ПЕРЕВЕРНУТИМ — і це нормально.
+       Жовте (R+G) на темно-синьому (B): у R і G світліші одиниці, а в B
+       світліші якраз нулі. Раніше такий канал вважався «іншим», код ішов
+       у кольоровий розбір, синій канал не читався — і весь код відкидало
+       як «втрачений канал». Тепер збіг прямий АБО повний зворотний
+       означає той самий візерунок, тобто підфарбований монохром. */
     let identical = chans.length > 0;
-    for (let k = 1; k < chans.length && identical; k++)
-      for (let i = 0; i < N; i++)
-        if (chans[k][i] !== chans[0][i]) { identical = false; break; }
+    for (let k = 1; k < chans.length && identical; k++) {
+      let same = 0;
+      for (let i = 0; i < N; i++) if (chans[k][i] === chans[0][i]) same++;
+      if (same !== N && same !== 0) identical = false;
+    }
     if (identical) {
       let best = null;
       for (const m of MODES) {
@@ -769,14 +777,21 @@ function zebraRing(gray, S, Tz) {
  * Снимаем ПРЯМО ИЗ ОРИГИНАЛЬНОГО кадра.
  */
 function outerFrameScore(px, W, H0, pts, Tz, ch) {
+  /* Кількість точок на сторону — не менше двох на модуль.
+     Було жорстко 20: при Tz=43 крок між точками виходив рівно 2 модулі,
+     усі точки падали на клітинки ОДНОГО кольору зебри, і перевірка
+     «не бачила» чергування — правильну рамку відкидало (стробоскоп).
+     Так не читалися коди з полем 41×41. Два відліки на модуль гарантують,
+     що обидва кольори зебри потрапляють у вибірку на будь-якому розмірі. */
+  const NS = Math.max(20, Math.ceil(Tz * 2.2));
   const ringAt = (radMod) => {
     const p = insetCorners(pts, -radMod, Tz);
     if (!p) return null;
     const out = [];
     for (let i = 0; i < 4; i++) {
       const a = p[i], b = p[(i + 1) % 4];
-      for (let s = 0; s < 20; s++) {
-        const t = 0.05 + (0.9 * s) / 19;
+      for (let s = 0; s < NS; s++) {
+        const t = 0.05 + (0.9 * s) / (NS - 1);
         const x = Math.round(a[0] + (b[0] - a[0]) * t);
         const y = Math.round(a[1] + (b[1] - a[1]) * t);
         if (x < 0 || y < 0 || x >= W || y >= H0) continue;
@@ -952,7 +967,27 @@ function decode(source, opts) {
     mark('CANDIDATES', { found: quads.length, detectScale: +scale.toFixed(3), opencv: true });
   }
 
-  return decodePixels(px, W, H, quads, opts, diag, mark, t0);
+  /* НЕГАТИВ (як інвертовані QR-коди): світлі одиниці стали темними,
+     тиха зона — темною. Якщо звичайний прохід нічого не знайшов,
+     перевертаємо яскравість кадру й пробуємо ще раз тими самими
+     контурами: межі кілець рамки від інверсії не зсуваються.
+     opts.invert: 'auto' (за замовчуванням) — звичайний, потім негатив;
+                  true — тільки негатив; false — тільки звичайний.
+     Камера чергує true/false по кадрах, щоб не подвоювати час кадру. */
+  const inv = opts.invert === undefined ? 'auto' : opts.invert;
+  let r = null;
+  if (inv !== true) r = decodePixels(px, W, H, quads, opts, diag, mark, t0);
+  if (inv === true || (inv === 'auto' && !r.ok)) {
+    const npx = new Uint8ClampedArray(px.length);
+    for (let i = 0; i < px.length; i += 4) {
+      npx[i] = 255 - px[i]; npx[i+1] = 255 - px[i+1]; npx[i+2] = 255 - px[i+2]; npx[i+3] = px[i+3];
+    }
+    const d2 = { stages: [], candidates: [], rejected: [] };
+    const r2 = decodePixels(npx, W, H, quads, opts, d2, mark, performance.now());
+    if (r2.ok) { r2.negative = true; r = r2; }
+    else if (!r) r = r2;
+  }
+  return r;
 }
 
 /**
@@ -1015,7 +1050,15 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
       if (!probe) continue;
       const z = verifyZebra(probe, CFG.PROBE_SIZE);
       if (!z) continue;
-      const Tz = z.Tz, T = Tz + 2, n = Tz - 2;
+      /* КІЛЬКА КАНДИДАТІВ РОЗМІРУ.
+         Підрахунок смужок зебри іноді дає нічию між справжнім Tz і вдвічі
+         меншим (на 65×65: 8 голосів за 67 і 8 за 33). Раніше бралося перше
+         за порядком — і часто хибне. Тепер перевіряємо всіх, хто набрав
+         не менше 3/4 голосів лідера: хибний розмір відсіє перевірка рамки. */
+      const topV = z.votes[0][1];
+      const tzCands = z.votes.filter(v => v[1] >= Math.max(2, topV * 0.75)).slice(0, 3).map(v => v[0]);
+      for (const Tz of tzCands) {
+      const T = Tz + 2, n = Tz - 2;
       if (T < CFG.T_MIN || T > CFG.T_MAX || n < 5 || n % 2 === 0) continue;
 
       const ring = zebraRing(probe, CFG.PROBE_SIZE, Tz);
@@ -1112,6 +1155,7 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
       if (dec.agree >= 0.999 && frame.score >= 0.999 && sameText >= 2) {
         diag.earlyExit = true; break outer;
       }
+      } /* кінець перебору кандидатів розміру */
     }
   }
   /* Другий канал перебираємо ТІЛЬКИ якщо по яскравості нічого не знайшли. */
@@ -1235,7 +1279,7 @@ window.TainaDecoder = {
   last: null,               // результат останнього розбору, разом із діагностикою
   cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
-  version: '1.6',
+  version: '1.7',
   /* внутренности — для decoder-lab.html и автотестов */
   _internal: { decodePixels, warpGrayNN, warpRGB, insetCorners, insetCornersFrac, verifyZebra, zebraRing,
                outerFrameScore, sampleCells, decodeCells, findQuadsCV,
@@ -1263,67 +1307,8 @@ window.runDecodeAttempts = function (img, opts) {
      коли це один текст, розкладений по каналах (kind 'mono'). */
   return [{ kind, mode: r.mode, n: r.n, pad: 2, res, T: r.T,
             confidence: r.confidence, parts: r.parts, channels: r.channels,
-            rmark: r.rmark, colored: r.colored, tinted: r.tinted, text: r.text }];
+            rmark: r.rmark, colored: r.colored, tinted: r.tinted, text: r.text,
+            negative: !!r.negative }];
 };
 
 })();
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   КАК ПОДКЛЮЧИТЬ
-
-   1) OpenCV.js нужен для поиска контуров (локализация). Подключается как
-      обычно, до decoder.js:
-        <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
-        <script src="decoder.js"></script>
-      Без OpenCV декодер продолжает работать, но рассматривает только весь
-      кадр целиком — годится для ровных загруженных PNG, не для камеры.
-
-   2) Заменить старый decoder.js этим файлом. Больше ничего в проекте
-      трогать не нужно: Generator, Gallery, UI, Supabase, Vercel — без изменений.
-
-   ПУБЛИЧНАЯ ФУНКЦИЯ
-
-     TainaDecoder.decode(source, opts)
-
-   ПРИНИМАЕТ
-
-     source  — <img>, <canvas> или <video> (любой из трёх, конвейер один и тот же;
-               разница только на стадии получения кадра)
-     opts.mode        'image' | 'camera'   (лимиты по времени и числу кандидатов)
-     opts.diagnostic  true → в ответ добавляется поле diagnostic
-     opts.roiHint     4 угла предыдущего успеха — ускоряет следующий кадр
-
-   ВОЗВРАЩАЕТ
-
-     Успех:
-       { ok: true,
-         text:      "декодированный текст",
-         parts:     ["текст R", "текст G", "текст B"],   // для цветных
-         T:         35,        // полный габарит: рамка+зебра+данные+зебра+рамка
-         n:         31,        // зона данных, n = T - 4
-         mode:      "oct" | "quad" | "half",
-         kind:      "mono" | "monolith" | "three",
-         colored:   false,
-         palette:   "галерейна" | "насичена" | null,
-         confidence: { agree, frame, zebra, alternation, cornersDark },
-         corners:   [[x,y],[x,y],[x,y],[x,y]],   // в координатах оригинала
-         ms:        142.3 }
-
-     Неудача:
-       { ok: false, text: null, reason: "NO CODE", ms: 98.1 }
-
-   НЕПРЕРЫВНАЯ КАМЕРА
-
-     const scan = TainaDecoder.scanVideo(videoEl, res => {
-       console.log(res.ok ? res.text : res.reason);   // отчёт по КАЖДОМУ кадру
-     }, { intervalMs: 700, stopOnSuccess: false });
-     // scan.stop() — остановить
-
-   ПОРОГИ (TainaDecoder.config)
-
-     FRAME_MIN = 0.95   структура внешней рамки
-     AGREE_MIN = 0.90   обратная сверка
-   Оба должны быть пройдены. Ослабление любого из них открывает дорогу
-   ложным срабатываниям — на тестовом наборе именно эта пара дала
-   10 настоящих кодов из 10 при 0 ложных из 91.
-   ═══════════════════════════════════════════════════════════════════════════ */
