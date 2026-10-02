@@ -91,26 +91,12 @@ var M = {
   }
 };
 
-/* Знак TAINA. Т — шеврони й хрестик, A — з «зірочкою» замість перекладини,
-   i — колонка шевронів під ромбом, N — суцільна. Тимчасовий, до остаточного лого. */
+/* Знак TAINA — піксельний, 30×4 модулі: з того ж «матеріалу», що й орнамент.
+   Вектор (не картинка): різкий на будь-якому екрані й сам бере колір теми.
+   crispEdges — щоб краї модулів не розмивались. */
 var LOGO_SVG =
-  '<svg viewBox="0 0 172 46" fill="none" stroke="currentColor" stroke-linecap="square" stroke-linejoin="miter">' +
-  /* T */
-  '<g stroke-width="3.2"><path d="M2 4l4 4-4 4M8 4l4 4-4 4"/><path d="M15 4l8 8M23 4l-8 8"/>' +
-  '<path d="M34 4l-4 4 4 4M40 4l-4 4 4 4"/>' +
-  '<path d="M15 17l8 8M23 17l-8 8"/><path d="M14 33l5-5 5 5M14 40l5-5 5 5"/></g>' +
-  /* A */
-  '<path d="M48 44L61 3l13 41" stroke-width="6.5"/>' +
-  '<path d="M57.5 23l7 7M64.5 23l-7 7" stroke-width="2.6"/>' +
-  /* i */
-  '<path d="M86 2l5 5-5 5-5-5z" fill="currentColor" stroke="none"/>' +
-  '<path d="M81 16l5 5 5-5M81 23l5 5 5-5M81 30l5 5 5-5M81 37l5 5 5-5" stroke-width="3"/>' +
-  /* N */
-  '<path d="M102 44V3l23 41V3" stroke-width="6.5"/>' +
-  /* A */
-  '<path d="M134 44L147 3l13 41" stroke-width="6.5"/>' +
-  '<path d="M143.5 23l7 7M150.5 23l-7 7" stroke-width="2.6"/>' +
-  '</svg>';
+  '<svg viewBox="0 0 30 4" fill="currentColor" shape-rendering="crispEdges">' +
+  '<path d="M0 0h5v1h-5zM8 0h1v1h-1zM13 0h1v1h-1zM16 0h2v1h-2zM21 0h1v1h-1zM26 0h1v1h-1zM2 1h1v1h-1zM7 1h1v1h-1zM9 1h1v1h-1zM16 1h1v1h-1zM18 1h1v1h-1zM21 1h1v1h-1zM25 1h1v1h-1zM27 1h1v1h-1zM2 2h1v1h-1zM6 2h1v1h-1zM8 2h1v1h-1zM10 2h1v1h-1zM13 2h1v1h-1zM16 2h1v1h-1zM19 2h1v1h-1zM21 2h1v1h-1zM24 2h1v1h-1zM26 2h1v1h-1zM28 2h1v1h-1zM2 3h1v1h-1zM5 3h1v1h-1zM11 3h1v1h-1zM13 3h1v1h-1zM16 3h1v1h-1zM20 3h2v1h-2zM23 3h1v1h-1zM29 3h1v1h-1z"/></svg>';
 
 var PHONE_SVG =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
