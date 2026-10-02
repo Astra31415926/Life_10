@@ -531,18 +531,31 @@ function showFail(){
 }
 
 async function applyScan(best){
-  const parts=(best.parts&&best.parts.length?best.parts:[best.res[0]||'']).filter(t=>t);
-  const colored = best.kind==='three' || !!best.rmark || !!best.colored;
+  let parts=(best.parts&&best.parts.length?best.parts:[best.res[0]||'']).filter(t=>t);
+  /* ОДНАКОВИЙ ТЕКСТ У КАНАЛАХ = ОДИН ТЕКСТ.
+     Підфарбований монохром (наприклад, блакитний на синьому) несе той самий
+     візерунок у двох каналах. На камері канали бінаризуються трохи по-різному,
+     і декодер вважає їх «трьома текстами» — звідси подвоєне
+     «Леся Українка · Леся Українка» і перехід у кольоровий режим.
+     Справжній кольоровий код має мітку rmark і різні шматки тексту в каналах. */
+  let kind=best.kind;
+  if(kind==='three'&&!best.rmark&&parts.length>1&&parts.every(t=>t===parts[0])){
+    kind='mono'; parts=[parts[0]];
+  }
+  const colored = kind==='three' || !!best.rmark || (!!best.colored&&kind!=='mono');
   let txt;
-  if(best.kind==='three'){txt=parts.join(' · ');}else{txt=best.text||best.res[0]||'';}
+  if(kind==='three'){txt=parts.join(' · ');}
+  else if(best.kind==='three'){txt=parts[0];}
+  else{txt=best.text||best.res[0]||'';}
   isDemo=false;
   setLayers(colored?3:1);
   D.single=txt; okChime(); $('txt').value='';
-  await typeOut($('txt'),txt,26); grow($('txt'),200);
-  $('txt').scrollTop=$('txt').scrollHeight;
-  showResult('✓ прочитано'
-    +(best.kind==='three'?' · три канали':(colored?' · кольоровий':''))
-    +(best.tinted?' · підфарбований':''), txt);
+  await typeOut($('txt'),txt,26);
+  /* Розшифрований текст показуємо З ПОЧАТКУ — інакше поле прокручене
+     до кінця і перші рядки ховаються вгорі. */
+  $('txt').scrollTop=0;
+  /* Під полем — тільки «прочитано» (і «Відкрити», якщо це посилання). */
+  showResult('✓ прочитано', txt);
 }
 
 const MINN=7, MAXN=145;
