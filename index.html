@@ -206,6 +206,13 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:15px 2
 .vf span:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}
 .vf span:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
 
+/* ═══ ПРИМАРНЕ ДЕМО ═══ напівпрозорі текст і орнамент, плавне розчинення */
+#txt{transition:color .8s}
+body.ghost #txt{color:color-mix(in srgb,var(--parchment) 42%,transparent)}
+body.ghost #cv{opacity:.42}
+body.ghost.ghost-out #txt{color:transparent}
+body.ghost.ghost-out #cv{opacity:0;transition:opacity .85s}
+
 /* Кнопка мерчу на ПК прибрана; на телефоні вмикається в мобільному блоці. */
 .a-center .btn-main{display:none}
 
@@ -605,7 +612,7 @@ function build(){
   else{const got=CH.map(k=>decodeSector(grid[k],W,mode,0));ok=CH.every((k,i)=>(got[i]||'')===(T[i]||''));}
   if(!ok) $('rt').innerHTML='<span class="w">перевір текст</span>';
   hasImage=true;syncMain();
-  try{localStorage.setItem('taina_last_ornament',document.getElementById('cv').toDataURL());}catch(e){}
+  if(!isDemo){try{localStorage.setItem('taina_last_ornament',document.getElementById('cv').toDataURL());}catch(e){}}
   saveState();
 }
 
@@ -717,7 +724,7 @@ function showResult(msg,text){const url=findURL(text);let html='<span class="g">
 
 const IC_SAVE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>';
 const IC_LOAD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 3h14"/></svg>';
-function syncMain(){$('mainbtn').innerHTML=hasImage?IC_SAVE+'<span>'+t('save')+'</span>':IC_LOAD+'<span>'+t('load')+'</span>';if(menuOpen)closeMenu();}
+function syncMain(){$('mainbtn').innerHTML=(hasImage&&!isDemo)?IC_SAVE+'<span>'+t('save')+'</span>':IC_LOAD+'<span>'+t('load')+'</span>';if(menuOpen)closeMenu();}
 function closeMenu(){menuOpen=false;$('menu').classList.add('hide');$('menu').innerHTML=''}
 function openMenu(){
   const m=$('menu');menuOpen=true;m.classList.remove('hide');
@@ -784,11 +791,53 @@ $('undo').onclick=()=>{if(hPos>0){hPos--;applyHist()}};
 $('redo').onclick=()=>{if(hPos<HIST.length-1){hPos++;applyHist()}};
 $('clr').onclick=()=>{clearTimeout(hTimer);isDemo=false;D.single='';D.ch=['','',''];refreshInputs();prevLen=0;pushHist();build();activeInput().focus();tone(320,.09,.06,'triangle');};
 
-/* ═══ ДЕМО-ОРНАМЕНТ ═══
-   Сторінка відкривається не з порожнім квадратом, а з готовим кодом.
-   Клік у поле — демо зникає, звільняючи місце. Пішов з поля, нічого
-   не написавши, — демо повертається. */
-function showDemo(){const d=t('demo');isDemo=true;D.single=d;$('txt').value=d;prevLen=d.length;autoGrow();build();}
+/* ═══ ДЕМО: ПРИМАРНА ДРУКАРКА ═══
+   Коли поле порожнє і ніхто нічого не робить DEMO_IDLE мс, фраза
+   друкується по літері — напівпрозоро, і орнамент росте разом із нею.
+   Фраза тримається, плавно розчиняється, далі наступна.
+   Будь-який дотик чи клавіша миттєво зупиняє демо: поле й холст порожні.
+   Демо ніде не зберігається, в історію не потрапляє, «Зберегти» неактивна. */
+const DEMO_IDLE=3000;           // пауза бездіяльності перед стартом
+const DEMO_HOLD=2600;           // скільки фраза стоїть повністю
+const PHRASES={
+  uk:['Слава Україні','Україна переможе','Мирного неба над головою'],
+  en:['Glory to Ukraine','Ukraine will prevail','Peaceful skies above us']
+};
+let demoIdx=0, demoRun=0, lastAct=Date.now();
+function demoClear(){
+  document.body.classList.remove('ghost','ghost-out');
+  D.single=''; $('txt').value=''; prevLen=0; build();
+}
+function demoStop(){
+  demoRun++;                                  // обриває будь-який крок, що чекає
+  if(!isDemo&&!document.body.classList.contains('ghost'))return;
+  isDemo=false; demoClear();
+}
+function demoCanStart(){
+  return !isDemo && !D.single && document.activeElement!==$('txt')
+    && !busy && !camStream && !menuOpen && !palOpen && !scannedImg;
+}
+async function demoPlay(){
+  const run=++demoRun;
+  const list=PHRASES[LANG]||PHRASES.uk;
+  const chars=[...list[demoIdx++%list.length]];
+  isDemo=true; document.body.classList.add('ghost');
+  for(let i=1;i<=chars.length;i++){
+    if(run!==demoRun)return;
+    D.single=chars.slice(0,i).join(''); $('txt').value=D.single; build();
+    await sleep(95+Math.random()*90);         // нерівний ритм, як у людини
+  }
+  await sleep(DEMO_HOLD); if(run!==demoRun)return;
+  document.body.classList.add('ghost-out');   // плавне розчинення (CSS)
+  await sleep(900); if(run!==demoRun)return;
+  isDemo=false; demoClear();
+  lastAct=Date.now()-DEMO_IDLE+900;           // наступна фраза — за мить
+}
+/* Будь-яка дія користувача зупиняє демо і відкладає наступне. */
+['pointerdown','keydown','wheel'].forEach(ev=>document.addEventListener(ev,()=>{
+  lastAct=Date.now(); demoStop();
+},true));
+setInterval(()=>{ if(demoCanStart()&&Date.now()-lastAct>=DEMO_IDLE)demoPlay(); },300);
 
 /* ═══ ПАМ'ЯТЬ ЛАБОРАТОРІЇ ═══
    Пішов у Галерею й повернувся — текст, режим, форма і кольори на місці.
@@ -804,7 +853,7 @@ function saveState(){
 function restoreState(){
   let st=null;
   try{st=JSON.parse(sessionStorage.getItem(LAB_KEY)||'null');}catch(e){}
-  if(!st||!st.t){setLayers(1);showDemo();return;}
+  if(!st||!st.t){setLayers(1);build();return;}   /* порожньо — через мить почнеться демо */
   colOne=st.c1||colOne; colZero=st.c0||colZero;
   shape=(st.sh==='circle')?'circle':'square'; syncSeg('shape','s',shape);
   buildSwatches();
@@ -812,14 +861,8 @@ function restoreState(){
   isDemo=false; D.single=st.t; $('txt').value=st.t; prevLen=st.t.length;
   autoGrow(); build(); pushHist();
 }
-$('txt').addEventListener('focus',()=>{
-  if(!isDemo)return;
-  isDemo=false;D.single='';$('txt').value='';prevLen=0;autoGrow();build();
-});
-$('txt').addEventListener('blur',()=>{
-  if($('txt').value.trim())return;
-  showDemo();
-});
+$('txt').addEventListener('focus',()=>{lastAct=Date.now();demoStop();});
+$('txt').addEventListener('blur',()=>{lastAct=Date.now();});
 $('txt').oninput=e=>{const v=e.target.value;isDemo=false;if(v.length>prevLen)keyClick();prevLen=v.length;scannedImg=null;D.single=v;autoGrow();build();schedHist();};
 
 document.addEventListener('dragover',e=>e.preventDefault());
@@ -853,10 +896,10 @@ dbgIdle(); setInterval(()=>{ if(!busy && !camStream) dbgIdle(); },2000);
   const bar=document.createElement('div');bar.id='mobabar';
   bar.innerHTML='<button id="mb-save" disabled>⤓ Зберегти</button><button id="mb-scan">⌖ Сканувати</button>';
   document.body.appendChild(bar);
-  function syncMobSave(){const b=$('mb-save');if(b)b.disabled=!(typeof hasImage!=='undefined'&&hasImage);}
+  function syncMobSave(){const b=$('mb-save');if(b)b.disabled=!(typeof hasImage!=='undefined'&&hasImage&&!isDemo);}
   if(typeof syncMain==='function'){const _sm=syncMain;window.syncMain=function(){_sm.apply(this,arguments);syncMobSave();};}
   setInterval(syncMobSave,500);
-  $('mb-save').onclick=()=>{if(!hasImage)return;var n=prompt('Назва файлу:',defaultName());if(n===null)return;n=n.trim().replace(/[\\/:*?"<>|]/g,'_')||'taina';savePNG(n);};
+  $('mb-save').onclick=()=>{if(!hasImage||isDemo)return;var n=prompt('Назва файлу:',defaultName());if(n===null)return;n=n.trim().replace(/[\\/:*?"<>|]/g,'_')||'taina';savePNG(n);};
   $('mb-scan').onclick=()=>openSheet();
   const sheet=document.createElement('div');sheet.id='sheet';
   sheet.innerHTML='<div class="veil2"></div><div class="card"><div class="sh-t">Сканувати код</div><button class="sh-b" id="sh-cam">📷 Камера</button><button class="sh-b" id="sh-file">🖼 Завантажити з галереї</button><button class="sh-b sh-cancel" id="sh-x">Скасувати</button></div>';
@@ -901,7 +944,6 @@ function applyLang(){
   /* Шапку малює оболонка — просимо її перемалюватися новою мовою. */
   if(window.TainaShell&&TainaShell.setLang)TainaShell.setLang(LANG);
   /* Демо — теж текст інтерфейсу, тож міняється разом з мовою. */
-  if(isDemo)showDemo();
 }
 $('langBtn').onclick=()=>{
   LANG=(LANG==='en')?'uk':'en';
