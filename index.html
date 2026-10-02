@@ -213,6 +213,12 @@ textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:15px 2
 /* ═══ ПРИМАРНЕ ДЕМО ═══ напівпрозорі текст і орнамент, плавне розчинення */
 #txt{transition:color .8s}
 body.ghost #txt{color:color-mix(in srgb,var(--parchment) 45%,transparent)}
+#spot{position:fixed;left:50%;top:50%;width:0;height:0;border-radius:50%;pointer-events:none;z-index:8000;
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--acc-hot) 55%,transparent),0 0 24px 4px color-mix(in srgb,var(--acc) 25%,transparent),
+             0 0 0 200vmax rgba(0,0,0,.2);
+  opacity:0;transition:left .6s cubic-bezier(.4,0,.2,1),top .6s cubic-bezier(.4,0,.2,1),
+             width .6s cubic-bezier(.4,0,.2,1),height .6s cubic-bezier(.4,0,.2,1),opacity .5s}
+#spot.on{opacity:1}
 
 /* Кнопка мерчу на ПК прибрана; на телефоні вмикається в мобільному блоці. */
 .a-center .btn-main{display:none}
@@ -821,38 +827,56 @@ $('clr').onclick=()=>{clearTimeout(hTimer);isDemo=false;D.single='';D.ch=['','',
    повертається як було, поле й холст порожні. Відтак ніщо не перекриває
    сканування і не з'являється саме по собі.
    Поки йде показ, «Зберегти» неактивна, нічого не зберігається. */
-const PHRASES={uk:'Слава Україні',en:'Glory to Ukraine'};
+const PHRASES={uk:'Напиши що завгодно',en:'Write anything'};
 let tourRun=0, tourDead=false, tourSaved=null;
 const tw=ms=>new Promise(r=>setTimeout(r,ms));
 function tourAlive(run){return run===tourRun&&!tourDead;}
 function tourPickOne(c){colOne=c;buildSwatches();render();}
 function tourPickZero(c){colZero=c;buildSwatches();render();}
+/* ПРОЖЕКТОР: екран темніє на 20%, світле коло перелітає туди, де
+   зараз станеться дія, — і лише потім дія відбувається. Затемнення
+   зроблене величезною тінню навколо кола (box-shadow), тому коло
+   рухається плавно й не заважає клікам (pointer-events:none). */
+const spot=document.createElement('div'); spot.id='spot'; document.body.appendChild(spot);
+function spotTo(el,mode){
+  if(!el)return; const r=el.getBoundingClientRect();
+  const R=(mode==='cover')?Math.hypot(r.width,r.height)/2+6:Math.max(r.width,r.height)/2+14;
+  spot.style.left=(r.left+r.width/2-R)+'px'; spot.style.top=(r.top+r.height/2-R)+'px';
+  spot.style.width=spot.style.height=(2*R)+'px'; spot.classList.add('on');
+}
+function spotOff(){spot.classList.remove('on');}
+/* навести коло й дати оку долетіти, перш ніж щось перемкнеться */
+async function look(el,mode,run){spotTo(el,mode);await tw(650);return tourAlive(run);}
+function swatch(row,col){return [...$(row).children].find(d=>d.style.background&&rgbHex(d.style.background)===col);}
+function rgbHex(c){const m=c.match(/\d+/g);return m?'#'+m.slice(0,3).map(v=>(+v).toString(16).padStart(2,'0')).join(''):c;}
 function tourPal(open){palOpen=open;$('pal-panel').classList.toggle('hide',!open);$('pal-btn').classList.toggle('on',open);}
 async function tourPlay(){
   const run=++tourRun;
   tourSaved={colOne,colZero,shape,layers,invert};
   isDemo=true; document.body.classList.add('ghost');
   const steps=[
-    async()=>{                                   // 1. друкує фразу
+    async()=>{                                   // 1. друкує фразу — коло на орнаменті
+      if(!await look($('stage'),'cover',run))return;
       const ch=[...(PHRASES[LANG]||PHRASES.uk)];
       for(let i=1;i<=ch.length;i++){
         if(!tourAlive(run))return;
         D.single=ch.slice(0,i).join(''); $('txt').value=D.single; build();
         await tw(110+Math.random()*90);
       }
-      await tw(1600);
+      await tw(1300);
     },
-    async()=>{ setLayers(3); build(); await tw(1900); },          // 2. кольоровий режим
-    async()=>{ setLayers(1); build(); await tw(900); },           //    і назад у моно
-    async()=>{ tourPal(true); await tw(800); },                   // 3. палітра
-    async()=>{ tourPickOne('#ffe000'); await tw(1100); },         //    колір одиниці
-    async()=>{ tourPickZero('#000066'); await tw(1100); },        //    колір нуля
-    async()=>{ tourPickOne('#00d4e8'); await tw(1300); },         //    ще одна одиниця
-    async()=>{ tourPal(false); await tw(700); },
-    async()=>{ invert=true; syncInv(); build(); await tw(1800); },   // 4. негатив
-    async()=>{ invert=false; syncInv(); build(); await tw(900); },   //    і позитив
-    async()=>{ shape='circle'; syncSeg('shape','s',shape); render(); await tw(1800); },  // 5. кружечки
-    async()=>{ shape='square'; syncSeg('shape','s',shape); render(); }                   //    і квадрати
+    async()=>{ if(!await look($('layers').children[1],'',run))return; setLayers(3); build(); await tw(1500); },  // 2. кольоровий
+    async()=>{ if(!await look($('layers').children[0],'',run))return; setLayers(1); build(); await tw(800); },   //    монохром
+    async()=>{ if(!await look($('pal-btn'),'',run))return; tourPal(true); await tw(600); },                    // 3. палітра
+    async()=>{ if(!await look(swatch('sw-one','#ffe000'),'',run))return; tourPickOne('#ffe000'); await tw(900); },
+    async()=>{ if(!await look(swatch('sw-zero','#000066'),'',run))return; tourPickZero('#000066'); await tw(900); },
+    async()=>{ if(!await look(swatch('sw-one','#00d4e8'),'',run))return; tourPickOne('#00d4e8'); await tw(1000); },
+    async()=>{ if(!await look($('pal-btn'),'',run))return; tourPal(false); await tw(400); },
+    async()=>{ if(!await look($('invBtn'),'',run))return; invert=true; syncInv(); build(); await tw(1500); },   // 4. негатив
+    async()=>{ invert=false; syncInv(); build(); await tw(800); },                                              //    позитив
+    async()=>{ if(!await look($('shape').children[1],'',run))return; shape='circle'; syncSeg('shape','s',shape); render(); await tw(1500); },  // 5. кружечки
+    async()=>{ if(!await look($('shape').children[0],'',run))return; shape='square'; syncSeg('shape','s',shape); render(); await tw(900); },   //    квадрати
+    async()=>{ if(!await look($('stage'),'cover',run))return; await tw(900); spotOff(); }                     // фінал: погляд на результат
   ];
   for(const st of steps){ if(!tourAlive(run))return; await st(); }
   /* Показ завершився сам — результат лишається на екрані, доки людина
@@ -860,7 +884,7 @@ async function tourPlay(){
 }
 function tourStop(){
   if(tourDead)return;
-  tourDead=true; tourRun++;
+  tourDead=true; tourRun++; spotOff();
   if(!isDemo)return;
   /* повертаємо все, що змінив показ, і очищаємо поле */
   const t=tourSaved||{};
@@ -874,8 +898,13 @@ function tourStop(){
 }
 /* Лише СПРАВЖНІ дії людини (isTrusted) — програмні кроки показу подій не шлють. */
 ['pointerdown','keydown','wheel','touchstart'].forEach(ev=>document.addEventListener(ev,e=>{
-  if(e.isTrusted)tourStop();
+  if(!e.isTrusted)return;
+  /* закриття вікна привітання («Проєкт») — не дія з сайтом, показ не зупиняємо */
+  const m=document.getElementById('modal');
+  if(m&&!m.classList.contains('hide')&&(m.contains(e.target)||e.key==='Escape'))return;
+  tourStop();
 },{capture:true,passive:true}));
+function modalOpen(){const m=document.getElementById('modal');return !!(m&&!m.classList.contains('hide'));}
 
 /* ═══ ПАМ'ЯТЬ ЛАБОРАТОРІЇ ═══
    Пішов у Галерею й повернувся — текст, режим, форма і кольори на місці.
@@ -891,7 +920,9 @@ function saveState(){
 function restoreState(){
   let st=null;
   try{st=JSON.parse(sessionStorage.getItem(LAB_KEY)||'null');}catch(e){}
-  if(!st||!st.t){setLayers(1);build();setTimeout(()=>{if(!tourDead&&!D.single)tourPlay();},1500);return;}
+  if(!st||!st.t){setLayers(1);build();(function wait(){ if(tourDead||D.single)return;
+      if(modalOpen())return setTimeout(wait,300);        /* спершу людина закриє «Проєкт» */
+      setTimeout(()=>{if(!tourDead&&!D.single&&!modalOpen())tourPlay();else wait();},1200); })();return;}
   colOne=st.c1||colOne; colZero=st.c0||colZero; invert=!!st.inv; syncInv();
   shape=(st.sh==='circle')?'circle':'square'; syncSeg('shape','s',shape);
   buildSwatches();
