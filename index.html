@@ -219,6 +219,7 @@ body.ghost #txt{color:color-mix(in srgb,var(--parchment) 45%,transparent)}
   opacity:0;transition:left .6s cubic-bezier(.4,0,.2,1),top .6s cubic-bezier(.4,0,.2,1),
              width .6s cubic-bezier(.4,0,.2,1),height .6s cubic-bezier(.4,0,.2,1),opacity .5s}
 #spot.on{opacity:1}
+#spot.fast{transition-duration:.18s,.18s,.18s,.18s,.5s}   /* під час друку коло встигає за буквами */
 
 /* Кнопка мерчу на ПК прибрана; на телефоні вмикається в мобільному блоці. */
 .a-center .btn-main{display:none}
@@ -845,6 +846,29 @@ function spotTo(el,mode){
   spot.style.width=spot.style.height=(2*R)+'px'; spot.classList.add('on');
 }
 function spotOff(){spot.classList.remove('on');}
+function spotAt(cx,cy,R){spot.style.left=(cx-R)+'px';spot.style.top=(cy-R)+'px';spot.style.width=spot.style.height=(2*R)+'px';spot.classList.add('on');}
+/* Коло на рядку, де друкується текст. Текст вирівняний по центру поля,
+   тож коло стоїть у центрі й розкривається в міру того, як рядок росте. */
+const _mctx=document.createElement('canvas').getContext('2d');
+function spotText(){
+  const el=$('txt'), r=el.getBoundingClientRect(), cs=getComputedStyle(el);
+  const fs=parseFloat(cs.fontSize), lh=parseFloat(cs.lineHeight)||fs*1.4;
+  _mctx.font=cs.fontWeight+' '+cs.fontSize+' '+cs.fontFamily;
+  const w=Math.min(_mctx.measureText(el.value||'').width, r.width-40);
+  const cy=r.top+parseFloat(cs.paddingTop)+lh/2;
+  spotAt(r.left+r.width/2, cy, Math.max(lh/2+16, w/2+26));
+}
+/* Прибрати за собою: повернути все, що змінив показ, і очистити поле. */
+function tourCleanup(){
+  const t=tourSaved||{};
+  tourPal(false);
+  if(t.colOne)colOne=t.colOne; if(t.colZero)colZero=t.colZero;
+  shape=t.shape||'square'; syncSeg('shape','s',shape);
+  invert=!!t.invert; syncInv();
+  buildSwatches(); setLayers(t.layers===3?3:1);
+  isDemo=false; document.body.classList.remove('ghost');
+  D.single=''; $('txt').value=''; prevLen=0; build();
+}
 /* навести коло й дати оку долетіти, перш ніж щось перемкнеться */
 async function look(el,mode,run){spotTo(el,mode);await tw(650);return tourAlive(run);}
 function swatch(row,col){return [...$(row).children].find(d=>d.style.background&&rgbHex(d.style.background)===col);}
@@ -856,13 +880,15 @@ async function tourPlay(){
   isDemo=true; document.body.classList.add('ghost');
   const steps=[
     async()=>{                                   // 1. друкує фразу — коло на орнаменті
-      if(!await look($('stage'),'cover',run))return;
+      spotText(); await tw(650); if(!tourAlive(run))return;   // коло там, де почнеться текст
       const ch=[...(PHRASES[LANG]||PHRASES.uk)];
+      spot.classList.add('fast');
       for(let i=1;i<=ch.length;i++){
-        if(!tourAlive(run))return;
-        D.single=ch.slice(0,i).join(''); $('txt').value=D.single; build();
+        if(!tourAlive(run)){spot.classList.remove('fast');return;}
+        D.single=ch.slice(0,i).join(''); $('txt').value=D.single; build(); spotText();
         await tw(110+Math.random()*90);
       }
+      spot.classList.remove('fast');
       await tw(1300);
     },
     async()=>{ if(!await look($('layers').children[1],'',run))return; setLayers(3); build(); await tw(1500); },  // 2. кольоровий
@@ -876,7 +902,14 @@ async function tourPlay(){
     async()=>{ invert=false; syncInv(); build(); await tw(800); },                                              //    позитив
     async()=>{ if(!await look($('shape').children[1],'',run))return; shape='circle'; syncSeg('shape','s',shape); render(); await tw(1500); },  // 5. кружечки
     async()=>{ if(!await look($('shape').children[0],'',run))return; shape='square'; syncSeg('shape','s',shape); render(); await tw(900); },   //    квадрати
-    async()=>{ if(!await look($('stage'),'cover',run))return; await tw(900); spotOff(); }                     // фінал: погляд на результат
+    async()=>{ if(!await look($('stage'),'cover',run))return; await tw(900); },                              // погляд на результат
+    async()=>{ if(!await look($('clr'),'',run))return;                                                        // 6. кошик прибирає за собою
+               tourCleanup(); tone(320,.09,.06,'triangle'); await tw(900); },
+    async()=>{ spotText(); await tw(800); if(!tourAlive(run))return;                                           // 7. місце — людині
+               tourDead=true; spotOff();
+               /* курсор у полі. На телефоні не фокусуємо: без дотику людини
+                  клавіатура все одно не відкриється, а сторінку може смикнути. */
+               if(matchMedia('(pointer:fine)').matches)$('txt').focus(); }
   ];
   for(const st of steps){ if(!tourAlive(run))return; await st(); }
   /* Показ завершився сам — результат лишається на екрані, доки людина
@@ -884,17 +917,9 @@ async function tourPlay(){
 }
 function tourStop(){
   if(tourDead)return;
-  tourDead=true; tourRun++; spotOff();
+  tourDead=true; tourRun++; spotOff(); spot.classList.remove('fast');
   if(!isDemo)return;
-  /* повертаємо все, що змінив показ, і очищаємо поле */
-  const t=tourSaved||{};
-  tourPal(false);
-  if(t.colOne)colOne=t.colOne; if(t.colZero)colZero=t.colZero;
-  shape=t.shape||'square'; syncSeg('shape','s',shape);
-  invert=!!t.invert; syncInv();
-  buildSwatches(); setLayers(t.layers===3?3:1);
-  isDemo=false; document.body.classList.remove('ghost');
-  D.single=''; $('txt').value=''; prevLen=0; build();
+  tourCleanup();   /* повертаємо все, що змінив показ, і очищаємо поле */
 }
 /* Лише СПРАВЖНІ дії людини (isTrusted) — програмні кроки показу подій не шлють. */
 ['pointerdown','keydown','wheel','touchstart'].forEach(ev=>document.addEventListener(ev,e=>{
