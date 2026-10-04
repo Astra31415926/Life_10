@@ -28,7 +28,11 @@
 
 const CFG = {
   DETECT_MAX:      900,    // макс. сторона уменьшенной копии для поиска контуров
-  PROBE_SIZE:      360,    // размер дешёвого warp-а для проверки гипотез
+  PROBE_SIZE:      360,    // базовий розмір дешевого warp-а для гіпотез
+  /* Проба мусить розрізняти ОКРЕМІ модулі. У великого коду (n за 80)
+     при фіксованих 360 px на модуль лишається 4 px, і зебра перестає
+     рахуватись. Тому проба росте за кандидатом. (з версії 1.9) */
+  PROBE_MAX:       760,
   FINAL_MIN:       240,    // границы размера финального warp-а
   FINAL_MAX:      1100,
   SQUARENESS_MIN:  0.55,   // минимальная «квадратность» кандидата
@@ -400,7 +404,11 @@ function decodeCells(cells, Tz) {
     for (let k = 1; k < chans.length && identical; k++) {
       let same = 0;
       for (let i = 0; i < N; i++) if (chans[k][i] === chans[0][i]) same++;
-      if (same !== N && same !== 0) identical = false;
+      /* Допуск 3%: трохи зсунута сітка дає кілька розбіжних клітинок із
+         сотень. У справжнього RGB-коду канали несуть РІЗНІ шматки тексту
+         й збігаються приблизно наполовину — сплутати неможливо. */
+      const f = same / N;
+      if (f < 0.97 && f > 0.03) identical = false;
     }
     if (identical) {
       let best = null;
@@ -495,6 +503,13 @@ function decodeCells(cells, Tz) {
   const shape = mismatchShape(pick.masks, n);
 
   const parts = [best.vr, best.vg, best.vb].filter(t => t !== null);
+  /* ОДНАКОВИЙ ТЕКСТ У КАНАЛАХ БЕЗ КОЛЬОРОВОЇ МІТКИ = ОДИН ТЕКСТ.
+     Це підфарбований монохром, який канали прочитали кожен окремо. */
+  if (!best.rmark && parts.length > 1 && parts.every(t => t === parts[0])) {
+    return { kind: 'mono', text: parts[0], parts: [parts[0]], agree, shape,
+             lostChannels: 0, mode: best.m, n, colored: false, tinted: true,
+             palette: useCls.name };
+  }
   const text = best.rmark
     ? (parts.every(t => t === parts[0]) ? parts[0] : parts.join(''))
     : parts.join(' · ');
@@ -687,6 +702,7 @@ function warpRGB(px, W, H0, pts, S) {
  * если одну сторону убил блик, остальные три вытягивают.
  */
 function verifyZebra(gray, S) {
+  if (!gray || gray.length < S * S) return null;
   function scanLine(arr) {
     let mn = 255, mx = 0;
     for (let i = 0; i < arr.length; i++) { const v = arr[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
@@ -804,25 +820,32 @@ function outerFrameScore(px, W, H0, pts, Tz, ch) {
     return out.length >= 40 ? out : null;
   };
 
-  const zeb   = ringAt(-0.5);   // само кольцо зебры — эталон контраста
-  const white = ringAt(0.5);    // белая полоска за зеброй
-  const black = ringAt(1.5);    // чёрная полоска за ней
-  const quiet = ringAt(2.5);    // тихая зона — пустое светлое поле вокруг кода
-  if (!zeb || !white || !black) return { score: 0, wOk: 0, bOk: 0, reason: 'кольца вне кадра' };
+  const zeb = ringAt(-0.5);     // само кольцо зебры — эталон контраста
+  if (!zeb) return { score: 0, wOk: 0, bOk: 0, reason: 'кольца вне кадра' };
 
   const sz = [...zeb].sort((a, b) => a - b);
   const lo = sz[Math.floor(sz.length * 0.1)], hi = sz[Math.floor(sz.length * 0.9)];
   if (hi - lo < 30) return { score: 0, wOk: 0, bOk: 0, reason: 'нет контраста зебры' };
   const thr = (lo + hi) / 2;
 
-  const wOk = white.filter(v => v > thr).length / white.length;
-  const bOk = black.filter(v => v < thr).length / black.length;
+  /* Радіус беремо з допуском (з 1.9). Кут квадрата визначено з точністю
+     до кількох пікселів, і для великого коду (модуль 10 px) це половина
+     модуля: кільце з'їжджає на межу смужки й валить цілий код. */
+  const best = (radii, pred) => {
+    let v = -1;
+    for (const r of radii) { const w = ringAt(r); if (!w) continue;
+      const f = w.filter(pred).length / w.length; if (f > v) v = f; }
+    return v;
+  };
+  const wOk = Math.max(0, best([0.40, 0.50, 0.62], x => x > thr));
+  const bOk = Math.max(0, best([1.30, 1.50, 1.70], x => x < thr));
+  const quietF = best([2.40, 2.60, 2.85], x => x > thr);
   /* ТИХА ЗОНА. Генератор завжди лишає навколо коду світле поле у 2 модулі.
      Шматок із середини орнаменту (центр будь-якого орнаменту симетричний
      і буває схожий на маленьку рамку) такого поля не має — навколо нього
      чужий візерунок. Саме так у негативах знаходився хибний «код» «5».
      Якщо поле вийшло за кадр (код знято впритул), не караємо. */
-  const qOk = quiet ? quiet.filter(v => v > thr).length / quiet.length : 1;
+  const qOk = quietF < 0 ? 1 : quietF;
   return { score: wOk * bOk * qOk, wOk, bOk, qOk, thr };
 }
 
@@ -1042,6 +1065,15 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
   const SCs = pickStructureChannels(px, W, H);
   if (SCs.length > 1) diag.structureChannels = SCs;
 
+  /* ДВА ЕТАПИ. Швидкий — як у 1.8: проба 360 px, без додаткових проб.
+     Його вистачає для всіх кодів до ~80×80 і він укладається в бюджет кадру
+     камери. Глибокий (з 1.9: проба росте за кандидатом, точні модульні
+     гіпотези під кожен знайдений розмір) запускається ЛИШЕ коли швидкий
+     нічого не знайшов — він потрібен великим кодам і коштує вдвічі дорожче. */
+  for (const deep of [false, true]) {
+  /* Глибокий етап — лише для файлу. На камері великі коди однаково не
+     читаються (замало пікселів на модуль), а кадр мусить бути швидким. */
+  if (deep && (accepted.length || opts.mode === 'camera' || performance.now() - t0 > timeBudgetMs)) break;
   for (const SC of SCs) {
   outer:
   for (let qi = 0; qi < quads.length; qi++) {
@@ -1051,16 +1083,32 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
     /* FINDER: грубая оценка Tz на дешёвом warp-е из ОРИГИНАЛА.
        Неудача здесь — НЕ повод бросать кандидата: контур мог зацепиться за
        чёрную обводку или за белое поле, где на срезе зебры просто нет. */
-    const probe0 = warpGrayNN(px, W, H, q.pts, CFG.PROBE_SIZE, SC);
+    const probeS = !deep ? CFG.PROBE_SIZE : Math.max(CFG.PROBE_SIZE,
+                   Math.min(CFG.PROBE_MAX, Math.round(meanSide(q.pts) * 0.9)));
+    const probe0 = warpGrayNN(px, W, H, q.pts, probeS, SC);
     if (!probe0) { diag.rejected.push({ q: qi, why: 'гомография не решилась' }); continue; }
-    const z0 = verifyZebra(probe0, CFG.PROBE_SIZE);
+    const z0 = verifyZebra(probe0, probeS);
 
     /* Гипотезы стиска: модульные (если Tz уже известен) плюс долевые.
        Долевые нужны для мелких кодов, где один модуль — десятая часть стороны
        и промахнуться на модуль означает промахнуться мимо всего кода. */
     const hyp = [];
-    if (z0) for (const k of CFG.INSETS) hyp.push({ frac: k / z0.Tz, label: k + 'мод' });
-    for (const f of CFG.INSETS_FRAC) hyp.push({ frac: f, label: f.toFixed(3) });
+    /* Крок підбору стиску мусить бути МЕНШИЙ за модуль (з 1.9). У великого
+       коду долева сітка перестрибує через потрібне положення, тож спершу
+       з'ясовуємо Tz дешевими пробами, а тоді додаємо точні модульні гіпотези. */
+    const seenTz = new Set();
+    if (z0) seenTz.add(z0.Tz);
+    for (const f of CFG.INSETS_FRAC) {
+      hyp.push({ frac: f, label: f.toFixed(3) });
+      if (f === 0 || !deep) continue;
+      const pp = insetCornersFrac(q.pts, f);
+      if (!pp) continue;
+      const zz = verifyZebra(warpGrayNN(px, W, H, pp, probeS, SC) || [], probeS);
+      if (zz) seenTz.add(zz.Tz);
+    }
+    for (const tz of seenTz)
+      for (const k of CFG.INSETS)
+        hyp.push({ frac: k / tz, label: k + 'мод/' + tz });
     const seen = [];
     const uniq = hyp.filter(h => {
       if (seen.some(v => Math.abs(v - h.frac) < 0.004)) return false;
@@ -1075,9 +1123,9 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
       const pts = h.frac === 0 ? q.pts : insetCornersFrac(q.pts, h.frac);
       if (!pts) continue;
 
-      const probe = warpGrayNN(px, W, H, pts, CFG.PROBE_SIZE, SC);
+      const probe = warpGrayNN(px, W, H, pts, probeS, SC);
       if (!probe) continue;
-      const z = verifyZebra(probe, CFG.PROBE_SIZE);
+      const z = verifyZebra(probe, probeS);
       if (!z) continue;
       /* КІЛЬКА КАНДИДАТІВ РОЗМІРУ.
          Підрахунок смужок зебри іноді дає нічию між справжнім Tz і вдвічі
@@ -1090,7 +1138,7 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
       const T = Tz + 2, n = Tz - 2;
       if (T < CFG.T_MIN || T > CFG.T_MAX || n < 5 || n % 2 === 0) continue;
 
-      const ring = zebraRing(probe, CFG.PROBE_SIZE, Tz);
+      const ring = zebraRing(probe, probeS, Tz);
 
       /* ПРОВЕРКА 1: структура внешней рамки — снимается прямо из оригинала */
       const frame = outerFrameScore(px, W, H, pts, Tz, SC);
@@ -1190,6 +1238,7 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
   /* Другий канал перебираємо ТІЛЬКИ якщо по яскравості нічого не знайшли. */
   if (accepted.length) break;
   }
+  } /* кінець етапів */
 
   mark('DECODE', { evaluated, accepted: accepted.length });
 
@@ -1308,7 +1357,7 @@ window.TainaDecoder = {
   last: null,               // результат останнього розбору, разом із діагностикою
   cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
-  version: '1.8',
+  version: '2.0',
   /* внутренности — для decoder-lab.html и автотестов */
   _internal: { decodePixels, warpGrayNN, warpRGB, insetCorners, insetCornersFrac, verifyZebra, zebraRing,
                outerFrameScore, sampleCells, decodeCells, findQuadsCV,

@@ -221,6 +221,20 @@ body.ghost #txt{color:color-mix(in srgb,var(--parchment) 45%,transparent)}
 #spot.on{opacity:1}
 #spot.fast{transition-duration:.18s,.18s,.18s,.18s,.5s}   /* під час друку коло встигає за буквами */
 
+/* ═══ ЛІЧИЛЬНИК БАЙТІВ ═══ у правому нижньому куті поля */
+.inwrap{position:relative;width:100%}
+textarea.inp.big{padding-bottom:20px}
+.bytes{position:absolute;right:14px;bottom:4px;font-family:var(--mono);font-size:11px;letter-spacing:.04em;
+  color:var(--acc-dim);pointer-events:none;white-space:nowrap;transition:color .2s}
+.bytes:empty{display:none}
+.bytes.warn{color:#e5a053}
+.bytes.max{color:var(--bad);font-weight:700}
+.inp.warn{border-color:#e5a053}
+.inp.max{border-color:var(--bad)}
+@keyframes bump{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.inp.bump{animation:bump .22s}
+body.light-mode .bytes.warn{color:#9a5a00}
+
 /* Кнопка мерчу на ПК прибрана; на телефоні вмикається в мобільному блоці. */
 .a-center .btn-main{display:none}
 
@@ -279,7 +293,9 @@ body.light-mode .menu .hint{color:#8a4e00}
   .stagewrap{grid-area:stage;padding:4px 10px}
   .a-center .action{display:none!important}
   #rt{min-height:0}
-  textarea.inp.big{height:48px}
+  textarea.inp.big{height:48px;padding-bottom:14px}
+  .bytes{font-size:10px;bottom:1px;right:10px}
+  .bytes .bw{display:none}   /* на телефоні — лише цифри, слова не вміщаються */
   .a-center .btn-main{display:flex;grid-area:merch;width:auto;max-width:none;margin:6px 12px 0;
     min-height:46px;padding:10px 14px;font-size:13px}
   .cell{padding:6px 12px;border:0!important}
@@ -386,7 +402,7 @@ body.light-mode .menu .hint{color:#8a4e00}
   <!-- ЦЕНТР -->
   <main class="a-center">
     <div class="txtzone">
-      <textarea id="txt" class="inp big" maxlength="200" rows="1" placeholder="" autocomplete="off" spellcheck="false"></textarea>
+      <div class="inwrap"><textarea id="txt" class="inp big" rows="1" placeholder="" autocomplete="off" spellcheck="false"></textarea><div class="bytes" id="bytes"></div></div>
       <div class="rt" id="rt"></div>
       <div class="rt" id="dbg"></div>
     </div>
@@ -439,7 +455,7 @@ body.light-mode .menu .hint{color:#8a4e00}
 <div class="flash" id="flash"></div>
 
 <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
-<script src="decoder.js?v=19"></script>
+<script src="decoder.js?v=20"></script>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -455,14 +471,14 @@ const DICT={
      sq:'Квадрат',ci:'Кружечок',chars:'Символів',bytes:'Байтів',bits:'Біт даних',field:'Поле',
      warn:'Даних більше, ніж уміщає поле',ph:'зашифруй послання',demo:'напиши свій текст',
      merch:'Приміряти на мерч →',save:'Зберегти',load:'Завантажити · сканувати',
-     undo:'Назад',redo:'Вперед',clear:'Очистити',inv:'Негатив',theme:'Тема',
+     undo:'Назад',redo:'Вперед',clear:'Очистити',inv:'Негатив',bWarn:'камера може не прочитати',bMax:'більше не вміщується',bUnit:'Б',theme:'Тема',
      mbSave:'⤓ Зберегти',mbScan:'⌖ Сканувати',shTitle:'Сканувати код',shCam:'📷 Камера',
      shFile:'🖼 Завантажити з галереї',shCancel:'Скасувати'},
  en:{secMode:'Mode',secLook:'Look',secSym:'Symbols',mono:'Monochrome',rgb:'Colour',pal:'🎨 Palette',one:'one',zero:'zero & background',
      sq:'Square',ci:'Circle',chars:'Characters',bytes:'Bytes',bits:'Data bits',field:'Field',
      warn:'More data than the field can hold',ph:'encode a message',demo:'write your text',
      merch:'Try it on merch →',save:'Save',load:'Load · scan',
-     undo:'Back',redo:'Forward',clear:'Clear',inv:'Negative',theme:'Theme',
+     undo:'Back',redo:'Forward',clear:'Clear',inv:'Negative',bWarn:'camera may not read it',bMax:'limit reached',bUnit:'B',theme:'Theme',
      mbSave:'⤓ Save',mbScan:'⌖ Scan',shTitle:'Scan a code',shCam:'📷 Camera',
      shFile:'🖼 Pick from gallery',shCancel:'Cancel'}
 };
@@ -574,6 +590,7 @@ async function applyScan(best){
   $('txt').scrollTop=0;
   /* Під полем — тільки «прочитано» (і «Відкрити», якщо це посилання). */
   showResult('✓ прочитано', txt);
+  updateBytes();
 }
 
 const MINN=7, MAXN=145;
@@ -602,6 +619,7 @@ function fillChannel(t,n,m,markBit){const g=new Uint8Array(n*n),dm=new Uint8Arra
 
 function build(){
   const T=texts();
+  updateBytes();
   if(!T.some(t=>t.length)){clearStage();['s-ch','s-by','s-bits'].forEach(id=>$(id).textContent='0');$('s-fld').textContent='—';$('s-warn').style.display='none';$('rt').innerHTML='';saveState();return;}
   let nch=0,nby=0,maxBits=0,ovf=false;
   T.forEach(t=>{if(t){nch+=[...t].length;nby+=enc.encode(t).length;maxBits=Math.max(maxBits,enc.encode(t).length*8)}});
@@ -959,7 +977,52 @@ function restoreState(){
   autoGrow(); build(); pushHist();
 }
 $('txt').addEventListener('focus',()=>tourStop());
-$('txt').oninput=e=>{const v=e.target.value;isDemo=false;if(v.length>prevLen)keyClick();prevLen=v.length;scannedImg=null;D.single=v;autoGrow();build();schedHist();};
+/* ═══ МЕЖА ДОВЖИНИ — У БАЙТАХ, однакова для обох режимів ═══
+   Кирилиця — 2 байти на літеру, латиниця — 1, емодзі — 4. Режим можна
+   перемикати будь-коли, тож межа рахується за найсуворішим — монохромом.
+     до BYTE_SAFE — спокійно: камера читає навіть дрібний код;
+     до BYTE_MAX  — зона ризику: попередження, але друкувати можна;
+     BYTE_MAX     — стоп: далі не друкується. На цій довжині код ще
+                    гарантовано читається з файлу (перевірено). */
+/* Пороги виміряні імітацією камери (монохром, кирилиця):
+     ≤50 Б — читається при будь-якому розмірі коду в кадрі, від 300 px;
+     60 Б  — дрібний код (300 px) уже не читається;
+     80–100 Б — лише великий код (~500–600 px у кадрі), і не завжди;
+     100 Б — з файлу читається в усіх режимах і варіантах (перевірено 13 видів). */
+const BYTE_SAFE=50, BYTE_MAX=100;
+let byteZone='ok';
+function bytesOf(t){return enc.encode(t).length;}
+/* Вставка, що не влазить, обрізається по символах — і саме вставлене,
+   а не те, що вже написано. Видаляти можна завжди. */
+function fitBytes(old,nw){
+  if(bytesOf(nw)<=BYTE_MAX||bytesOf(nw)<=bytesOf(old))return null;
+  let pre=0; while(pre<old.length&&pre<nw.length&&old[pre]===nw[pre])pre++;
+  if(pre>0&&/[\uD800-\uDBFF]/.test(nw[pre-1]))pre--;            // не рвати емодзі навпіл
+  let suf=0; while(suf<old.length-pre&&suf<nw.length-pre&&old[old.length-1-suf]===nw[nw.length-1-suf])suf++;
+  if(suf>0&&/[\uDC00-\uDFFF]/.test(nw[nw.length-suf]))suf--;
+  const head=nw.slice(0,pre), tail=nw.slice(nw.length-suf), ins=nw.slice(pre,nw.length-suf);
+  let room=BYTE_MAX-bytesOf(head+tail), out='';
+  for(const ch of ins){const b=bytesOf(ch); if(b>room)break; out+=ch; room-=b;}
+  return {value:head+out+tail, caret:(head+out).length};
+}
+function updateBytes(){
+  const el=$('bytes'), f=$('txt'); if(!el)return;
+  const b=bytesOf(f.value), zone=b>=BYTE_MAX?'max':(b>BYTE_SAFE?'warn':'ok');
+  if(!b||isDemo){el.textContent='';f.classList.remove('warn','max');byteZone='ok';return;}
+  const msg=zone==='max'?t('bMax'):(zone==='warn'?t('bWarn'):'');
+  el.innerHTML=(msg?'<span class="bw">'+msg+' · </span>':'')+b+' / '+BYTE_MAX+' '+t('bUnit');
+  el.className='bytes '+(zone==='ok'?'':zone);
+  f.classList.toggle('warn',zone==='warn'); f.classList.toggle('max',zone==='max');
+  /* звуковий сигнал — лише в момент входу в нову зону */
+  if(zone!==byteZone){ if(zone==='warn')tone(523,.12,.06,'triangle'); if(zone==='max')tone(330,.16,.07,'triangle'); }
+  byteZone=zone;
+}
+function bumpField(){const f=$('txt');f.classList.remove('bump');void f.offsetWidth;f.classList.add('bump');tone(220,.1,.07,'square');}
+
+$('txt').oninput=e=>{
+  const fit=fitBytes(D.single,e.target.value);
+  if(fit){ e.target.value=fit.value; try{e.target.selectionStart=e.target.selectionEnd=fit.caret;}catch(_){} bumpField(); }
+  const v=e.target.value;isDemo=false;if(v.length>prevLen)keyClick();prevLen=v.length;scannedImg=null;D.single=v;autoGrow();build();schedHist();};
 
 document.addEventListener('dragover',e=>e.preventDefault());
 document.addEventListener('drop',e=>{e.preventDefault();tourStop();if(busy)return;const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/')){const dt=new DataTransfer();dt.items.add(f);$('file').files=dt.files;$('file').dispatchEvent(new Event('change'))}});
@@ -1036,7 +1099,7 @@ function applyLang(){
   const sh=$('sheet');
   if(sh){sh.querySelector('.sh-t').textContent=t('shTitle');
     $('sh-cam').textContent=t('shCam'); $('sh-file').textContent=t('shFile'); $('sh-x').textContent=t('shCancel');}
-  syncMain();
+  syncMain(); updateBytes();
   /* Шапку малює оболонка — просимо її перемалюватися новою мовою. */
   if(window.TainaShell&&TainaShell.setLang)TainaShell.setLang(LANG);
   /* Демо — теж текст інтерфейсу, тож міняється разом з мовою. */
