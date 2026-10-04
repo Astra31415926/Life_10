@@ -58,10 +58,16 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 .inp{width:100%;min-width:0;display:block;background:var(--panel);border:1px solid var(--line);
   border-radius:14px;color:var(--parchment);font-family:var(--mono);outline:none;
   font-size:16px;letter-spacing:.03em;line-height:1.4;cursor:text;box-sizing:border-box}
-/* Поле фіксованої висоти — рівно дві строки. Довший текст їде вгору
-   й гортається повзунком, а холст під полем не зрушує ні на піксель. */
+/* ПОЛЕ, ЩО РОЗКРИВАЄТЬСЯ. Місце в розкладці (.inwrap) фіксоване — дві строки,
+   тому холст ніколи не зрушує. Саме поле лежить поверх (.inbox, absolute)
+   і росте вниз, скільки треба, щоб увесь текст було видно, — навіть
+   наїжджаючи на орнамент. Межа — 60% висоти екрана, далі повзунок. */
+.inwrap{position:relative;width:100%;font-size:clamp(17px,2vw,22px);height:calc(2.8em + 32px)}
+.inbox{position:absolute;left:0;right:0;top:0;z-index:35}
 textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:15px 20px;resize:none;
-  overflow-y:auto;height:calc(2.8em + 32px);min-height:0;max-height:none}
+  overflow-y:auto;height:calc(2.8em + 32px);min-height:0;max-height:60vh;
+  box-shadow:0 10px 30px rgba(0,0,0,.0);transition:box-shadow .2s}
+textarea.inp.big.tall{box-shadow:0 14px 34px rgba(0,0,0,.45)}
 .inp:focus{border-color:var(--acc);box-shadow:0 0 22px color-mix(in srgb,var(--acc) 18%,transparent)}
 .inp::placeholder{color:var(--acc-dim)}
 .rt{font-family:var(--mono);font-size:13px;min-height:0;text-align:center;display:flex;align-items:center;
@@ -222,12 +228,13 @@ body.ghost #txt{color:color-mix(in srgb,var(--parchment) 45%,transparent)}
 #spot.fast{transition-duration:.18s,.18s,.18s,.18s,.5s}   /* під час друку коло встигає за буквами */
 
 /* ═══ ЛІЧИЛЬНИК БАЙТІВ ═══ у правому нижньому куті поля */
-.inwrap{position:relative;width:100%}
-textarea.inp.big{padding-bottom:20px}
-.bytes{position:absolute;right:14px;bottom:4px;font-family:var(--mono);font-size:11px;letter-spacing:.04em;
+.bytes{position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);font-family:var(--mono);
+  font-size:12.5px;letter-spacing:.03em;padding:3px 10px;border-radius:8px;
+  background:color-mix(in srgb,var(--ink) 82%,transparent);
   color:var(--acc-dim);pointer-events:none;white-space:nowrap;transition:color .2s}
 .bytes:empty{display:none}
-.bytes.warn{color:#e5a053}
+.bytes.ok{color:var(--ok)}
+.bytes.warn{color:#e5a053;font-weight:600}
 .bytes.max{color:var(--bad);font-weight:700}
 .inp.warn{border-color:#e5a053}
 .inp.max{border-color:var(--bad)}
@@ -292,16 +299,22 @@ body.light-mode .menu .hint{color:#8a4e00}
   .txtzone{grid-area:txt;max-width:none;padding:6px 10px 2px;gap:2px}
   .stagewrap{grid-area:stage;padding:4px 10px}
   .a-center .action{display:none!important}
-  #rt{min-height:0}
-  textarea.inp.big{height:48px;padding-bottom:14px}
-  .bytes{font-size:10px;bottom:1px;right:10px}
-  .bytes .bw{display:none}   /* на телефоні — лише цифри, слова не вміщаються */
+  /* На телефоні рядок результату скану теж «парить» під полем, як підказка
+     про байти, — і не штовхає орнамент униз. */
+  .txtzone{position:relative}
+  #rt{position:absolute;left:50%;top:calc(48px + 8px);transform:translateX(-50%);z-index:34;min-height:0;
+    white-space:nowrap;padding:2px 8px;border-radius:8px;background:color-mix(in srgb,var(--ink) 82%,transparent)}
+  #rt:empty{display:none}
+  .inwrap{height:48px}
+  textarea.inp.big{height:48px}
+  .bytes{font-size:11.5px;top:calc(100% + 4px)}
   .a-center .btn-main{display:flex;grid-area:merch;width:auto;max-width:none;margin:6px 12px 0;
     min-height:46px;padding:10px 14px;font-size:13px}
   .cell{padding:6px 12px;border:0!important}
   .sec-t{display:none!important}
   .a-stat{display:none!important}
-  textarea.inp.big{min-height:48px;max-height:48px;padding:11px 14px;font-size:17px}
+  textarea.inp.big{min-height:48px;max-height:55vh;padding:11px 14px;font-size:17px}
+  .inwrap{font-size:17px}
   #dbg{display:none}
   /* Холст: ширину обмежують стрілки, висоту — решта екрана (≈ 560px). */
   .stagebox{max-width:min(76vw,calc(100svh - 560px))}
@@ -402,7 +415,7 @@ body.light-mode .menu .hint{color:#8a4e00}
   <!-- ЦЕНТР -->
   <main class="a-center">
     <div class="txtzone">
-      <div class="inwrap"><textarea id="txt" class="inp big" rows="1" placeholder="" autocomplete="off" spellcheck="false"></textarea><div class="bytes" id="bytes"></div></div>
+      <div class="inwrap"><div class="inbox"><textarea id="txt" class="inp big" rows="1" placeholder="" autocomplete="off" spellcheck="false"></textarea><div class="bytes" id="bytes"></div></div></div>
       <div class="rt" id="rt"></div>
       <div class="rt" id="dbg"></div>
     </div>
@@ -471,14 +484,14 @@ const DICT={
      sq:'Квадрат',ci:'Кружечок',chars:'Символів',bytes:'Байтів',bits:'Біт даних',field:'Поле',
      warn:'Даних більше, ніж уміщає поле',ph:'зашифруй послання',demo:'напиши свій текст',
      merch:'Приміряти на мерч →',save:'Зберегти',load:'Завантажити · сканувати',
-     undo:'Назад',redo:'Вперед',clear:'Очистити',inv:'Негатив',bWarn:'камера може не прочитати',bMax:'більше не вміщується',bUnit:'Б',theme:'Тема',
+     undo:'Назад',redo:'Вперед',clear:'Очистити',inv:'Негатив',bOk:'✓ цей код читається',bWarn:'ліміт — до 100 байт',bMax:'ліміт 100 байт вичерпано',bUnit:'Б',theme:'Тема',
      mbSave:'⤓ Зберегти',mbScan:'⌖ Сканувати',shTitle:'Сканувати код',shCam:'📷 Камера',
      shFile:'🖼 Завантажити з галереї',shCancel:'Скасувати'},
  en:{secMode:'Mode',secLook:'Look',secSym:'Symbols',mono:'Monochrome',rgb:'Colour',pal:'🎨 Palette',one:'one',zero:'zero & background',
      sq:'Square',ci:'Circle',chars:'Characters',bytes:'Bytes',bits:'Data bits',field:'Field',
      warn:'More data than the field can hold',ph:'encode a message',demo:'write your text',
      merch:'Try it on merch →',save:'Save',load:'Load · scan',
-     undo:'Back',redo:'Forward',clear:'Clear',inv:'Negative',bWarn:'camera may not read it',bMax:'limit reached',bUnit:'B',theme:'Theme',
+     undo:'Back',redo:'Forward',clear:'Clear',inv:'Negative',bOk:'✓ this code is readable',bWarn:'limit — up to 100 bytes',bMax:'100-byte limit reached',bUnit:'B',theme:'Theme',
      mbSave:'⤓ Save',mbScan:'⌖ Scan',shTitle:'Scan a code',shCam:'📷 Camera',
      shFile:'🖼 Pick from gallery',shCancel:'Cancel'}
 };
@@ -526,7 +539,7 @@ let scanNodes=null;
 function startScanSound(){scanNodes=null;try{tone(660,.08,.05);setTimeout(function(){tone(880,.08,.05);},140);}catch(e){}}
 function stopScanSound(){if(!scanNodes)return;const{c,nodes,gains}=scanNodes;scanNodes=null;try{gains.forEach(g=>g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+.2));nodes.forEach(n=>{try{n.stop(c.currentTime+.26)}catch(e){}})}catch(e){}}
 function flash(){const f=$('flash');f.style.opacity='.7';setTimeout(()=>f.style.opacity='0',240)}
-function typeOut(el,text,speed=30){return new Promise(res=>{el.value='';let i=0;const isTA=el.tagName==='TEXTAREA';if(!text.length){res();return}const t=setInterval(()=>{el.value=text.slice(0,++i);if(isTA){el.scrollTop=el.scrollHeight;}try{el.selectionStart=el.selectionEnd=el.value.length}catch(e){}if(i%2===1)typeClick();if(i>=text.length){clearInterval(t);res()}},speed);});}
+function typeOut(el,text,speed=30){return new Promise(res=>{el.value='';let i=0;const isTA=el.tagName==='TEXTAREA';if(!text.length){res();return}const t=setInterval(()=>{el.value=text.slice(0,++i);if(isTA){fitField();}try{el.selectionStart=el.selectionEnd=el.value.length}catch(e){}if(i%2===1)typeClick();if(i>=text.length){clearInterval(t);res()}},speed);});}
 
 /* ═══ ВІДЛАГОДЖЕННЯ НА ЕКРАНІ ═══ */
 /* У спокої рядок порожній: службова інформація про декодер з екрана
@@ -820,7 +833,18 @@ function setLayers(n){
   if(n===3&&palOpen){palOpen=false;$('pal-panel').classList.add('hide');$('pal-btn').classList.remove('on')}
 }
 function refreshInputs(){$('txt').value=D.single;autoGrow();}
-function grow(el){if(el)el.scrollTop=el.scrollHeight;}  /* висота поля фіксована в CSS — лише прокручуємо до кінця */
+/* Поле росте під текст (не менше за своє «гніздо», не більше за 60% екрана). */
+function fitField(){
+  const el=$('txt'), slot=el&&el.closest('.inwrap'); if(!slot)return;
+  const base=slot.clientHeight;
+  el.style.height=base+'px';
+  const need=el.scrollHeight+2, cap=Math.round(innerHeight*(innerWidth<=820?0.55:0.6));
+  const h=Math.max(base,Math.min(need,cap));
+  el.style.height=h+'px';
+  el.classList.toggle('tall',h>base+2);
+}
+function grow(el){fitField();}
+addEventListener('resize',()=>fitField());
 function autoGrow(){grow($('txt'),200);}
 
 $('layers').onclick=e=>{const b=e.target.closest('button');if(!b)return;scannedImg=null;setLayers(+b.dataset.l);build()};
@@ -1007,11 +1031,14 @@ function fitBytes(old,nw){
 }
 function updateBytes(){
   const el=$('bytes'), f=$('txt'); if(!el)return;
+  fitField();
   const b=bytesOf(f.value), zone=b>=BYTE_MAX?'max':(b>BYTE_SAFE?'warn':'ok');
-  if(!b||isDemo){el.textContent='';f.classList.remove('warn','max');byteZone='ok';return;}
-  const msg=zone==='max'?t('bMax'):(zone==='warn'?t('bWarn'):'');
-  el.innerHTML=(msg?'<span class="bw">'+msg+' · </span>':'')+b+' / '+BYTE_MAX+' '+t('bUnit');
-  el.className='bytes '+(zone==='ok'?'':zone);
+  /* Порожньо, показ, або під полем уже стоїть результат скану — мовчимо. */
+  const busyLine=$('rt')&&$('rt').textContent.trim();
+  if(!b||isDemo||busyLine){el.textContent='';el.className='bytes';f.classList.remove('warn','max');byteZone=b?zone:'ok';return;}
+  const msg=zone==='max'?t('bMax'):(zone==='warn'?t('bWarn'):t('bOk'));
+  el.textContent=msg+' · '+b+(zone==='ok'?' '+t('bUnit'):' / '+BYTE_MAX+' '+t('bUnit'));
+  el.className='bytes '+zone;
   f.classList.toggle('warn',zone==='warn'); f.classList.toggle('max',zone==='max');
   /* звуковий сигнал — лише в момент входу в нову зону */
   if(zone!==byteZone){ if(zone==='warn')tone(523,.12,.06,'triangle'); if(zone==='max')tone(330,.16,.07,'triangle'); }
@@ -1020,6 +1047,7 @@ function updateBytes(){
 function bumpField(){const f=$('txt');f.classList.remove('bump');void f.offsetWidth;f.classList.add('bump');tone(220,.1,.07,'square');}
 
 $('txt').oninput=e=>{
+  if($('rt'))$('rt').innerHTML='';
   const fit=fitBytes(D.single,e.target.value);
   if(fit){ e.target.value=fit.value; try{e.target.selectionStart=e.target.selectionEnd=fit.caret;}catch(_){} bumpField(); }
   const v=e.target.value;isDemo=false;if(v.length>prevLen)keyClick();prevLen=v.length;scannedImg=null;D.single=v;autoGrow();build();schedHist();};
