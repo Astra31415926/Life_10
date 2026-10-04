@@ -439,7 +439,7 @@ body.light-mode .menu .hint{color:#8a4e00}
 <div class="flash" id="flash"></div>
 
 <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
-<script src="decoder.js?v=18"></script>
+<script src="decoder.js?v=19"></script>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -666,6 +666,7 @@ function render(){const QZ=2;const pad=(frameW>=2?3:frameW),tw=W+pad*2,th=H+pad*
 let camStream=null, camRAF=null, camBusy=false, camLastText=null, camTimer=0, camFlip=false;
 function camEls(){return {v:$('cam-video'),vf:$('vf'),btn:$('cam-btn')};}
 async function startCam(){
+  tourStop();
   const {v,vf,btn}=camEls();if(camStream){stopCam();}
   try{
     if(window.TainaDecoder&&TainaDecoder.ready){$('rt').innerHTML='<span class="w">завантаження модуля…</span>';await TainaDecoder.ready;}
@@ -716,7 +717,8 @@ async function showCamResult(found,shotURL){
 function drawScanned(url){return new Promise(res=>{const im=new Image();im.onload=()=>{OFF.width=OFF.height=512;OCTX.imageSmoothingEnabled=false;OCTX.drawImage(im,0,0,512,512);blit();res()};im.onerror=()=>res();im.src=url;});}
 
 $('file').onchange=e=>{
-  const f=e.target.files[0];if(!f)return;const url=URL.createObjectURL(f),im=new Image();
+  const f=e.target.files[0];if(!f)return;tourStop();   /* скан — завжди дія людини: показ геть */
+  const url=URL.createObjectURL(f),im=new Image();
   im.onload=async()=>{
     URL.revokeObjectURL(url);busy=true;
     if(window.TainaDecoder&&TainaDecoder.ready){try{await TainaDecoder.ready;}catch(e){}}
@@ -960,7 +962,7 @@ $('txt').addEventListener('focus',()=>tourStop());
 $('txt').oninput=e=>{const v=e.target.value;isDemo=false;if(v.length>prevLen)keyClick();prevLen=v.length;scannedImg=null;D.single=v;autoGrow();build();schedHist();};
 
 document.addEventListener('dragover',e=>e.preventDefault());
-document.addEventListener('drop',e=>{e.preventDefault();if(busy)return;const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/')){const dt=new DataTransfer();dt.items.add(f);$('file').files=dt.files;$('file').dispatchEvent(new Event('change'))}});
+document.addEventListener('drop',e=>{e.preventDefault();tourStop();if(busy)return;const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/')){const dt=new DataTransfer();dt.items.add(f);$('file').files=dt.files;$('file').dispatchEvent(new Event('change'))}});
 
 /* ═══ АКЦЕНТ ТЕМИ ═══ у RGB-режимі інтерфейс синіє */
 function refreshThemeAccent(){

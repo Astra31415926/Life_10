@@ -807,6 +807,7 @@ function outerFrameScore(px, W, H0, pts, Tz, ch) {
   const zeb   = ringAt(-0.5);   // само кольцо зебры — эталон контраста
   const white = ringAt(0.5);    // белая полоска за зеброй
   const black = ringAt(1.5);    // чёрная полоска за ней
+  const quiet = ringAt(2.5);    // тихая зона — пустое светлое поле вокруг кода
   if (!zeb || !white || !black) return { score: 0, wOk: 0, bOk: 0, reason: 'кольца вне кадра' };
 
   const sz = [...zeb].sort((a, b) => a - b);
@@ -816,7 +817,13 @@ function outerFrameScore(px, W, H0, pts, Tz, ch) {
 
   const wOk = white.filter(v => v > thr).length / white.length;
   const bOk = black.filter(v => v < thr).length / black.length;
-  return { score: wOk * bOk, wOk, bOk, thr };
+  /* ТИХА ЗОНА. Генератор завжди лишає навколо коду світле поле у 2 модулі.
+     Шматок із середини орнаменту (центр будь-якого орнаменту симетричний
+     і буває схожий на маленьку рамку) такого поля не має — навколо нього
+     чужий візерунок. Саме так у негативах знаходився хибний «код» «5».
+     Якщо поле вийшло за кадр (код знято впритул), не караємо. */
+  const qOk = quiet ? quiet.filter(v => v > thr).length / quiet.length : 1;
+  return { score: wOk * bOk * qOk, wOk, bOk, qOk, thr };
 }
 
 /** Выборка клеток данных: круг радиусом 0.28 модуля в центре каждой клетки */
@@ -952,9 +959,14 @@ function decode(source, opts) {
   /* ── CANDIDATES: контуры ищем на уменьшенной копии,
         координаты сразу возвращаем в систему оригинала ── */
   const { canvas: small, scale } = downscaleCanvas(full, CFG.DETECT_MAX);
-  let quads = findQuadsCV(small, small.width, small.height);
+  /* opts.quads — тестовий вхід: готові контури в координатах оригіналу
+     (для автотестів без OpenCV). На сайті не використовується. */
+  let quads = opts.quads ? null : findQuadsCV(small, small.width, small.height);
   const cvUsed = quads !== null;
-  if (!quads || !quads.length) {
+  if (opts.quads) {
+    quads = opts.quads;
+    mark('CANDIDATES', { found: quads.length, injected: true });
+  } else if (!quads || !quads.length) {
     const m = Math.min(W, H), ox = (W - m) / 2, oy = (H - m) / 2;
     quads = [{ pts: [[ox,oy],[ox+m,oy],[ox+m,oy+m],[ox,oy+m]], area: m*m, sq: 1 }];
     mark('CANDIDATES', { found: 0, fallback: 'весь кадр', opencv: cvUsed,
@@ -975,19 +987,36 @@ function decode(source, opts) {
                   true — тільки негатив; false — тільки звичайний.
      Камера чергує true/false по кадрах, щоб не подвоювати час кадру. */
   const inv = opts.invert === undefined ? 'auto' : opts.invert;
-  let r = null;
-  if (inv !== true) r = decodePixels(px, W, H, quads, opts, diag, mark, t0);
-  if (inv === true || (inv === 'auto' && !r.ok)) {
-    const npx = new Uint8ClampedArray(px.length);
-    for (let i = 0; i < px.length; i += 4) {
-      npx[i] = 255 - px[i]; npx[i+1] = 255 - px[i+1]; npx[i+2] = 255 - px[i+2]; npx[i+3] = px[i+3];
+  const runPass = (neg) => {
+    let buf = px;
+    if (neg) {
+      buf = new Uint8ClampedArray(px.length);
+      for (let i = 0; i < px.length; i += 4) {
+        buf[i] = 255 - px[i]; buf[i+1] = 255 - px[i+1]; buf[i+2] = 255 - px[i+2]; buf[i+3] = px[i+3];
+      }
     }
-    const d2 = { stages: [], candidates: [], rejected: [] };
-    const r2 = decodePixels(npx, W, H, quads, opts, d2, mark, performance.now());
-    if (r2.ok) { r2.negative = true; r = r2; }
-    else if (!r) r = r2;
+    const d = neg ? { stages: [], candidates: [], rejected: [] } : diag;
+    const res = decodePixels(buf, W, H, quads, opts, d, mark, neg ? performance.now() : t0);
+    if (res.ok && neg) res.negative = true;
+    return res;
+  };
+  /* СЛАБКИЙ РЕЗУЛЬТАТ. Код із полем 11×11 і менше несе 1–2 байти — це
+     слабкий доказ. Симетричний орнамент, розглянутий «грубою сіткою»
+     (одна клітинка = кілька справжніх), теж виходить симетричним і може
+     зійти за такий маленький код: так у негативах читалося хибне «5».
+     Тому для слабкого результату ОБОВ'ЯЗКОВО перевіряємо і другий варіант
+     (перевернутий або звичайний) і віримо більшому коду. Справжній
+     маленький код не страждає: якщо другий прохід нічого не знайшов,
+     лишається перший. */
+  const weak = (x) => x && x.ok && x.n <= 11;
+  const order = inv === true ? [true, false] : [false, true];
+  let best = runPass(order[0]);
+  const needSecond = (inv === 'auto' && !best.ok) || weak(best);
+  if (needSecond) {
+    const sec = runPass(order[1]);
+    if (sec.ok && (!best.ok || sec.T > best.T)) best = sec;
   }
-  return r;
+  return best;
 }
 
 /**
@@ -1279,7 +1308,7 @@ window.TainaDecoder = {
   last: null,               // результат останнього розбору, разом із діагностикою
   cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
-  version: '1.7',
+  version: '1.8',
   /* внутренности — для decoder-lab.html и автотестов */
   _internal: { decodePixels, warpGrayNN, warpRGB, insetCorners, insetCornersFrac, verifyZebra, zebraRing,
                outerFrameScore, sampleCells, decodeCells, findQuadsCV,
