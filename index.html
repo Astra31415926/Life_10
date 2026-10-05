@@ -696,14 +696,27 @@ function render(){const QZ=2;const pad=(frameW>=2?3:frameW),tw=W+pad*2,th=H+pad*
 
 let camStream=null, camRAF=null, camBusy=false, camLastText=null, camTimer=0, camFlip=false;
 function camEls(){return {v:$('cam-video'),vf:$('vf'),btn:$('cam-btn')};}
+/* ДОЗВІЛ НА КАМЕРУ. Прибрати запит повністю сайт не може — це захист
+   браузера. Але кожен новий getUserMedia() на iPhone може питати знову,
+   тому після скану камеру не вимикаємо одразу, а тримаємо CAM_KEEP_MS:
+   повторні скани в цей час ідуть без запиту. Пішов зі сторінки —
+   камера вимикається негайно. */
+const CAM_KEEP_MS=120000;
+let camKeep=null, camKeepTO=0;
+function releaseCam(){clearTimeout(camKeepTO);if(camKeep){camKeep.getTracks().forEach(t=>t.stop());camKeep=null;}}
+document.addEventListener('visibilitychange',()=>{if(document.hidden){if(camStream)stopCam();releaseCam();}});
+addEventListener('pagehide',()=>{if(camStream)stopCam();releaseCam();});
 async function startCam(){
   tourStop();
   const {v,vf,btn}=camEls();if(camStream){stopCam();}
   try{
     if(window.TainaDecoder&&TainaDecoder.ready){$('rt').innerHTML='<span class="w">завантаження модуля…</span>';await TainaDecoder.ready;}
-    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1920}}});v.srcObject=camStream; v.setAttribute('playsinline','');await v.play();CV.classList.add('hide'); v.classList.remove('hide'); vf.classList.remove('hide');$('stage').classList.add('scanning');btn.textContent='⏹ Зупинити'; $('rt').innerHTML='<span class="w">наведи на код…</span>';camLastText=null; camTimer=0; camBusy=false;startScanSound();camLoop();clearTimeout(window._camTO);clearInterval(window._camTick);window._camTick=setInterval(function(){tone(1200,.03,.03,'sine');},900);window._camTO=setTimeout(function(){if(camStream){stopCam();$('rt').innerHTML='<span class="w">не знайдено — спробуй ще</span>';}},10000);}catch(e){ alert('Камера недоступна: '+e); }
+    /* Якщо камера ще «тепла» після попереднього скану — беремо її ж,
+       без нового запиту дозволу. */
+    if(camKeep&&camKeep.getVideoTracks().some(t=>t.readyState==='live')){camStream=camKeep;camKeep=null;clearTimeout(camKeepTO);}
+    else camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1920}}});v.srcObject=camStream; v.setAttribute('playsinline','');await v.play();CV.classList.add('hide'); v.classList.remove('hide'); vf.classList.remove('hide');$('stage').classList.add('scanning');btn.textContent='⏹ Зупинити'; $('rt').innerHTML='<span class="w">наведи на код…</span>';camLastText=null; camTimer=0; camBusy=false;startScanSound();camLoop();clearTimeout(window._camTO);clearInterval(window._camTick);window._camTick=setInterval(function(){tone(1200,.03,.03,'sine');},900);window._camTO=setTimeout(function(){if(camStream){stopCam();$('rt').innerHTML='<span class="w">не знайдено — спробуй ще</span>';}},10000);}catch(e){ alert('Камера недоступна: '+e); }
 }
-function stopCam(){const {v,vf,btn}=camEls();clearTimeout(window._camTO);clearInterval(window._camTick);if(camRAF)cancelAnimationFrame(camRAF); camRAF=null;if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}if(v.srcObject)v.srcObject=null;v.classList.add('hide'); vf.classList.add('hide'); CV.classList.remove('hide');$('stage').classList.remove('scanning');stopScanSound();btn.textContent='📷 Камера';}
+function stopCam(){const {v,vf,btn}=camEls();clearTimeout(window._camTO);clearInterval(window._camTick);if(camRAF)cancelAnimationFrame(camRAF); camRAF=null;if(camStream){camKeep=camStream;camStream=null;clearTimeout(camKeepTO);camKeepTO=setTimeout(releaseCam,CAM_KEEP_MS);}if(v.srcObject)v.srcObject=null;v.classList.add('hide'); vf.classList.add('hide'); CV.classList.remove('hide');$('stage').classList.remove('scanning');stopScanSound();btn.textContent='📷 Камера';}
 function camLoop(){
   const {v}=camEls();
   if(!camStream){return;}
@@ -814,8 +827,8 @@ const RGB_PURE = {r:[255,0,0], g:[0,255,0], b:[0,0,255]};
 function buildSwatches(){const mk=(box,arr,getCur,set)=>{box.innerHTML='';arr.forEach(col=>{const s=document.createElement('div');s.className='sw'+(col===getCur()?' on':'');s.style.background=col;s.onclick=()=>{set(col);[...box.children].forEach(c=>c.classList.remove('on'));s.classList.add('on');render();saveState();tone(700,.05,.05);};box.appendChild(s);});};mk($('sw-one'),ONE_COLORS,()=>colOne,c=>colOne=c);mk($('sw-zero'),ZERO_COLORS,()=>colZero,c=>colZero=c);}
 $('pal-btn').onclick=e=>{e.stopPropagation();palOpen=!palOpen;$('pal-panel').classList.toggle('hide',!palOpen);$('pal-btn').classList.toggle('on',palOpen);};
 
-const SYMS={'☺':{name:'смайли',list:[...'😀😃😄😁😆😅😂🤣🙂🙃😉😊😇🥰😍🤩😘😗😚😙🥲😋😛😜🤪😝🤗🤭🤫🤔🫡😐😑😶😏😒🙄😬🤥😌😔😪🤤😴😷🤒🤕🤢🤮🥵🥶😵🤯🤠🥳🥸😎🤓🧐😕😟🙁😮😯😲😳🥺🥹😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀💩🤡👹👺👻👽👾🤖']},'♥':{name:'символи',list:[...'♥★☆✦✧❄☀☾☯☮♪♫✚∞♦♠♣☘✿❀⚘⚡✝☦☪🕉✡☸⚛✴❇✳❈❉']},'♈':{name:'зодіак',list:[...'♈♉♊♋♌♍♎♏♐♑♒♓⛎☉☽☿♀♁♂♃♄♅♆']},'₿':{name:'крипта й гроші',list:[...'₿ΞŁ$€£¥₽¢₹₩₪₴₺₮₦₱₡₫💰💵💴💶💷🪙💸💳']},'ᚠ':{name:'руни',list:[...'ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗᛚᛜᛞᛟᚪᚫᚬᛘᛦᛨ']},'福':{name:'ієрогліфи',list:[...'福愛龍虎鳳凰道德仁義禮智信和平安康壽喜財富貴春夏秋冬日月山水火風雷電花鳥魚']},'☩':{name:'обереги',list:[...'☩⚕☯♁✠☥⚚☫☬〄卐꙰ᛝᛞ☘♧⚜⁂❋⚛☸♆⊕✶✷✸']},'🃏':{name:'таро',list:[...'🃏🂠🂡🂢🂣🂤🂥🂦🂧🂨🂩🂪🂫🂭🂮🃁🃂🃃🃄🃅🃆🃇🃈🃉🃊🃋🃍🃎']},'🌸':{name:'природа',list:[...'🌸🌼🌻🌺🌷🌹🥀💐🌵🌲🌳🌴🌱🍀🍁🍂🍃🌾🌿☘🍄🌰⭐🌟✨⚡☄🔥💧🌊❄☃⛄🌈☀🌙']},'🎵':{name:'різне',list:[...'🎵🎶🎼🎹🎸🎺🎻🥁♟♜♞♝♛♚⚀⚁⚂⚃⚄⚅🀄🎲🎯🎰🎴⚽⚾🏀🏐🏈']}};
-let curSym='☩';   /* за замовчуванням — обереги */
+const SYMS={'☺':{name:'смайли',list:[...'😀😃😄😁😆😅😂🤣🙂🙃😉😊😇🥰😍🤩😘😗😚😙🥲😋😛😜🤪😝🤗🤭🤫🤔🫡😐😑😶😏😒🙄😬🤥😌😔😪🤤😴😷🤒🤕🤢🤮🥵🥶😵🤯🤠🥳🥸😎🤓🧐😕😟🙁😮😯😲😳🥺🥹😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀💩🤡👹👺👻👽👾🤖']},'♥':{name:'символи',list:[...'♥★☆✦✧❄☀☾☯☮♪♫✚∞♦♠♣☘✿❀⚘⚡✝☦☪🕉✡☸⚛✴❇✳❈❉']},'♈':{name:'зодіак',list:[...'♈♉♊♋♌♍♎♏♐♑♒♓⛎☉☽☿♀♁♂♃♄♅♆']},'₿':{name:'крипта й гроші',list:[...'₿ΞŁ$€£¥₽¢₹₩₪₴₺₮₦₱₡₫💰💵💴💶💷🪙💸💳']},'ᚠ':{name:'руни',list:[...'ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗᛚᛜᛞᛟᚪᚫᚬᛘᛦᛨ']},'福':{name:'ієрогліфи',list:[...'福愛龍虎鳳凰道德仁義禮智信和平安康壽喜財富貴春夏秋冬日月山水火風雷電花鳥魚']},'🎵':{name:'різне',list:[...'🎵🎶🎼🎹🎸🎺🎻🥁♟♜♞♝♛♚⚀⚁⚂⚃⚄⚅🀄🎲🎯🎰🎴⚽⚾🏀🏐🏈']}};
+let curSym='☺';
 function buildSymTabs(){const box=$('symtabs');box.innerHTML='';Object.keys(SYMS).forEach(k=>{const b=document.createElement('button');b.className='symtab'+(k===curSym?' on':'');b.textContent=k;b.title=SYMS[k].name;b.onclick=()=>{curSym=k;buildSymTabs();buildSymGrid();};box.appendChild(b);});}
 function activeInput(){return $('txt');}
 function buildSymGrid(){const box=$('symgrid');box.innerHTML='';const isTarot=(curSym==='🃏');box.classList.toggle('tarot-row',isTarot);SYMS[curSym].list.forEach(s=>{const b=document.createElement('button');b.type='button';b.textContent=s;b.onmousedown=e=>e.preventDefault();b.onclick=()=>{const el=activeInput();if(isDemo){isDemo=false;el.value='';}el.value=[...el.value,s].join('').slice(0,200);el.dispatchEvent(new Event('input'));};box.appendChild(b);});}

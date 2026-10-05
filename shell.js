@@ -230,8 +230,9 @@ window.TainaShell = { openModal: openNamed, closeModal: closeModal, toast: toast
 
 /* ───────────────── старт ───────────────── */
 function init() {
-  var saved = 'dark';
-  try { saved = localStorage.getItem('taina_theme') || 'dark'; } catch (e) {}
+  var saved = 'light';
+  /* Перший візит — світла тема; далі — те, що людина обрала сама. */
+  try { saved = localStorage.getItem('taina_theme') || 'light'; } catch (e) {}
   applyTheme(saved);
   buildHeader();
   ensureModal();
@@ -241,15 +242,8 @@ function init() {
   });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
 
-  /* Перший візит — показуємо «Проєкт» один раз. */
-  var seen = '0';
-  try { seen = localStorage.getItem('taina_intro_seen') || '0'; } catch (e) {}
-  if (seen !== '1') {
-    setTimeout(function () {
-      openNamed('project');
-      try { localStorage.setItem('taina_intro_seen', '1'); } catch (e) {}
-    }, 400);
-  }
+  /* Вікно «Проєкт» більше не відкривається саме: новий відвідувач
+     одразу бачить показ можливостей. «Проєкт» — у шапці. */
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
