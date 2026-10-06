@@ -333,6 +333,36 @@ function classifyCells(cells, n) {
 }
 
 /**
+ * ЧИТАННЯ ПО ЯСКРАВОСТІ — обидві полярності.
+ *
+ * Пробуємо матрицю як є І перевернуту. Друге потрібне декоративним кодам,
+ * де візерунок ТЕМНИЙ на світлому полі, а тиха зона лишається світлою:
+ * структура рамки в такого коду звичайна (позитив), а дані — навпаки,
+ * тож перевернути кадр цілком не можна, інакше розсиплеться рамка.
+ * Переставити полярність лише даних — безпечно: хибне читання все одно
+ * не пройде ні UTF-8, ні зворотну звірку, ні перевірку мінімальності поля.
+ */
+function monoRead(gl, conf, n) {
+  const N = n * n;
+  let best = null;
+  for (const flip of [false, true]) {
+    let g = gl;
+    if (flip) { g = new Uint8Array(N); for (let i = 0; i < N; i++) g[i] = gl[i] ? 0 : 1; }
+    for (const m of MODES) {
+      const txt = decodeVoted(g, n, m, 0, conf);
+      if (txt === null) continue;
+      const chk = fillChannel(txt, n, m, null);
+      const a = agreeOf(g, chk, n);
+      if (!best || a > best.agree)
+        best = { text: txt, agree: a, mode: m, flip, grid: g, chk };
+    }
+  }
+  if (!best) return null;
+  best.shape = mismatchShape([[best.grid, best.chk]], n);
+  return best;
+}
+
+/**
  * Декод снятых клеток.
  * @param cells Float64Array длиной n*n*3 — средний RGB каждой клетки
  * @param Tz    размер кольца зебры (Tz = T - 2)
@@ -367,17 +397,11 @@ function decodeCells(cells, Tz) {
   const isColored = medSat > 25 || coloredCnt >= Math.max(3, n * 0.15);
 
   if (!isColored) {
-    let best = null;
-    for (const m of MODES) {
-      const txt = decodeVoted(gl, n, m, 0, confM);
-      if (txt === null) continue;
-      const a = agreeOf(gl, fillChannel(txt, n, m, null), n);
-      if (!best || a > best.agree) best = { text: txt, agree: a, mode: m };
-    }
+    const best = monoRead(gl, confM, n);
     if (!best) return { kind: 'mono', text: null, agree: 0, n, colored: false };
-    const shape = mismatchShape([[gl, fillChannel(best.text, n, best.mode, null)]], n);
     return { kind: 'mono', text: best.text, parts: [best.text], agree: best.agree,
-             mode: best.mode, n, colored: false, palette: null, shape };
+             mode: best.mode, n, colored: false, palette: null, shape: best.shape,
+             dataFlip: best.flip };
   }
 
   const clsOtsu = classifyOtsu(cells, n);
@@ -411,18 +435,11 @@ function decodeCells(cells, Tz) {
       if (f < 0.97 && f > 0.03) identical = false;
     }
     if (identical) {
-      let best = null;
-      for (const m of MODES) {
-        const txt = decodeVoted(gl, n, m, 0, confM);
-        if (txt === null) continue;
-        const a = agreeOf(gl, fillChannel(txt, n, m, null), n);
-        if (!best || a > best.agree) best = { text: txt, agree: a, mode: m };
-      }
+      const best = monoRead(gl, confM, n);
       if (best) {
-        const shape = mismatchShape([[gl, fillChannel(best.text, n, best.mode, null)]], n);
         return { kind: 'mono', text: best.text, parts: [best.text], agree: best.agree,
                  mode: best.mode, n, colored: false, tinted: true,
-                 palette: cls.name, shape };
+                 palette: cls.name, shape: best.shape, dataFlip: best.flip };
       }
     }
   }
@@ -496,6 +513,30 @@ function decodeCells(cells, Tz) {
         (r.chans === pick.chans && Math.abs(r.agree - pick.agree) < 1e-9 && r.bst.sc > pick.bst.sc))
       pick = r;
   }
+  /* ДЕКОРАТИВНИЙ МОНОХРОМ (вишиванка).
+     Візерунок намальовано ДВОМА фарбами — скажімо червоною і чорною — на
+     світлому полі. Обидві фарби означають ту саму одиницю, колір тут суто
+     оздоблення й даних не несе. Поканальний розбір такий код ламає: у
+     червоному каналі червона фарба світла, а чорна темна, і канал виходить
+     несхожий на інші — перевірка «однакових каналів» вище його не ловить.
+     Але по ЯСКРАВОСТІ все на місці: обидві фарби темні, поле світле.
+     Тож пробуємо прочитати по яскравості й беремо це читання, коли воно
+     СТРОГО краще за кольорове за зворотною звіркою. Справжній RGB-код так
+     не відібрати: його яскравість — суміш трьох текстів, яка в UTF-8 не
+     складається, а якщо раптом складеться, то гірше за поканальне читання.
+     Нічия завжди лишається кольоровому. Мітку rmark тут за ознаку брати
+     не можна: це одна центральна клітинка червоного каналу, і в
+     декоративному коді вона буває одиницею випадково. */
+  const monoAlt = monoRead(gl, confM, n);
+  const monoWins = monoAlt && monoAlt.agree >= CFG.AGREE_MIN &&
+                   (!pick || (monoAlt.agree > pick.agree + 1e-9 && pick.chans < 3));
+  if (monoWins) {
+    return { kind: 'mono', text: monoAlt.text, parts: [monoAlt.text],
+             agree: monoAlt.agree, mode: monoAlt.mode, n, colored: false,
+             tinted: true, decorative: true, palette: cls.name,
+             shape: monoAlt.shape, dataFlip: monoAlt.flip };
+  }
+
   if (!pick) return { kind: 'color', text: null, agree: 0, n, colored: true, palette: cls.name };
 
   const best = pick.bst, useCls = pick.cand, agree = pick.agree;
@@ -1357,7 +1398,7 @@ window.TainaDecoder = {
   last: null,               // результат останнього розбору, разом із діагностикою
   cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
-  version: '2.0',
+  version: '2.1',
   /* внутренности — для decoder-lab.html и автотестов */
   _internal: { decodePixels, warpGrayNN, warpRGB, insetCorners, insetCornersFrac, verifyZebra, zebraRing,
                outerFrameScore, sampleCells, decodeCells, findQuadsCV,
