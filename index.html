@@ -506,7 +506,7 @@ const $=id=>document.getElementById(id);
    українськими — там свій набір текстів.
    Словник один; якщо ключа немає в en, береться український. */
 const DICT={
- uk:{secMode:'Режим',secLook:'Вигляд',secSym:'Символи',mono:'Монохром',rgb:'Кольоровий',pal:'🎨 Палітра',one:'одиниця',zero:'нуль і фон',alt:'друга фарба',motifL:'мотив',vysh:'🧵 Вишиванка',
+ uk:{secMode:'Режим',secLook:'Вигляд',secSym:'Символи',mono:'Монохром',rgb:'Кольоровий',pal:'🎨 Палітра',one:'одиниця',zero:'нуль і фон',alt:'друга фарба',motifL:'мотив',vysh:'🧵 Вишиванка',wInkSide:'друга фарба по інший бік від фону — код не прочитається',wInkNear:'друга фарба зливається з фоном — код не прочитається',wInkRisk:'фарби близькі за яскравістю — з камери може не прочитатися',
      sq:'Квадрат',ci:'Кружечок',chars:'Символів',bytes:'Байтів',bits:'Біт даних',field:'Поле',
      warn:'Даних більше, ніж уміщає поле',ph:'зашифруй послання',demo:'напиши свій текст',
      merch:'Приміряти на мерч →',save:'Зберегти',load:'Завантажити · сканувати',
@@ -520,7 +520,7 @@ const DICT={
      tipColor:'Кольори спотворені. Знімай при рівному денному світлі — жовта лампа збиває кольорові канали.',
      tipSlow:'Знімок завеликий — не вистачило часу. Обріж його по коду або зменш.',
      tipAny:'Спробуй ще: більший і чіткіший знімок, рівне світло без відблисків, уся рамка коду в кадрі.'},
- en:{secMode:'Mode',secLook:'Look',secSym:'Symbols',mono:'Monochrome',rgb:'Colour',pal:'🎨 Palette',one:'one',zero:'zero & background',alt:'second ink',motifL:'motif',vysh:'🧵 Vyshyvanka',
+ en:{secMode:'Mode',secLook:'Look',secSym:'Symbols',mono:'Monochrome',rgb:'Colour',pal:'🎨 Palette',one:'one',zero:'zero & background',alt:'second ink',motifL:'motif',vysh:'🧵 Vyshyvanka',wInkSide:'second ink is on the wrong side of the background — unreadable',wInkNear:'second ink blends into the background — unreadable',wInkRisk:'inks are close in brightness — a camera may fail to read it',
      sq:'Square',ci:'Circle',chars:'Characters',bytes:'Bytes',bits:'Data bits',field:'Field',
      warn:'More data than the field can hold',ph:'encode a message',demo:'write your text',
      merch:'Try it on merch →',save:'Save',load:'Load · scan',
@@ -697,6 +697,7 @@ function build(){
   else if(monoMark===1){const rR=decodeSector(grid.r,W,mode,1),rG=decodeSector(grid.g,W,mode,0),rB=decodeSector(grid.b,W,mode,0);ok=((rR||'')+(rG||'')+(rB||''))===T.join('');}
   else{const got=CH.map(k=>decodeSector(grid[k],W,mode,0));ok=CH.every((k,i)=>(got[i]||'')===(T[i]||''));}
   if(!ok) $('rt').innerHTML='<span class="w">перевір текст</span>';
+  else{const iw=inkWarn(); if(iw)$('rt').innerHTML='<span class="'+(iw.lvl==='bad'?'r':'w')+'">'+iw.msg+'</span>';}
   hasImage=true;syncMain();
   if(!isDemo){try{localStorage.setItem('taina_last_ornament',document.getElementById('cv').toDataURL());}catch(e){}}
   saveState();
@@ -941,6 +942,20 @@ function inkAt(x,y,base){
   const c=(W-1)/2, ring=f(Math.abs(x-c),Math.abs(y-c));
   return (((ring%motifK)+motifK)%motifK)<Math.floor(motifK/2)?colAlt:base;
 }
+/* ЧИ РОЗРІЗНИТЬ СКАНЕР ДВІ ФАРБИ.
+   Декодер ділить клітинки за яскравістю. Отже обидві фарби візерунка
+   мусять бути по ОДИН бік від фону, і та, що ближча до фону, мусить
+   відстояти від нього достатньо, щоб межа не потонула в шумі камери. */
+function inkWarn(){
+  if(layers===3||!colAlt||motif==='none')return null;
+  const NEG=invert, c1=NEG?colZero:colOne, c0=NEG?colOne:colZero;
+  const f=lum(c0), a=lum(c1), b=lum(colAlt);
+  if((a>f)!==(b>f))   return {lvl:'bad', msg:t('wInkSide')};
+  const d=Math.min(Math.abs(a-f),Math.abs(b-f));
+  if(d<25)            return {lvl:'bad', msg:t('wInkNear')};
+  if(d<50)            return {lvl:'warn',msg:t('wInkRisk')};
+  return null;
+}
 function buildSwatches(){const mk=(box,arr,getCur,set,none)=>{box.innerHTML='';
   if(none){const z=document.createElement('div');z.className='sw none'+(getCur()?'':' on');
     z.textContent='—';z.title='без другої фарби';
@@ -958,7 +973,13 @@ function buildMotifRow(){const box=$('mot-row');if(!box)return;box.innerHTML='';
   const r=document.createElement('button');r.type='button';r.className='mot';r.textContent='🎲';
   r.title=(LANG==='en'?'random':'навмання');
   r.onclick=()=>{const pool=MOTIFS.filter(m=>m.f);motif=pool[Math.floor(Math.random()*pool.length)].k;
-    colAlt=ALT_COLORS[Math.floor(Math.random()*6)];motifK=[3,4,5,6][Math.floor(Math.random()*4)];
+    /* Беремо лише ті фарби, що по той самий бік від фону і з запасом
+       яскравості, — інакше кубик видавав би коди, які не читаються. */
+    const NEG=invert,c1=NEG?colZero:colOne,c0=NEG?colOne:colZero;
+    const f=lum(c0),up=lum(c1)>f;
+    const safe=ALT_COLORS.filter(c=>{const v=lum(c);return (v>f)===up&&Math.abs(v-f)>=50;});
+    const src=safe.length?safe:ALT_COLORS;
+    colAlt=src[Math.floor(Math.random()*src.length)];motifK=[3,4,5,6][Math.floor(Math.random()*4)];
     buildSwatches();render();saveState();tone(880,.06,.05);};
   box.appendChild(r);}
 /* Готова вишиванка одним дотиком: світле поле, чорна основна фарба,

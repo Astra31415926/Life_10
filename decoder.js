@@ -342,19 +342,51 @@ function classifyCells(cells, n) {
  * Переставити полярність лише даних — безпечно: хибне читання все одно
  * не пройде ні UTF-8, ні зворотну звірку, ні перевірку мінімальності поля.
  */
-function monoRead(gl, conf, n) {
+function monoRead(L, n) {
   const N = n * n;
+  let lmin = 1e9, lmax = -1e9;
+  for (let i = 0; i < N; i++) { const v = L[i]; if (v < lmin) lmin = v; if (v > lmax) lmax = v; }
+  if (lmax - lmin < 20) return null;
+
+  /* ТРИ ЯРУСИ ЯСКРАВОСТІ.
+     Декоративний код малюється трьома фарбами: фон і дві фарби візерунка —
+     скажімо біле поле, чорні й червоні клітинки. Але так само правильно
+     намалювати чорне поле з червоними й білими клітинками. Яка пара фарб
+     означає одиницю, з картинки невідомо, і вгадувати не треба: обидві
+     групи дають свій поріг, обидві пробуємо, валідним виявиться лише один.
+     Пороги шукаємо по найбільших розривах у відсортованій яскравості —
+     саме там проходять межі між ярусами. */
+  const thrs = [(lmin + lmax) / 2];
+  const srt = Array.from(L).sort((a, b) => a - b);
+  const gaps = [];
+  for (let i = 1; i < N; i++) {
+    const g = srt[i] - srt[i - 1];
+    if (g > 24) gaps.push({ g, t: (srt[i] + srt[i - 1]) / 2 });
+  }
+  gaps.sort((a, b) => b.g - a.g);
+  for (const q of gaps.slice(0, 2))
+    if (!thrs.some(t => Math.abs(t - q.t) < 6)) thrs.push(q.t);
+
   let best = null;
-  for (const flip of [false, true]) {
-    let g = gl;
-    if (flip) { g = new Uint8Array(N); for (let i = 0; i < N; i++) g[i] = gl[i] ? 0 : 1; }
-    for (const m of MODES) {
-      const txt = decodeVoted(g, n, m, 0, conf);
-      if (txt === null) continue;
-      const chk = fillChannel(txt, n, m, null);
-      const a = agreeOf(g, chk, n);
-      if (!best || a > best.agree)
-        best = { text: txt, agree: a, mode: m, flip, grid: g, chk };
+  for (const thr of thrs) {
+    const g0 = new Uint8Array(N), conf = new Float64Array(N);
+    for (let i = 0; i < N; i++) {
+      g0[i] = L[i] > thr ? 1 : 0;
+      conf[i] = Math.min(1, Math.abs(L[i] - thr) / (thr / 2 + 1));
+    }
+    /* Полярність теж невідома: візерунок буває темним на світлому полі
+       (тоді рамка звичайна, а дані перевернуті) і навпаки. */
+    for (const flip of [false, true]) {
+      let g = g0;
+      if (flip) { g = new Uint8Array(N); for (let i = 0; i < N; i++) g[i] = g0[i] ? 0 : 1; }
+      for (const m of MODES) {
+        const txt = decodeVoted(g, n, m, 0, conf);
+        if (txt === null) continue;
+        const chk = fillChannel(txt, n, m, null);
+        const a = agreeOf(g, chk, n);
+        if (!best || a > best.agree)
+          best = { text: txt, agree: a, mode: m, flip, thr, grid: g, chk };
+      }
     }
   }
   if (!best) return null;
@@ -397,7 +429,7 @@ function decodeCells(cells, Tz) {
   const isColored = medSat > 25 || coloredCnt >= Math.max(3, n * 0.15);
 
   if (!isColored) {
-    const best = monoRead(gl, confM, n);
+    const best = monoRead(L, n);
     if (!best) return { kind: 'mono', text: null, agree: 0, n, colored: false };
     return { kind: 'mono', text: best.text, parts: [best.text], agree: best.agree,
              mode: best.mode, n, colored: false, palette: null, shape: best.shape,
@@ -435,7 +467,7 @@ function decodeCells(cells, Tz) {
       if (f < 0.97 && f > 0.03) identical = false;
     }
     if (identical) {
-      const best = monoRead(gl, confM, n);
+      const best = monoRead(L, n);
       if (best) {
         return { kind: 'mono', text: best.text, parts: [best.text], agree: best.agree,
                  mode: best.mode, n, colored: false, tinted: true,
@@ -527,7 +559,7 @@ function decodeCells(cells, Tz) {
      Нічия завжди лишається кольоровому. Мітку rmark тут за ознаку брати
      не можна: це одна центральна клітинка червоного каналу, і в
      декоративному коді вона буває одиницею випадково. */
-  const monoAlt = monoRead(gl, confM, n);
+  const monoAlt = monoRead(L, n);
   const monoWins = monoAlt && monoAlt.agree >= CFG.AGREE_MIN &&
                    (!pick || (monoAlt.agree > pick.agree + 1e-9 && pick.chans < 3));
   if (monoWins) {
@@ -1398,7 +1430,7 @@ window.TainaDecoder = {
   last: null,               // результат останнього розбору, разом із діагностикою
   cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
-  version: '2.1',
+  version: '2.2',
   /* внутренности — для decoder-lab.html и автотестов */
   _internal: { decodePixels, warpGrayNN, warpRGB, insetCorners, insetCornersFrac, verifyZebra, zebraRing,
                outerFrameScore, sampleCells, decodeCells, findQuadsCV,
