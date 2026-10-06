@@ -250,6 +250,10 @@ body.ghost #txt{color:color-mix(in srgb,var(--parchment) 45%,transparent)}
 @keyframes bump{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
 .inp.bump{animation:bump .22s}
 body.light-mode .bytes.warn{color:#9a5a00}
+/* У світлій темі зелений має бути ТЕМНИМ: світло-зелений по кремовому
+   тлі зливається і не читається. */
+body.light-mode .bytes.ok,
+body.light-mode .rt .g{color:#1d6b3a}
 
 /* Кнопка мерчу на ПК прибрана; на телефоні вмикається в мобільному блоці. */
 .a-center .btn-main{display:none}
@@ -1113,8 +1117,12 @@ function updateBytes(){
   /* Порожньо, показ, або під полем уже стоїть результат скану — мовчимо. */
   const busyLine=$('rt')&&$('rt').textContent.trim();
   if(!b||isDemo||busyLine){el.textContent='';el.className='bytes';f.classList.remove('warn','max');byteZone=b?zone:'ok';return;}
-  const msg=zone==='max'?t('bMax'):(zone==='warn'?t('bWarn'):t('bOk'));
-  el.textContent=msg+' · '+b+(zone==='ok'?' '+t('bUnit'):' / '+BYTE_MAX+' '+t('bUnit'));
+  /* У спокійній зоні — ЖОДНОГО напису: те, що код читається, і так видно.
+     Підпис з'являється лише тоді, коли є що сказати: наближається межа
+     або її вичерпано. */
+  if(zone==='ok'){el.textContent='';el.className='bytes';f.classList.remove('warn','max');byteZone='ok';return;}
+  const msg=zone==='max'?t('bMax'):t('bWarn');
+  el.textContent=msg+' · '+b+' / '+BYTE_MAX+' '+t('bUnit');
   el.className='bytes '+zone;
   f.classList.toggle('warn',zone==='warn'); f.classList.toggle('max',zone==='max');
   /* звуковий сигнал — лише в момент входу в нову зону */
