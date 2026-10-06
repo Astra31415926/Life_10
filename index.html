@@ -58,14 +58,15 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 .inp{width:100%;min-width:0;display:block;background:var(--panel);border:1px solid var(--line);
   border-radius:14px;color:var(--parchment);font-family:var(--mono);outline:none;
   font-size:16px;letter-spacing:.03em;line-height:1.4;cursor:text;box-sizing:border-box}
-/* ПОЛЕ, ЩО РОЗКРИВАЄТЬСЯ. Місце в розкладці (.inwrap) фіксоване — дві строки,
+/* ПОЛЕ, ЩО РОЗКРИВАЄТЬСЯ. Місце в розкладці (.inwrap) фіксоване — ОДИН рядок,
    тому холст ніколи не зрушує. Саме поле лежить поверх (.inbox, absolute)
-   і росте вниз, скільки треба, щоб увесь текст було видно, — навіть
-   наїжджаючи на орнамент. Межа — 60% висоти екрана, далі повзунок. */
-.inwrap{position:relative;width:100%;font-size:clamp(17px,2vw,22px);height:calc(2.8em + 32px)}
+   і росте вниз рівно під стільки тексту, скільки є, — за потреби
+   наїжджаючи на орнамент. Мало тексту — один рядок, орнамент відкритий.
+   Межа — 60% висоти екрана, далі повзунок. */
+.inwrap{position:relative;width:100%;font-size:clamp(17px,2vw,22px);height:calc(1.4em + 32px)}
 .inbox{position:absolute;left:0;right:0;top:0;z-index:35}
 textarea.inp.big{font-size:clamp(17px,2vw,22px);text-align:center;padding:15px 20px;resize:none;
-  overflow-y:auto;height:calc(2.8em + 32px);min-height:0;max-height:60vh;
+  overflow-y:auto;height:calc(1.4em + 32px);min-height:0;max-height:60vh;
   box-shadow:0 10px 30px rgba(0,0,0,.0);transition:box-shadow .2s}
 textarea.inp.big.tall{box-shadow:0 14px 34px rgba(0,0,0,.45)}
 .inp:focus{border-color:var(--acc);box-shadow:0 0 22px color-mix(in srgb,var(--acc) 18%,transparent)}
@@ -846,15 +847,27 @@ function setLayers(n){
   if(n===3&&palOpen){palOpen=false;$('pal-panel').classList.add('hide');$('pal-btn').classList.remove('on')}
 }
 function refreshInputs(){$('txt').value=D.single;autoGrow();}
-/* Поле росте під текст (не менше за своє «гніздо», не більше за 60% екрана). */
+/* Поле росте РІВНО під текст: мінімум — один рядок, максимум — 55–60%
+   екрана. «Гніздо» (.inwrap) більше не задає мінімальну висоту — воно
+   лише тримає місце в розкладці, щоб холст не зрушив. Саме поле лежить
+   поверх (absolute), тож коли тексту багато, воно росте вниз і наїжджає
+   на орнамент; коли мало — стискається, і орнамент видно повністю. */
 function fitField(){
   const el=$('txt'), slot=el&&el.closest('.inwrap'); if(!slot)return;
-  const base=slot.clientHeight;
-  el.style.height=base+'px';
-  const need=el.scrollHeight+2, cap=Math.round(innerHeight*(innerWidth<=820?0.55:0.6));
-  const h=Math.max(base,Math.min(need,cap));
+  const cs=getComputedStyle(el);
+  const lh=parseFloat(cs.lineHeight)||parseFloat(cs.fontSize)*1.4;
+  const pad=parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom);
+  const bord=parseFloat(cs.borderTopWidth)+parseFloat(cs.borderBottomWidth);
+  const one=Math.round(lh+pad+bord);          // висота рівно одного рядка
+  /* Скидання до одного рядка ОБОВ'ЯЗКОВЕ: інакше scrollHeight повертає
+     попередню, більшу висоту, і поле вміє тільки рости, але не стискатись. */
+  el.style.height=one+'px';
+  const need=el.scrollHeight+bord;
+  const cap=Math.round(innerHeight*(innerWidth<=820?0.55:0.6));
+  const h=Math.max(one,Math.min(need,cap));
   el.style.height=h+'px';
-  el.classList.toggle('tall',h>base+2);
+  /* Тінь — лише коли поле справді наїхало на орнамент. */
+  el.classList.toggle('tall',h>slot.clientHeight+2);
 }
 function grow(el){fitField();}
 addEventListener('resize',()=>fitField());
