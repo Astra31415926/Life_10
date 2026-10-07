@@ -197,6 +197,9 @@ body.light-mode .veil{background:rgba(255,253,248,.94)}
 .sw.none{display:flex;align-items:center;justify-content:center;background:transparent;
   border:2px dashed #5f5a55;color:#2a2622;font-family:var(--mono);font-size:15px;font-weight:700}
 .motrow{display:flex;gap:6px;flex-wrap:wrap}
+.pal-row.xs-only{display:none}
+body.room-cross .pal-row.xs-only{display:flex}
+#x-thick{flex:1;min-width:120px;accent-color:var(--acc)}
 .mot{font-family:var(--mono);font-size:12px;padding:7px 10px;border-radius:8px;border:1px solid var(--line);
   background:transparent;color:var(--muted);cursor:pointer;transition:.12s}
 .mot:hover{color:var(--acc-hot);border-color:var(--acc-dim)}
@@ -422,6 +425,8 @@ body.light-mode .menu .hint{color:#8a4e00}
         <div class="pal-row"><span class="lbl">нуль і фон</span><div class="swatches" id="sw-zero"></div></div>
         <div class="pal-row"><span class="lbl">друга фарба</span><div class="swatches" id="sw-alt"></div></div>
         <div class="pal-row"><span class="lbl">мотив</span><div class="motrow" id="mot-row"></div></div>
+        <div class="pal-row xs-only"><span class="lbl">товщина хрестика</span><input type="range" id="x-thick" min="10" max="40" value="30"></div>
+        <div class="pal-row xs-only"><span class="lbl">полотно</span><div class="swatches" id="sw-fab"></div></div>
         <button class="b" id="pres-vysh" type="button">🧵 Вишиванка</button>
       </div>
     </div>
@@ -506,7 +511,7 @@ const $=id=>document.getElementById(id);
    українськими — там свій набір текстів.
    Словник один; якщо ключа немає в en, береться український. */
 const DICT={
- uk:{secMode:'Режим',secLook:'Вигляд',secSym:'Символи',mono:'Монохром',rgb:'Кольоровий',pal:'🎨 Палітра',one:'одиниця',zero:'нуль і фон',alt:'друга фарба',motifL:'мотив',vysh:'🧵 Вишиванка',wThread:'нитка завсітла для полотна — код не прочитається',wInkSide:'друга фарба по інший бік від фону — код не прочитається',wInkNear:'друга фарба зливається з фоном — код не прочитається',wInkRisk:'фарби близькі за яскравістю — з камери може не прочитатися',
+ uk:{secMode:'Режим',secLook:'Вигляд',secSym:'Символи',mono:'Монохром',rgb:'Кольоровий',pal:'🎨 Палітра',one:'одиниця',zero:'нуль і фон',alt:'друга фарба',motifL:'мотив',vysh:'🧵 Вишиванка',thick:'товщина хрестика',fabric:'полотно',wInkSide:'друга фарба по інший бік від фону — код не прочитається',wInkNear:'друга фарба зливається з фоном — код не прочитається',wInkRisk:'фарби близькі за яскравістю — з камери може не прочитатися',
      sq:'Квадрат',ci:'Кружечок',cr:'Хрестик',chars:'Символів',bytes:'Байтів',bits:'Біт даних',field:'Поле',
      warn:'Даних більше, ніж уміщає поле',ph:'зашифруй послання',demo:'напиши свій текст',
      merch:'Приміряти на мерч →',save:'Зберегти',load:'Завантажити · сканувати',
@@ -520,7 +525,7 @@ const DICT={
      tipColor:'Кольори спотворені. Знімай при рівному денному світлі — жовта лампа збиває кольорові канали.',
      tipSlow:'Знімок завеликий — не вистачило часу. Обріж його по коду або зменш.',
      tipAny:'Спробуй ще: більший і чіткіший знімок, рівне світло без відблисків, уся рамка коду в кадрі.'},
- en:{secMode:'Mode',secLook:'Look',secSym:'Symbols',mono:'Monochrome',rgb:'Colour',pal:'🎨 Palette',one:'one',zero:'zero & background',alt:'second ink',motifL:'motif',vysh:'🧵 Vyshyvanka',wThread:'thread too light for the linen — unreadable',wInkSide:'second ink is on the wrong side of the background — unreadable',wInkNear:'second ink blends into the background — unreadable',wInkRisk:'inks are close in brightness — a camera may fail to read it',
+ en:{secMode:'Mode',secLook:'Look',secSym:'Symbols',mono:'Monochrome',rgb:'Colour',pal:'🎨 Palette',one:'one',zero:'zero & background',alt:'second ink',motifL:'motif',vysh:'🧵 Vyshyvanka',thick:'cross thickness',fabric:'linen',wInkSide:'second ink is on the wrong side of the background — unreadable',wInkNear:'second ink blends into the background — unreadable',wInkRisk:'inks are close in brightness — a camera may fail to read it',
      sq:'Square',ci:'Circle',cr:'Cross-stitch',chars:'Characters',bytes:'Bytes',bits:'Data bits',field:'Field',
      warn:'More data than the field can hold',ph:'encode a message',demo:'write your text',
      merch:'Try it on merch →',save:'Save',load:'Load · scan',
@@ -705,50 +710,83 @@ function build(){
 
 const FRAME_COL='#8f8f8f';const FRAME_A='#0a0806';const FRAME_B='#f4efe6';
 /* ═══════════════ РЕЖИМ «ХРЕСТИК» ═══════════════
-   Імітація вишивки хрестиком. Одиниця — стібок, нуль — голе полотно.
-   Для сканера це звичайний монохром: лляне тло світле, нитка темна,
-   геометрія сітки та сама. Тому нитку треба брати темну — світла на
-   світлому полотні не прочитається, і про це попереджає inkWarn(). */
-const LINEN='#e9e1d3';
-/* Детермінований шум: той самий орнамент завжди малюється однаково. */
-function stitchRnd(r,c,salt){
-  let h=(r*73856093)^(c*19349663)^(salt*83492791);
-  h=(h^(h>>>13))>>>0;
-  return (h%10000)/10000;
+   Хрестик — це той самий квадратний модуль, лише зі зрізаними кутами.
+   Зрізи чотирьох сусідніх клітинок сходяться в ромбик, і крізь нього
+   видно полотно, на якому «вишито». Коли поруч стоять однокольорові
+   клітинки, їхні зрізи роблять з квадратів хрест — сам, без жодного
+   малювання хрестів.
+
+   Для сканера нічого не змінюється: центр кожної клітинки лишається
+   свого кольору, а декодер бере пробу саме з центру (радіус 0.28 від
+   кроку сітки, зріз туди не дістає). Тому режим працює однаково для
+   моно й кольору, позитиву й негативу — це чисто оформлення. */
+let stitchCut=0.30;        /* зріз кута в частках клітинки: більше — тонший хрестик */
+let fabricCol='#7d7d7d';   /* полотно, видне в ромбиках */
+
+/* Восьмикутник — квадрат зі зрізаними кутами. */
+function octaPath(ctx,px,py,S,cut){
+  const k=cut*S;
+  ctx.beginPath();
+  ctx.moveTo(px+k,py);      ctx.lineTo(px+S-k,py);
+  ctx.lineTo(px+S,py+k);    ctx.lineTo(px+S,py+S-k);
+  ctx.lineTo(px+S-k,py+S);  ctx.lineTo(px+k,py+S);
+  ctx.lineTo(px,py+S-k);    ctx.lineTo(px,py+k);
+  ctx.closePath();
 }
-/* Підкладка — лляне полотно. Викликається ОДИН раз перед циклом клітинок. */
-function drawLinen(ctx,W,H,S){
-  ctx.fillStyle=LINEN;
-  ctx.fillRect(0,0,W,H);
-  ctx.fillStyle='rgba(120,105,85,0.22)';          // дірочки канви по кутах
-  for(let y=0;y<=H;y+=S)for(let x=0;x<=W;x+=S)
-    ctx.fillRect(x-S*0.035,y-S*0.035,S*0.07,S*0.07);
-  ctx.strokeStyle='rgba(150,135,112,0.10)';        // переплетення ниток
-  ctx.lineWidth=1;
-  for(let x=0;x<W;x+=S/2){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
-  for(let y=0;y<H;y+=S/2){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+/* Шар плетіння — один на все поле, від даних не залежить.
+   Нейтральний сірий 128 у режимі overlay не змінює нічого, тож об'єм
+   дають самі ребра ниток: світле ребро з одного боку, темне з іншого.
+   Нитки йдуть по діагоналях клітинок, період — дві клітинки, а
+   перпендикулярна сім'я переривається в шаховому порядку — звідси
+   відчуття переплетіння. */
+function weaveLayer(S,W,H){
+  const cv=document.createElement('canvas');
+  cv.width=W; cv.height=H;
+  const g=cv.getContext('2d');
+  g.fillStyle='#808080'; g.fillRect(0,0,W,H);
+  g.lineWidth=Math.max(1,S*0.10);
+  const lim=W+H;
+  const family=(sign,skip)=>{
+    g.save();
+    if(skip){                      /* прорізи там, де нитка пірнає вниз */
+      g.beginPath();
+      for(let gy=0;gy*S<H+S;gy++)for(let gx=0;gx*S<W+S;gx++)
+        if((gx+gy)%2) g.rect(gx*S,gy*S,S,S);
+      g.clip();
+    }
+    for(let c=-lim;c<=lim;c+=2*S){
+      for(const [off,col] of [[0.6*S,'#a8a8a8'],[-0.6*S,'#545454']]){
+        const cc=c+off;
+        g.strokeStyle=col; g.beginPath();
+        if(sign>0){g.moveTo(cc,0);g.lineTo(cc+H,H);}
+        else      {g.moveTo(cc,H);g.lineTo(cc+H,0);}
+        g.stroke();
+      }
+    }
+    g.restore();
+  };
+  family(1,false); family(-1,true);
+  return cv;
 }
-/* Один хрестик. cx,cy — центр клітинки, S — її розмір. */
-function drawCrossStitch(ctx,cx,cy,S,color,r,c){
-  const rgb=[parseInt(color.slice(1,3),16),parseInt(color.slice(3,5),16),parseInt(color.slice(5,7),16)];
-  const lm=0.299*rgb[0]+0.587*rgb[1]+0.114*rgb[2];
-  const sh=k=>'rgb('+rgb.map(v=>Math.max(0,Math.min(255,Math.round(v*k)))).join(',')+')';
-  const v=0.90+stitchRnd(r,c,1)*0.20;              // нитка трохи різного тону
-  const main=sh(v), dark=sh(v*0.58), light=sh(lm<120?v*1.42:v*1.18);
-  const half=S/2-0.04*S, w=Math.max(2,0.46*S), o=w*0.22;
-  const jx=(stitchRnd(r,c,2)-0.5)*0.07*S;          // «нерівність руки»
-  const jy=(stitchRnd(r,c,3)-0.5)*0.07*S;
-  const ang=(stitchRnd(r,c,4)-0.5)*0.11;
-  const x0=cx+jx, y0=cy+jy;
-  ctx.lineCap='round';
-  for(const base of [Math.PI/4,-Math.PI/4]){
-    const a=base+ang, dx=Math.cos(a)*half*1.414, dy=Math.sin(a)*half*1.414;
-    const seg=(oxx,oyy,col,width)=>{ctx.strokeStyle=col;ctx.lineWidth=width;
-      ctx.beginPath();ctx.moveTo(x0-dx+oxx,y0-dy+oyy);ctx.lineTo(x0+dx+oxx,y0+dy+oyy);ctx.stroke();};
-    seg(o,o,dark,w);                               // тінь
-    seg(0,0,main,w);                               // сама нитка
-    seg(-o*0.6,-o*0.6,light,w*0.30);               // блік
+/* Накласти плетіння на поле й повернути ромбикам чистий колір полотна. */
+function applyWeave(ctx,fx,fy,fs,cell,n){
+  ctx.save();
+  /* Усе — строго в межах поля: ні плетіння, ні крайні ромбики не повинні
+     заповзти на рамку, інакше сканер не впізнає її структуру. */
+  ctx.beginPath(); ctx.rect(fx,fy,fs,fs); ctx.clip();
+  ctx.globalCompositeOperation='overlay';
+  ctx.drawImage(weaveLayer(cell,fs,fs),fx,fy);
+  ctx.globalCompositeOperation='source-over';
+  const k=stitchCut*cell;
+  ctx.fillStyle=fabricCol;
+  for(let gy=0;gy<=n;gy++)for(let gx=0;gx<=n;gx++){
+    const cx=fx+gx*cell, cy=fy+gy*cell;
+    ctx.beginPath();
+    ctx.moveTo(cx,cy-k); ctx.lineTo(cx+k,cy);
+    ctx.lineTo(cx,cy+k); ctx.lineTo(cx-k,cy);
+    ctx.closePath(); ctx.fill();
   }
+  ctx.restore();
 }
 function paint(ctx,cell,pad,qz){
   /* НЕГАТИВ (монохром): одиниця й нуль міняються кольорами, тиха зона
@@ -757,10 +795,9 @@ function paint(ctx,cell,pad,qz){
      У RGB-режимі негатив робиться повною інверсією пікселів у render(). */
   const NEG=invert&&layers!==3;
   const c1=NEG?colZero:colOne, c0=NEG?colOne:colZero;
-  /* У режимі хрестика тло поля — не колір нуля, а полотно. Рамка мусить
-     рахувати свої кільця саме від нього, інакше зовнішнє кільце вийде не
-     тим, і сканер не впізнає структуру. */
-  const XS=(shape==='cross'&&layers!==3), c0e=XS?LINEN:c0;
+  /* Хрестик нічого не міняє в кольорах: нулі теж малюються восьмикутниками
+     кольору нуля, тож рамка рахується як завжди. Працює і в RGB. */
+  const XS=(shape==='cross');
   qz=qz||0;const ox=qz*cell,oy=qz*cell;
   const TW=(W+pad*2)*cell,TH=(H+pad*2)*cell;
   /* Негатив перевертає ВЕСЬ код, разом із рамкою і тихою зоною, —
@@ -779,13 +816,13 @@ function paint(ctx,cell,pad,qz){
        Для всіх старих поєднань (світла одиниця + темний нуль) це те саме,
        що було; а для нових — темний візерунок на світлому полі — рамка
        лишається правильною, і код читається. */
-    const dk=(lum(c0e)<=lum(c1))?c0e:c1, lt=(dk===c0e)?c1:c0e;
+    const dk=(lum(c0)<=lum(c1))?c0:c1, lt=(dk===c0)?c1:c0;
     /* У негативі кільця міняються місцями разом з усім іншим: світле
        назовні, темне всередину — щоб перевернутим був увесь код, а не
        тільки його начинка. */
     const o1=NEG?lt:dk, o2=NEG?dk:lt;
     const FA=(layers===3)?FRAME_A:o1, FB=(layers===3)?FRAME_B:o2;
-    ctx.fillStyle=c0e;ctx.fillRect(ox,oy,TW,TH);const CW=W+pad*2, CH=H+pad*2;const cellAt=(cx,cy,col)=>{ctx.fillStyle=col;ctx.fillRect(ox+cx*cell,oy+cy*cell,cell,cell)};
+    ctx.fillStyle=c0;ctx.fillRect(ox,oy,TW,TH);const CW=W+pad*2, CH=H+pad*2;const cellAt=(cx,cy,col)=>{ctx.fillStyle=col;ctx.fillRect(ox+cx*cell,oy+cy*cell,cell,cell)};
     for(let cx=0;cx<CW;cx++){cellAt(cx,0,FA);cellAt(cx,CH-1,FA);}
     for(let cy=1;cy<CH-1;cy++){cellAt(0,cy,FA);cellAt(CW-1,cy,FA);}
     for(let cx=1;cx<CW-1;cx++){cellAt(cx,1,FB);cellAt(cx,CH-2,FB);}
@@ -793,22 +830,24 @@ function paint(ctx,cell,pad,qz){
     for(let cx=2;cx<CW-2;cx++){cellAt(cx,2,((cx+2)%2===0)?FA:FB);cellAt(cx,CH-3,((cx+CH-3)%2===0)?FA:FB);}
     for(let cy=3;cy<CH-3;cy++){cellAt(2,cy,((2+cy)%2===0)?FA:FB);cellAt(CW-3,cy,((CW-3+cy)%2===0)?FA:FB);}
   }else if(pad>0){ctx.fillStyle=FRAME_COL;ctx.fillRect(ox,oy,TW,TH);}
+  const FX=ox+pad*cell, FY=oy+pad*cell, BG=(layers===3)?'#000000':c0;
   if(XS){
-    /* Полотно замість звичайної заливки — ОДИН раз, перед циклом клітинок. */
-    ctx.save(); ctx.translate(ox+pad*cell,oy+pad*cell);
-    drawLinen(ctx,W*cell,H*cell,cell); ctx.restore();
+    /* Під усім — полотно; далі КОЖНА клітинка, і нулі теж, лягає
+       восьмикутником. Там, де зрізи сходяться, лишається ромбик полотна. */
+    ctx.fillStyle=fabricCol; ctx.fillRect(FX,FY,W*cell,H*cell);
+    ctx.fillStyle=BG;
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+      octaPath(ctx,FX+x*cell,FY+y*cell,cell,stitchCut); ctx.fill();
+    }
   }else{
-    ctx.fillStyle=(layers===3)?'#000000':c0;
-    ctx.fillRect(ox+pad*cell,oy+pad*cell,W*cell,H*cell);
+    ctx.fillStyle=BG; ctx.fillRect(FX,FY,W*cell,H*cell);
   }
   const put=(x,y,col)=>{ctx.fillStyle=col;const px=ox+(x+pad)*cell,py=oy+(y+pad)*cell;
-    if(XS){
-      /* Нулі не малюємо взагалі — там лишається голе полотно.
-         Сюди доходять лише одиниці, тож достатньо накласти стібок. */
-      drawCrossStitch(ctx,px+cell/2,py+cell/2,cell,col,y,x);
-    }else if(shape==='circle'){ctx.beginPath();ctx.arc(px+cell/2,py+cell/2,cell/2*.94,0,6.2832);ctx.fill()}
+    if(XS){octaPath(ctx,px,py,cell,stitchCut);ctx.fill();}
+    else if(shape==='circle'){ctx.beginPath();ctx.arc(px+cell/2,py+cell/2,cell/2*.94,0,6.2832);ctx.fill()}
     else ctx.fillRect(px,py,cell,cell)};
-  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;if(layers===3){const inAny=dmask.r[i]||dmask.g[i]||dmask.b[i];if(!inAny)continue;const on={r:dmask.r[i]&&grid.r[i],g:dmask.g[i]&&grid.g[i],b:dmask.b[i]&&grid.b[i]};if(!on.r&&!on.g&&!on.b)continue;let R=0,G=0,B=0;if(on.r){R+=RGB_PURE.r[0];G+=RGB_PURE.r[1];B+=RGB_PURE.r[2]}if(on.g){R+=RGB_PURE.g[0];G+=RGB_PURE.g[1];B+=RGB_PURE.g[2]}if(on.b){R+=RGB_PURE.b[0];G+=RGB_PURE.b[1];B+=RGB_PURE.b[2]}put(x,y,`rgb(${Math.min(255,R)},${Math.min(255,G)},${Math.min(255,B)})`);}else{if(!dmask.r[i])continue;if(!grid.r[i])continue;put(x,y,inkAt(x,y,c1));}}}
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;if(layers===3){const inAny=dmask.r[i]||dmask.g[i]||dmask.b[i];if(!inAny)continue;const on={r:dmask.r[i]&&grid.r[i],g:dmask.g[i]&&grid.g[i],b:dmask.b[i]&&grid.b[i]};if(!on.r&&!on.g&&!on.b)continue;let R=0,G=0,B=0;if(on.r){R+=RGB_PURE.r[0];G+=RGB_PURE.r[1];B+=RGB_PURE.r[2]}if(on.g){R+=RGB_PURE.g[0];G+=RGB_PURE.g[1];B+=RGB_PURE.g[2]}if(on.b){R+=RGB_PURE.b[0];G+=RGB_PURE.b[1];B+=RGB_PURE.b[2]}put(x,y,`rgb(${Math.min(255,R)},${Math.min(255,G)},${Math.min(255,B)})`);}else{if(!dmask.r[i])continue;if(!grid.r[i])continue;put(x,y,inkAt(x,y,c1));}}
+  if(XS)applyWeave(ctx,FX,FY,W*cell,cell,W);}
 function render(){const QZ=2;const pad=(frameW>=2?3:frameW),tw=W+pad*2,th=H+pad*2;const cell=Math.max(2,Math.floor(760/Math.max(tw+QZ*2,th+QZ*2)));OFF.width=(tw+QZ*2)*cell;OFF.height=(th+QZ*2)*cell;OCTX.imageSmoothingEnabled=false;paint(OCTX,cell,pad,QZ);
   /* RGB-негатив: повна інверсія пікселів */
   if(invert&&layers===3){const d=OCTX.getImageData(0,0,OFF.width,OFF.height),a=d.data;for(let i=0;i<a.length;i+=4){a[i]=255-a[i];a[i+1]=255-a[i+1];a[i+2]=255-a[i+2];}OCTX.putImageData(d,0,0);}
@@ -988,6 +1027,8 @@ const ALT_COLORS=[
   '#c1121f','#8f1b1b','#1a1a1a','#2b4a9b','#1d6b3a','#b8860b',
   '#ffffff','#ffe000','#00d4e8','#f5a3a3','#6b4ea8','#0a3d2e'
 ];
+const FABRIC_COLORS=['#7d7d7d','#000000','#2b2b2b','#4a4a4a','#9a9a9a',
+  '#bdbdbd','#e0e0e0','#ffffff','#c9b89a','#8a7355','#5c4a33','#3a2f22'];
 const MOTIFS=[
   {k:'none',  uk:'немає',   en:'none',    f:null},
   {k:'rhomb', uk:'ромби',   en:'rhombs',  f:(ai,aj)=>ai+aj},
@@ -1012,12 +1053,10 @@ function inkAt(x,y,base){
    мусять бути по ОДИН бік від фону, і та, що ближча до фону, мусить
    відстояти від нього достатньо, щоб межа не потонула в шумі камери. */
 function inkWarn(){
-  if(layers===3)return null;
+  if(layers===3||!colAlt||motif==='none')return null;
   const NEG=invert, c1=NEG?colZero:colOne, c0=NEG?colOne:colZero;
-  /* Хрестик: полотно світле завжди, тож нитка мусить бути темною. */
-  if(shape==='cross'&&lum(c1)>lum(LINEN)-60)return {lvl:'bad',msg:t('wThread')};
   if(!colAlt||motif==='none')return null;
-  const f=lum((shape==='cross')?LINEN:c0), a=lum(c1), b=lum(colAlt);
+  const f=lum(c0), a=lum(c1), b=lum(colAlt);
   if((a>f)!==(b>f))   return {lvl:'bad', msg:t('wInkSide')};
   const d=Math.min(Math.abs(a-f),Math.abs(b-f));
   if(d<25)            return {lvl:'bad', msg:t('wInkNear')};
@@ -1032,6 +1071,7 @@ function buildSwatches(){const mk=(box,arr,getCur,set,none)=>{box.innerHTML='';
   mk($('sw-one'),ONE_COLORS,()=>colOne,c=>colOne=c);
   mk($('sw-zero'),ZERO_COLORS,()=>colZero,c=>colZero=c);
   mk($('sw-alt'),ALT_COLORS,()=>colAlt,c=>colAlt=c,true);
+  mk($('sw-fab'),FABRIC_COLORS,()=>fabricCol,c=>fabricCol=c);
   buildMotifRow();}
 function buildMotifRow(){const box=$('mot-row');if(!box)return;box.innerHTML='';
   MOTIFS.forEach(m=>{const b=document.createElement('button');b.type='button';
@@ -1104,7 +1144,9 @@ addEventListener('resize',()=>fitField());
 function autoGrow(){grow($('txt'),200);}
 
 $('layers').onclick=e=>{const b=e.target.closest('button');if(!b)return;scannedImg=null;setLayers(+b.dataset.l);build()};
-$('shape').onclick=e=>{const b=e.target.closest('button');if(!b)return;shape=b.dataset.s;syncSeg('shape','s',shape);scannedImg=null;render();saveState()};
+function syncShapeRoom(){document.body.classList.toggle('room-cross',shape==='cross');}
+$('shape').onclick=e=>{const b=e.target.closest('button');if(!b)return;shape=b.dataset.s;syncSeg('shape','s',shape);syncShapeRoom();scannedImg=null;render();saveState()};
+$('x-thick').oninput=e=>{stitchCut=(+e.target.value)/100;render();saveState();};
 
 const HIST=[];let hPos=-1,hTimer=null;
 function snapshot(){return layers+'|'+D.single}
@@ -1164,7 +1206,7 @@ function tourCleanup(){
   tourPal(false);
   if(t.colOne)colOne=t.colOne; if(t.colZero)colZero=t.colZero;
   colAlt=t.colAlt||null; motif=t.motif||'none'; motifK=t.motifK||4;
-  shape=t.shape||'square'; syncSeg('shape','s',shape);
+  shape=t.shape||'square'; syncSeg('shape','s',shape); syncShapeRoom();
   invert=!!t.invert; syncInv();
   buildSwatches(); setLayers(t.layers===3?3:1);
   isDemo=false; document.body.classList.remove('ghost');
@@ -1242,7 +1284,7 @@ function saveState(){
   if(isDemo)return;
   try{sessionStorage.setItem(LAB_KEY,JSON.stringify(
     {t:D.single,l:layers,sh:shape,c1:colOne,c0:colZero,inv:invert,
-     ca:colAlt,mo:motif,mk:motifK}));}catch(e){}
+     ca:colAlt,mo:motif,mk:motifK,xc:stitchCut,fb:fabricCol}));}catch(e){}
 }
 function restoreState(){
   let st=null;
@@ -1253,6 +1295,8 @@ function restoreState(){
   colOne=st.c1||colOne; colZero=st.c0||colZero; invert=!!st.inv; syncInv();
   colAlt=st.ca||null; motif=MOTIFS.some(m=>m.k===st.mo)?st.mo:'none'; motifK=st.mk||4;
   shape=['circle','cross'].includes(st.sh)?st.sh:'square'; syncSeg('shape','s',shape);
+  stitchCut=st.xc||0.30; fabricCol=st.fb||'#7d7d7d';
+  $('x-thick').value=Math.round(stitchCut*100); syncShapeRoom();
   buildSwatches();
   setLayers(st.l===3?3:1);
   tourDead=true;   /* людина вже працювала в цій вкладці — показ не потрібен */
@@ -1380,6 +1424,7 @@ function applyLang(){
   q('#pal-btn').textContent=t('pal');
   const labs=qa('.pal-row .lbl'); if(labs[0])labs[0].textContent=t('one'); if(labs[1])labs[1].textContent=t('zero');
   if(labs[2])labs[2].textContent=t('alt'); if(labs[3])labs[3].textContent=t('motifL');
+  if(labs[4])labs[4].textContent=t('thick'); if(labs[5])labs[5].textContent=t('fabric');
   const pv=$('pres-vysh'); if(pv)pv.textContent=t('vysh');
   buildMotifRow();
   q('#shape button[data-s="square"]').textContent=t('sq');
