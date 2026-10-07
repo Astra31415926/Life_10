@@ -427,10 +427,7 @@ body.light-mode .menu .hint{color:#8a4e00}
         <div class="pal-row" id="row-alt"><span class="lbl">друга фарба</span><div class="swatches" id="sw-alt"></div></div>
         <div class="pal-row" id="row-mot"><span class="lbl">мотив</span><div class="motrow" id="mot-row"></div></div>
         <div class="pal-row" id="row-cloth"><span class="lbl">полотно</span><div class="swatches" id="sw-cloth"></div></div>
-        <div class="pal-row" id="row-thick"><span class="lbl">товщина нитки</span><input type="range" class="rng" id="thick" min="0" max="100" value="50"></div>
-        <div class="pal-row" id="row-len"><span class="lbl">довжина стібка</span><input type="range" class="rng" id="len" min="0" max="100" value="25"></div>
-        <div class="pal-row" id="row-con"><span class="lbl">контур і тінь</span><input type="range" class="rng" id="con" min="0" max="100" value="55"></div>
-        <div class="pal-row" id="row-glint"><span class="lbl">блиск</span><input type="range" class="rng" id="glint" min="0" max="100" value="45"></div>
+        <div class="pal-row" id="row-thick"><span class="lbl">товщина хрестика</span><input type="range" class="rng" id="thick" min="0" max="100" value="45"></div>
         <button class="b" id="pres-vysh" type="button">🧵 Вишиванка</button>
       </div>
     </div>
@@ -515,7 +512,7 @@ const $=id=>document.getElementById(id);
    українськими — там свій набір текстів.
    Словник один; якщо ключа немає в en, береться український. */
 const DICT={
- uk:{secMode:'Режим',secLook:'Вигляд',secSym:'Символи',mono:'Монохром',rgb:'Кольоровий',pal:'🎨 Палітра',one:'одиниця',zero:'нуль і фон',alt:'друга фарба',motifL:'мотив',cloth:'полотно',thick:'товщина нитки',len:'довжина стібка',con:'контур і тінь',glint:'блиск',thin:'нитка тонка — з камери може не прочитатися',vysh:'🧵 Вишиванка',wInkSide:'друга фарба по інший бік від фону — код не прочитається',wInkNear:'друга фарба зливається з фоном — код не прочитається',wInkRisk:'фарби близькі за яскравістю — з камери може не прочитатися',
+ uk:{secMode:'Режим',secLook:'Вигляд',secSym:'Символи',mono:'Монохром',rgb:'Кольоровий',pal:'🎨 Палітра',one:'одиниця',zero:'нуль і фон',alt:'друга фарба',motifL:'мотив',cloth:'полотно',thick:'товщина хрестика',vysh:'🧵 Вишиванка',wInkSide:'друга фарба по інший бік від фону — код не прочитається',wInkNear:'друга фарба зливається з фоном — код не прочитається',wInkRisk:'фарби близькі за яскравістю — з камери може не прочитатися',
      sq:'Квадрат',ci:'Кружечок',cr:'Хрестик',chars:'Символів',bytes:'Байтів',bits:'Біт даних',field:'Поле',
      warn:'Даних більше, ніж уміщає поле',ph:'зашифруй послання',demo:'напиши свій текст',
      merch:'Приміряти на мерч →',save:'Зберегти',load:'Завантажити · сканувати',
@@ -529,7 +526,7 @@ const DICT={
      tipColor:'Кольори спотворені. Знімай при рівному денному світлі — жовта лампа збиває кольорові канали.',
      tipSlow:'Знімок завеликий — не вистачило часу. Обріж його по коду або зменш.',
      tipAny:'Спробуй ще: більший і чіткіший знімок, рівне світло без відблисків, уся рамка коду в кадрі.'},
- en:{secMode:'Mode',secLook:'Look',secSym:'Symbols',mono:'Monochrome',rgb:'Colour',pal:'🎨 Palette',one:'one',zero:'zero & background',alt:'second ink',motifL:'motif',cloth:'cloth',thick:'thread width',len:'stitch length',con:'outline & shadow',glint:'highlight',thin:'thread is thin — a camera may fail to read it',vysh:'🧵 Vyshyvanka',wInkSide:'second ink is on the wrong side of the background — unreadable',wInkNear:'second ink blends into the background — unreadable',wInkRisk:'inks are close in brightness — a camera may fail to read it',
+ en:{secMode:'Mode',secLook:'Look',secSym:'Symbols',mono:'Monochrome',rgb:'Colour',pal:'🎨 Palette',one:'one',zero:'zero & background',alt:'second ink',motifL:'motif',cloth:'cloth',thick:'cross thickness',vysh:'🧵 Vyshyvanka',wInkSide:'second ink is on the wrong side of the background — unreadable',wInkNear:'second ink blends into the background — unreadable',wInkRisk:'inks are close in brightness — a camera may fail to read it',
      sq:'Square',ci:'Circle',cr:'Cross',chars:'Characters',bytes:'Bytes',bits:'Data bits',field:'Field',
      warn:'More data than the field can hold',ph:'encode a message',demo:'write your text',
      merch:'Try it on merch →',save:'Save',load:'Load · scan',
@@ -565,10 +562,7 @@ let colAlt=null;          /* друга фарба одиниць; null — ви
 let motif='none';         /* який мотив розподіляє фарби */
 let motifK=4;             /* ширина смуги мотиву, у кільцях */
 let colCloth='#808080';   /* полотно, на якому «вишито» — за замовчуванням сіре */
-let crossT=50;            /* товщина нитки */
-let lenT=25;              /* виліт стібка: наскільки кінці не доходять до кута */
-let conT=55;              /* контур і тінь */
-let glintT=45;            /* блиск */
+let crossT=45;            /* повзунок товщини хрестика, 0…100 */
 let monoMark=0;
 let scannedImg=null;
 let prevLen=0;
@@ -577,116 +571,20 @@ let invert=false;   /* негатив */
 const D={single:'', ch:['','','']};
 
 /* ═══════════ ХРЕСТИК ═══════════
-   Клітинка малюється не квадратом, а стібком: дві округлі нитки
-   навхрест, верхня лежить поверх нижньої. Між стібками видно полотно —
-   те саме, на якому «вишито».
+   Клітинка лишається квадратом. Хрестик з'являється через вирізи на
+   СЕРЕДИНАХ сторін: вирізи двох сусідніх клітинок сходяться вістрями
+   і разом дають ромбик, центр якого стоїть точно на спільному ребрі.
+   Тому достатньо намалювати решітку ромбиків поверх усього поля —
+   і квадрати самі стають хрестиками, однаково для нулів і одиниць,
+   для монохрому й RGB, для позитиву й негативу.
 
-   ОБ'ЄМ дають два окремі шари поверх усього орнаменту:
-     контур і тінь — режимом «заміна темним» (darken),
-     блиск         — режимом «заміна світлим» (lighten).
-   Обидва сірі й власного кольору не несуть, тому лягають на БУДЬ-ЯКУ
-   фарбу: на світлій нитці контур видно, на темнішій за себе він
-   зникає сам собою — рівно як поводиться справжня тінь. Нічого не
-   треба підбирати під палітру, і в RGB-режимі працює так само.
-
-   Стібок накладається на ВСЕ: поле даних, рамку, зебру. Не чіпається
-   лише тиха зона — два модулі світлого поля навколо коду, по яких
-   декодер знаходить код у кадрі й випрямляє його.
-
-   ТОВЩИНА НИТКИ — не лише смак. Декодер знімає колір клітинки кругом
-   радіусом 0.28 модуля в її центрі. Щоб цей круг цілком помістився в
-   тілі верхньої нитки, її ширина має бути не менша за 0.56 модуля.
-   Тонша нитка — і в вибірку підмішується полотно, однаковою часткою
-   для всіх клітинок, тож код читається й далі, але запас яскравості
-   між фарбою і фоном тане. Тому повзунок починається з 0.44, а не з
-   нуля, і під полем вводу з'являється попередження. */
-const THR_MIN=0.44, THR_MAX=0.72;
-const THR_SAFE=0.56;                                  // круг вибірки ще в тілі нитки
-function thrW(){return THR_MIN+(crossT/100)*(THR_MAX-THR_MIN);}
-function thrInset(){return 0.02+(lenT/100)*0.16;}     // наскільки кінці не доходять до кута
-function conW(){return (conT/100)*0.09;}              // товщина контуру
-function shOff(){return (conT/100)*0.06;}             // зсув тіні вниз-праворуч
-function gliOff(){return (glintT/100)*0.11;}          // ширина блиску
-
-/* Дві нитки стібка. [0] — верхня, з лівого верхнього кута. */
-function stitchLines(px,py,cell){
-  const e=thrInset()*cell, a=px+e, b=px+cell-e, c=py+e, d=py+cell-e;
-  return [[a,c,b,d],[b,c,a,d]];
-}
-function strokeLine(g,L,w,col){
-  g.strokeStyle=col; g.lineWidth=Math.max(1,w); g.lineCap='round';
-  g.beginPath(); g.moveTo(L[0],L[1]); g.lineTo(L[2],L[3]); g.stroke();
-}
-/* Стібок у кольорі клітинки: спершу нижня нитка, потім верхня поверх неї. */
-function drawStitch(g,px,py,cell,col){
-  const L=stitchLines(px,py,cell), w=thrW()*cell;
-  strokeLine(g,L[1],w,col); strokeLine(g,L[0],w,col);
-}
-
-/* ─── ДВА ШАРИ ОБ'ЄМУ ───
-   Малюються один раз у плитку розміром з модуль і далі тиражуються:
-   всі стібки однакові, шва на стику не буває, будь-яке поле вкривається
-   без залишку. Світло падає згори-ліворуч. */
-let _shade={key:'',dark:null,light:null};
-function shadeTiles(cell){
-  const key=[cell,crossT,lenT,conT,glintT].join('|');
-  if(_shade.key===key)return _shade;
-  const mk=()=>{const c=document.createElement('canvas');c.width=c.height=cell;return c;};
-  const w=thrW()*cell, cw=conW()*cell, so=shOff()*cell, go=gliOff()*cell;
-  const L=stitchLines(0,0,cell), A=L[0], B=L[1];
-  const mv=(l,d)=>[l[0]+d,l[1]+d,l[2]+d,l[3]+d];
-  const CONTOUR='#383838', SHADOW='#606060', GLINT='#f0f0f0';
-
-  const dk=mk(), g=dk.getContext('2d');
-  if(conT>0){
-    /* тінь під стібком */
-    strokeLine(g,mv(B,so),w,SHADOW); strokeLine(g,mv(A,so),w,SHADOW);
-    /* контур нижньої нитки: товстий штрих мінус її ж тіло = обідок */
-    strokeLine(g,B,w+2*cw,CONTOUR);
-    g.globalCompositeOperation='destination-out';
-    strokeLine(g,B,w,'#000');
-    strokeLine(g,A,w+2*cw,'#000');        // верхня нитка ховає все, що під нею
-    g.globalCompositeOperation='source-over';
-    strokeLine(g,A,w+2*cw,CONTOUR);
-    g.globalCompositeOperation='destination-out';
-    strokeLine(g,A,w,'#000');
-  }
-  const lt=mk(), h=lt.getContext('2d');
-  if(glintT>0){
-    /* блиск: повний штрих мінус той самий штрих, зсунутий вниз-праворуч,
-       лишає серпик уздовж верхньо-лівої грані нитки */
-    strokeLine(h,B,w,GLINT);
-    h.globalCompositeOperation='destination-out';
-    strokeLine(h,mv(B,go),w,'#000');
-    strokeLine(h,A,w+2*cw,'#000');
-    h.globalCompositeOperation='source-over';
-    strokeLine(h,A,w,GLINT);
-    h.globalCompositeOperation='destination-out';
-    strokeLine(h,mv(A,go),w,'#000');
-  }
-  _shade={key,dark:dk,light:lt};
-  return _shade;
-}
-/* Накладання. Останнім ділом, уже після інверсії негатива: інакше блиск
-   став би тінню і стібки вивернулись би навиворіт. Площа — код разом із
-   рамкою, але без тихої зони. */
-function applyShade(ctx,cell,pad,qz){
-  if(shape!=='cross'||(conT<=0&&glintT<=0))return;
-  /* Площа об'єму — від кільця зебри всередину. Два зовнішні кільця
-     лишаються недоторканими разом із тихою зоною. */
-  const t=shadeTiles(cell), CW=W+2, CH=H+2, off=(qz+pad-1)*cell;
-  const lay=document.createElement('canvas');
-  lay.width=CW*cell; lay.height=CH*cell;
-  const lx=lay.getContext('2d');
-  const paste=(tile,mode)=>{
-    lx.clearRect(0,0,lay.width,lay.height);
-    for(let y=0;y<CH;y++)for(let x=0;x<CW;x++)lx.drawImage(tile,x*cell,y*cell);
-    ctx.save();ctx.globalCompositeOperation=mode;
-    ctx.drawImage(lay,off,off);ctx.restore();
-  };
-  if(conT>0)paste(t.dark,'darken');
-  if(glintT>0)paste(t.light,'lighten');
-}
+   МЕЖА ТОВЩИНИ. Декодер знімає колір кругом радіусом 0.28 модуля в
+   центрі клітинки. Ромбик стоїть за 0.5 модуля від центру, тож його
+   півдіагональ не має перевищувати 0.5 − 0.28 = 0.22. Беремо 0.20 із
+   запасом: CROSS_MAX = 0.40 (повна діагональ). Далі ромбики полізли б
+   у зону вибірки, і код перестав би читатись. */
+const CROSS_MIN=0.08, CROSS_MAX=0.40;
+function crossW(){return CROSS_MAX-(crossT/100)*(CROSS_MAX-CROSS_MIN);}
 
 const CV=$('cv'), CTX=CV.getContext('2d',{willReadFrequently:true});
 const OFF=document.createElement('canvas'), OCTX=OFF.getContext('2d',{willReadFrequently:true});
@@ -823,8 +721,7 @@ function build(){
   else if(monoMark===1){const rR=decodeSector(grid.r,W,mode,1),rG=decodeSector(grid.g,W,mode,0),rB=decodeSector(grid.b,W,mode,0);ok=((rR||'')+(rG||'')+(rB||''))===T.join('');}
   else{const got=CH.map(k=>decodeSector(grid[k],W,mode,0));ok=CH.every((k,i)=>(got[i]||'')===(T[i]||''));}
   if(!ok) $('rt').innerHTML='<span class="w">перевір текст</span>';
-  else{const iw=inkWarn(); if(iw)$('rt').innerHTML='<span class="'+(iw.lvl==='bad'?'r':'w')+'">'+iw.msg+'</span>';
-       else if(shape==='cross'&&thrW()<THR_SAFE)$('rt').innerHTML='<span class="w">'+t('thin')+'</span>';}
+  else{const iw=inkWarn(); if(iw)$('rt').innerHTML='<span class="'+(iw.lvl==='bad'?'r':'w')+'">'+iw.msg+'</span>';}
   hasImage=true;syncMain();
   if(!isDemo){try{localStorage.setItem('taina_last_ornament',document.getElementById('cv').toDataURL());}catch(e){}}
   saveState();
@@ -838,7 +735,6 @@ function paint(ctx,cell,pad,qz){
      У RGB-режимі негатив робиться повною інверсією пікселів у render(). */
   const NEG=invert&&layers!==3;
   const c1=NEG?colZero:colOne, c0=NEG?colOne:colZero;
-  const X=(shape==='cross');
   qz=qz||0;const ox=qz*cell,oy=qz*cell;
   const TW=(W+pad*2)*cell,TH=(H+pad*2)*cell;
   /* Негатив перевертає ВЕСЬ код, разом із рамкою і тихою зоною, —
@@ -863,45 +759,41 @@ function paint(ctx,cell,pad,qz){
        тільки його начинка. */
     const o1=NEG?lt:dk, o2=NEG?dk:lt;
     const FA=(layers===3)?FRAME_A:o1, FB=(layers===3)?FRAME_B:o2;
-    /* У режимі хрестика під рамку лягає полотно, а кожен модуль рамки
-       й зебри стає таким самим стібком, як у полі даних. */
-    ctx.fillStyle=X?colCloth:c0;ctx.fillRect(ox,oy,TW,TH);const CW=W+pad*2, CH=H+pad*2;
-    /* ДВА ЗОВНІШНІ КІЛЬЦЯ ЛИШАЮТЬСЯ ГЛАДКИМИ. Декодер перевіряє їх на
-       суцільність і вимагає 95% влучень; просвіти між стібками й тонкі
-       контури дають 92.6% — код відкидається цілком. Перевірено
-       розрахунком. Тож стібки починаються з кільця зебри і йдуть
-       усередину, а темна й світла смуги по краю лишаються рівними. */
-    const cellAt=(cx,cy,col)=>{const px=ox+cx*cell,py=oy+cy*cell;
-      const edge=Math.min(cx,cy,CW-1-cx,CH-1-cy);
-      if(X&&edge>=2){drawStitch(ctx,px,py,cell,col);return;}
-      ctx.fillStyle=col;ctx.fillRect(px,py,cell,cell)};
+    ctx.fillStyle=c0;ctx.fillRect(ox,oy,TW,TH);const CW=W+pad*2, CH=H+pad*2;const cellAt=(cx,cy,col)=>{ctx.fillStyle=col;ctx.fillRect(ox+cx*cell,oy+cy*cell,cell,cell)};
+    for(let cx=0;cx<CW;cx++){cellAt(cx,0,FA);cellAt(cx,CH-1,FA);}
+    for(let cy=1;cy<CH-1;cy++){cellAt(0,cy,FA);cellAt(CW-1,cy,FA);}
+    for(let cx=1;cx<CW-1;cx++){cellAt(cx,1,FB);cellAt(cx,CH-2,FB);}
+    for(let cy=2;cy<CH-2;cy++){cellAt(1,cy,FB);cellAt(CW-2,cy,FB);}
+    for(let cx=2;cx<CW-2;cx++){cellAt(cx,2,((cx+2)%2===0)?FA:FB);cellAt(cx,CH-3,((cx+CH-3)%2===0)?FA:FB);}
+    for(let cy=3;cy<CH-3;cy++){cellAt(2,cy,((2+cy)%2===0)?FA:FB);cellAt(CW-3,cy,((CW-3+cy)%2===0)?FA:FB);}
   }else if(pad>0){ctx.fillStyle=FRAME_COL;ctx.fillRect(ox,oy,TW,TH);}
-  /* Під полем даних — полотно в режимі хрестика, інакше колір нуля. */
-  ctx.fillStyle=X?colCloth:((layers===3)?'#000000':c0);
+  ctx.fillStyle=(layers===3)?'#000000':c0;
   ctx.fillRect(ox+pad*cell,oy+pad*cell,W*cell,H*cell);
-  const put=(x,y,col)=>{const px=ox+(x+pad)*cell,py=oy+(y+pad)*cell;
-    if(X){drawStitch(ctx,px,py,cell,col);return;}
-    ctx.fillStyle=col;
-    if(shape==='circle'){ctx.beginPath();ctx.arc(px+cell/2,py+cell/2,cell/2*.94,0,6.2832);ctx.fill()}
-    else ctx.fillRect(px,py,cell,cell)};
-  /* У хрестику малюються ВСІ клітинки — і нулі своїм кольором теж:
-     полотно має бути зашите суцільно, як у справжній вишивці. */
-  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
-    const i=y*W+x; let col=null;
-    if(layers===3){
-      const on={r:dmask.r[i]&&grid.r[i],g:dmask.g[i]&&grid.g[i],b:dmask.b[i]&&grid.b[i]};
-      if(on.r||on.g||on.b){
-        let R=0,G=0,B=0;
-        if(on.r){R+=RGB_PURE.r[0];G+=RGB_PURE.r[1];B+=RGB_PURE.r[2]}
-        if(on.g){R+=RGB_PURE.g[0];G+=RGB_PURE.g[1];B+=RGB_PURE.g[2]}
-        if(on.b){R+=RGB_PURE.b[0];G+=RGB_PURE.b[1];B+=RGB_PURE.b[2]}
-        col=`rgb(${Math.min(255,R)},${Math.min(255,G)},${Math.min(255,B)})`;
-      }else if(X)col='#000000';
-    }else{
-      if(dmask.r[i]&&grid.r[i])col=inkAt(x,y,c1);
-      else if(X)col=c0;
-    }
-    if(col)put(x,y,col);
+  const put=(x,y,col)=>{ctx.fillStyle=col;const px=ox+(x+pad)*cell,py=oy+(y+pad)*cell;if(shape==='circle'){ctx.beginPath();ctx.arc(px+cell/2,py+cell/2,cell/2*.94,0,6.2832);ctx.fill()}else ctx.fillRect(px,py,cell,cell)};
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;if(layers===3){const inAny=dmask.r[i]||dmask.g[i]||dmask.b[i];if(!inAny)continue;const on={r:dmask.r[i]&&grid.r[i],g:dmask.g[i]&&grid.g[i],b:dmask.b[i]&&grid.b[i]};if(!on.r&&!on.g&&!on.b)continue;let R=0,G=0,B=0;if(on.r){R+=RGB_PURE.r[0];G+=RGB_PURE.r[1];B+=RGB_PURE.r[2]}if(on.g){R+=RGB_PURE.g[0];G+=RGB_PURE.g[1];B+=RGB_PURE.g[2]}if(on.b){R+=RGB_PURE.b[0];G+=RGB_PURE.b[1];B+=RGB_PURE.b[2]}put(x,y,`rgb(${Math.min(255,R)},${Math.min(255,G)},${Math.min(255,B)})`);}else{if(!dmask.r[i])continue;if(!grid.r[i])continue;put(x,y,inkAt(x,y,c1));}}
+  /* ПОЛОТНО. Ромбики на серединах ребер сітки. Вирізають по трикутнику
+     з кожної клітинки — і квадрат стає хрестиком. Малюються поверх
+     УСЬОГО поля, тож нулі отримують полотно нарівні з одиницями,
+     і в RGB так само. Обрізано по межі поля: рамка, зебра й тиха зона
+     лишаються суцільними — по них декодер ловить і випрямляє код. */
+  if(shape==='cross'&&crossW()>0){
+    const d=crossW()*cell/2;
+    const fx=ox+pad*cell, fy=oy+pad*cell;
+    ctx.save();ctx.beginPath();ctx.rect(fx,fy,W*cell,H*cell);ctx.clip();
+    ctx.fillStyle=colCloth;
+    /* Ромбик малюємо СТРОЧКАМИ, а не контуром. Контур холст завжди
+       згладжує: діагональ не лягає на піксельну сітку, і край виходить
+       каламутним, тоді як квадрати поряд — різкі. Вимкнути це не можна,
+       imageSmoothingEnabled керує лише картинками. Рядок цілої ширини —
+       це той самий fillRect, що й у клітинок, тож край виходить
+       східчастим і чистим. */
+    const dia=(cx,cy)=>{
+      const x0=Math.round(cx), y0=Math.round(cy), R=Math.round(d);
+      for(let k=-R;k<=R;k++){const half=R-Math.abs(k);ctx.fillRect(x0-half,y0+k,half*2+1,1);}
+    };
+    for(let y=0;y<=H;y++)for(let x=0;x<W;x++)dia(fx+(x+.5)*cell,fy+y*cell);
+    for(let y=0;y<H;y++)for(let x=0;x<=W;x++)dia(fx+x*cell,fy+(y+.5)*cell);
+    ctx.restore();
   }}
 /* РОЗМІР МОДУЛЯ. Холст цілиться в 1161 px по стороні й ділиться на повну
    ширину коду в модулях (поле + рамка 3 + тиха зона 2 з кожного боку).
@@ -914,7 +806,6 @@ function paint(ctx,cell,pad,qz){
 function render(){const QZ=2;const pad=(frameW>=2?3:frameW),tw=W+pad*2,th=H+pad*2;const side=Math.max(tw+QZ*2,th+QZ*2);const cell=Math.max(3,2*Math.floor(1161/side/2)+1);OFF.width=(tw+QZ*2)*cell;OFF.height=(th+QZ*2)*cell;OCTX.imageSmoothingEnabled=false;paint(OCTX,cell,pad,QZ);
   /* RGB-негатив: повна інверсія пікселів */
   if(invert&&layers===3){const d=OCTX.getImageData(0,0,OFF.width,OFF.height),a=d.data;for(let i=0;i<a.length;i+=4){a[i]=255-a[i];a[i+1]=255-a[i+1];a[i+2]=255-a[i+2];}OCTX.putImageData(d,0,0);}
-  applyShade(OCTX,cell,pad,QZ);
   blit();}
 
 let camStream=null, camRAF=null, camBusy=false, camLastText=null, camTimer=0, camFlip=false;
@@ -1054,9 +945,7 @@ function openMenu(){
     const sug=defaultName();m.innerHTML=`<div class="menu-t">Ім'я файлу</div><input id="fname" value="${sug}" autocomplete="off" spellcheck="false"><div class="row"><button class="b gold" id="do-save">⤓ Зберегти PNG</button></div><div class="row"><button class="b" id="do-publish">✦ Опублікувати в галерею</button></div><div class="row"><button class="b" id="do-scan">⌖ Сканувати інше</button></div>`;$('do-save').onclick=()=>{const n=($('fname').value||sug).trim().replace(/[\\/:*?"<>|]/g,'_')||'taina';savePNG(n);closeMenu()};$('do-publish').onclick=e=>{e.stopPropagation();openPublish()};$('do-scan').onclick=()=>{closeMenu();$('file').click()};setTimeout(()=>{const f=$('fname');if(f){f.focus();f.select()}},40);
   }else{m.innerHTML=`<div class="menu-t">Джерело</div><div class="row"><button class="b gold" id="src-gal">🖼 Обрати файл</button></div>`;$('src-gal').onclick=()=>{closeMenu();$('file').click()};}}
 $('mainbtn').onclick=e=>{e.stopPropagation();if(busy)return;menuOpen?closeMenu():openMenu()};
-/* Палітра НЕ закривається сама: ні від кліку поряд, ні від вибору
-   кольору. Закриває її тільки повторний клік по самій кнопці. */
-document.addEventListener('click',e=>{if(menuOpen&&!e.target.closest('.action'))closeMenu();});
+document.addEventListener('click',e=>{if(menuOpen&&!e.target.closest('.action'))closeMenu();if(palOpen&&!e.target.closest('.palette-pop')){palOpen=false;$('pal-panel').classList.add('hide');$('pal-btn').classList.remove('on')}});
 
 function splitThree(t){const ch=[...t];const k=Math.ceil(ch.length/3);return [ch.slice(0,k).join(''),ch.slice(k,2*k).join(''),ch.slice(2*k).join('')];}
 function defaultName(){const t=D.single||'taina';return t.slice(0,26).trim().replace(/\s+/g,'_')}
@@ -1069,7 +958,7 @@ function savePNG(name){OFF.toBlob(b=>{const a=document.createElement('a');a.href
 const SUPA_URL='https://iieahzklwngqugkovhrs.supabase.co';const SUPA_KEY='sb_publishable_FHtRNaLBvDgDTSLa_8eQnQ_oPMWCIxF';
 function detectLang(t){if(/[\u0400-\u04FF]/.test(t))return 'uk';if(/[\u4E00-\u9FFF]/.test(t))return 'zh';if(/[a-zA-Z]/.test(t))return 'en';return '';}
 function openPublish(){const mainWord=D.single;if(!mainWord.trim()){toast('Спершу напиши щось');return;}const m=$('menu');menuOpen=true;m.classList.remove('hide');m.innerHTML=`<div class="menu-t">Опублікувати в галерею</div><div class="hint">⚠ Байткод — відкритий код. Будь-хто зможе прочитати ваш текст. Не публікуйте таємниць.</div><input id="pub-title" placeholder="Назва (видима всім)" autocomplete="off" spellcheck="false"><div class="row"><button class="b gold" id="pub-yes">✦ Так, опублікувати</button></div><div class="row"><button class="b" id="pub-no">Скасувати</button></div>`;$('pub-yes').onclick=e=>{e.stopPropagation();doPublish(mainWord)};$('pub-no').onclick=e=>{e.stopPropagation();closeMenu()};}
-async function doPublish(word){const btn=$('pub-yes');if(btn){btn.textContent='Публікую…';btn.disabled=true;}const settings={colOne, colZero, colAlt, motif, motifK, shape, colCloth, crossT, lenT, conT, glintT, frame:frameW, monoMark, frameColor:layers!==3, invert, words:layers===3?D.ch.slice():undefined};let image_url=null;try{const scale=Math.max(1,Math.round(1000/Math.max(OFF.width,1)));const ex=document.createElement('canvas');ex.width=OFF.width*scale;ex.height=OFF.height*scale;const cx=ex.getContext('2d');cx.imageSmoothingEnabled=false;cx.drawImage(OFF,0,0,OFF.width,OFF.height,0,0,ex.width,ex.height);const blob=await new Promise(function(res){ex.toBlob(res,'image/png');});const fname='o_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.png';const up=await fetch(SUPA_URL+'/storage/v1/object/ornaments/'+fname,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'image/png'},body:blob});if(up.ok)image_url=SUPA_URL+'/storage/v1/object/public/ornaments/'+fname;else console.log('upload err',up.status);}catch(e){console.log('img err',e);}const pubTitle=($('pub-title')||{}).value||'';const row={word,mode,layers,settings,lang:detectLang(word),image_url,title:pubTitle||word};try{const resp=await fetch(`${SUPA_URL}/rest/v1/bytecodes`,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(row)});closeMenu();if(resp.ok){toast('✦ Опубліковано в галерею!');okChime();}else{const t=await resp.text();toast('Помилка: '+resp.status);console.log('publish err',t);}}catch(e){closeMenu();toast('Немає зв\'язку з галереєю');}}
+async function doPublish(word){const btn=$('pub-yes');if(btn){btn.textContent='Публікую…';btn.disabled=true;}const settings={colOne, colZero, colAlt, motif, motifK, shape, colCloth, crossT, frame:frameW, monoMark, frameColor:layers!==3, invert, words:layers===3?D.ch.slice():undefined};let image_url=null;try{const scale=Math.max(1,Math.round(1000/Math.max(OFF.width,1)));const ex=document.createElement('canvas');ex.width=OFF.width*scale;ex.height=OFF.height*scale;const cx=ex.getContext('2d');cx.imageSmoothingEnabled=false;cx.drawImage(OFF,0,0,OFF.width,OFF.height,0,0,ex.width,ex.height);const blob=await new Promise(function(res){ex.toBlob(res,'image/png');});const fname='o_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.png';const up=await fetch(SUPA_URL+'/storage/v1/object/ornaments/'+fname,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'image/png'},body:blob});if(up.ok)image_url=SUPA_URL+'/storage/v1/object/public/ornaments/'+fname;else console.log('upload err',up.status);}catch(e){console.log('img err',e);}const pubTitle=($('pub-title')||{}).value||'';const row={word,mode,layers,settings,lang:detectLang(word),image_url,title:pubTitle||word};try{const resp=await fetch(`${SUPA_URL}/rest/v1/bytecodes`,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(row)});closeMenu();if(resp.ok){toast('✦ Опубліковано в галерею!');okChime();}else{const t=await resp.text();toast('Помилка: '+resp.status);console.log('publish err',t);}}catch(e){closeMenu();toast('Немає зв\'язку з галереєю');}}
 
 const ONE_COLORS=[
   '#ff2d2d','#22c55e','#2b6bff','#ffe000','#00d4e8','#b83dff',
@@ -1144,8 +1033,7 @@ function buildSwatches(){const mk=(box,arr,getCur,set,none)=>{box.innerHTML='';
   mk($('sw-zero'),ZERO_COLORS,()=>colZero,c=>colZero=c);
   mk($('sw-alt'),ALT_COLORS,()=>colAlt,c=>colAlt=c,true);
   mk($('sw-cloth'),CLOTH_COLORS,()=>colCloth,c=>colCloth=c);
-  const sl={thick:crossT,len:lenT,con:conT,glint:glintT};
-  for(const k in sl){const e=$(k);if(e)e.value=sl[k];}
+  const th=$('thick');if(th)th.value=crossT;
   buildMotifRow();}
 function buildMotifRow(){const box=$('mot-row');if(!box)return;box.innerHTML='';
   MOTIFS.forEach(m=>{const b=document.createElement('button');b.type='button';
@@ -1174,7 +1062,6 @@ function syncPalRows(){
   const vis=(id,on)=>{const e=$(id);if(e)e.style.display=on?'':'none';};
   vis('row-one',!rgb); vis('row-zero',!rgb); vis('row-alt',!rgb); vis('row-mot',!rgb);
   vis('row-cloth',cross); vis('row-thick',cross);
-  vis('row-len',cross); vis('row-con',cross); vis('row-glint',cross);
   const pv=$('pres-vysh'); if(pv)pv.style.display=rgb?'none':'';
   const show=(!rgb||cross);
   const pp=$('pal-btn').parentElement;
@@ -1186,14 +1073,10 @@ function syncPalRows(){
 function presetVysh(){isDemo=false;invert=false;syncInv();
   colOne='#1a1a1a';colZero='#f4efe6';colAlt='#c1121f';motif='rhomb';motifK=4;
   shape='cross';syncSeg('shape','s',shape);colCloth='#808080';crossT=45;
-  crossT=50;lenT=25;conT=55;glintT=45;
   setLayers(1);buildSwatches();build();tone(760,.08,.06);}
 $('pres-vysh').onclick=e=>{e.stopPropagation();presetVysh();};
 $('pal-btn').onclick=e=>{e.stopPropagation();palOpen=!palOpen;$('pal-panel').classList.toggle('hide',!palOpen);$('pal-btn').classList.toggle('on',palOpen);};
-/* Повзунки хрестика. Усі міняють лише вигляд, тому досить render(). */
-const SLIDERS={thick:v=>crossT=v, len:v=>lenT=v, con:v=>conT=v, glint:v=>glintT=v};
-for(const id in SLIDERS){const el=$(id);if(el)el.oninput=e=>{
-  SLIDERS[id](+e.target.value);scannedImg=null;render();saveState();};}
+$('thick').oninput=e=>{crossT=+e.target.value;scannedImg=null;render();saveState();};
 
 const SYMS={'☺':{name:'смайли',list:[...'😀😃😄😁😆😅😂🤣🙂🙃😉😊😇🥰😍🤩😘😗😚😙🥲😋😛😜🤪😝🤗🤭🤫🤔🫡😐😑😶😏😒🙄😬🤥😌😔😪🤤😴😷🤒🤕🤢🤮🥵🥶😵🤯🤠🥳🥸😎🤓🧐😕😟🙁😮😯😲😳🥺🥹😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀💩🤡👹👺👻👽👾🤖']},'♥':{name:'символи',list:[...'♥★☆✦✧❄☀☾☯☮♪♫✚∞♦♠♣☘✿❀⚘⚡✝☦☪🕉✡☸⚛✴❇✳❈❉']},'♈':{name:'зодіак',list:[...'♈♉♊♋♌♍♎♏♐♑♒♓⛎☉☽☿♀♁♂♃♄♅♆']},'₿':{name:'крипта й гроші',list:[...'₿ΞŁ$€£¥₽¢₹₩₪₴₺₮₦₱₡₫💰💵💴💶💷🪙💸💳']},'ᚠ':{name:'руни',list:[...'ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗᛚᛜᛞᛟᚪᚫᚬᛘᛦᛨ']},'福':{name:'ієрогліфи',list:[...'福愛龍虎鳳凰道德仁義禮智信和平安康壽喜財富貴春夏秋冬日月山水火風雷電花鳥魚']},'🎵':{name:'різне',list:[...'🎵🎶🎼🎹🎸🎺🎻🥁♟♜♞♝♛♚⚀⚁⚂⚃⚄⚅🀄🎲🎯🎰🎴⚽⚾🏀🏐🏈']}};
 let curSym='☺';
@@ -1377,8 +1260,7 @@ function saveState(){
   if(isDemo)return;
   try{sessionStorage.setItem(LAB_KEY,JSON.stringify(
     {t:D.single,l:layers,sh:shape,c1:colOne,c0:colZero,inv:invert,
-     ca:colAlt,mo:motif,mk:motifK,cl:colCloth,ct:crossT,
-     lt:lenT,cn:conT,gt:glintT}));}catch(e){}
+     ca:colAlt,mo:motif,mk:motifK,cl:colCloth,ct:crossT}));}catch(e){}
 }
 function restoreState(){
   let st=null;
@@ -1389,7 +1271,6 @@ function restoreState(){
   colOne=st.c1||colOne; colZero=st.c0||colZero; invert=!!st.inv; syncInv();
   colAlt=st.ca||null; motif=MOTIFS.some(m=>m.k===st.mo)?st.mo:'none'; motifK=st.mk||4;
   colCloth=st.cl||colCloth; crossT=(st.ct!=null)?st.ct:crossT;
-  if(st.lt!=null)lenT=st.lt; if(st.cn!=null)conT=st.cn; if(st.gt!=null)glintT=st.gt;
   shape=(st.sh==='circle'||st.sh==='cross')?st.sh:'square'; syncSeg('shape','s',shape);
   buildSwatches();
   setLayers(st.l===3?3:1);
@@ -1519,8 +1400,6 @@ function applyLang(){
   const labs=qa('.pal-row .lbl'); if(labs[0])labs[0].textContent=t('one'); if(labs[1])labs[1].textContent=t('zero');
   if(labs[2])labs[2].textContent=t('alt'); if(labs[3])labs[3].textContent=t('motifL');
   if(labs[4])labs[4].textContent=t('cloth'); if(labs[5])labs[5].textContent=t('thick');
-  if(labs[6])labs[6].textContent=t('len'); if(labs[7])labs[7].textContent=t('con');
-  if(labs[8])labs[8].textContent=t('glint');
   const pv=$('pres-vysh'); if(pv)pv.textContent=t('vysh');
   buildMotifRow();
   q('#shape button[data-s="square"]').textContent=t('sq');
