@@ -781,7 +781,16 @@ function paint(ctx,cell,pad,qz){
     const fx=ox+pad*cell, fy=oy+pad*cell;
     ctx.save();ctx.beginPath();ctx.rect(fx,fy,W*cell,H*cell);ctx.clip();
     ctx.fillStyle=colCloth;
-    const dia=(cx,cy)=>{ctx.beginPath();ctx.moveTo(cx,cy-d);ctx.lineTo(cx+d,cy);ctx.lineTo(cx,cy+d);ctx.lineTo(cx-d,cy);ctx.closePath();ctx.fill();};
+    /* Ромбик малюємо СТРОЧКАМИ, а не контуром. Контур холст завжди
+       згладжує: діагональ не лягає на піксельну сітку, і край виходить
+       каламутним, тоді як квадрати поряд — різкі. Вимкнути це не можна,
+       imageSmoothingEnabled керує лише картинками. Рядок цілої ширини —
+       це той самий fillRect, що й у клітинок, тож край виходить
+       східчастим і чистим. */
+    const dia=(cx,cy)=>{
+      const x0=Math.round(cx), y0=Math.round(cy), R=Math.round(d);
+      for(let k=-R;k<=R;k++){const half=R-Math.abs(k);ctx.fillRect(x0-half,y0+k,half*2+1,1);}
+    };
     for(let y=0;y<=H;y++)for(let x=0;x<W;x++)dia(fx+(x+.5)*cell,fy+y*cell);
     for(let y=0;y<H;y++)for(let x=0;x<=W;x++)dia(fx+x*cell,fy+(y+.5)*cell);
     ctx.restore();
