@@ -795,7 +795,15 @@ function paint(ctx,cell,pad,qz){
     for(let y=0;y<H;y++)for(let x=0;x<=W;x++)dia(fx+x*cell,fy+(y+.5)*cell);
     ctx.restore();
   }}
-function render(){const QZ=2;const pad=(frameW>=2?3:frameW),tw=W+pad*2,th=H+pad*2;const cell=Math.max(2,Math.floor(760/Math.max(tw+QZ*2,th+QZ*2)));OFF.width=(tw+QZ*2)*cell;OFF.height=(th+QZ*2)*cell;OCTX.imageSmoothingEnabled=false;paint(OCTX,cell,pad,QZ);
+/* РОЗМІР МОДУЛЯ. Холст цілиться в 1161 px по стороні й ділиться на повну
+   ширину коду в модулях (поле + рамка 3 + тиха зона 2 з кожного боку).
+   Результат округлюється до НЕПАРНОГО: у клітинки з'являється справжній
+   центральний піксель, бо при непарній стороні центр припадає рівно на
+   піксель, а не на стик. Крок модуля — 2 px, тому сусідні розміри поля
+   іноді дають однаковий модуль, і холст трохи дихає: 1110–1200 px.
+   Цього розміру вистачає для друку, тому при збереженні картинка більше
+   не множиться — іде як є. */
+function render(){const QZ=2;const pad=(frameW>=2?3:frameW),tw=W+pad*2,th=H+pad*2;const side=Math.max(tw+QZ*2,th+QZ*2);const cell=Math.max(3,2*Math.floor(1161/side/2)+1);OFF.width=(tw+QZ*2)*cell;OFF.height=(th+QZ*2)*cell;OCTX.imageSmoothingEnabled=false;paint(OCTX,cell,pad,QZ);
   /* RGB-негатив: повна інверсія пікселів */
   if(invert&&layers===3){const d=OCTX.getImageData(0,0,OFF.width,OFF.height),a=d.data;for(let i=0;i<a.length;i+=4){a[i]=255-a[i];a[i+1]=255-a[i+1];a[i+2]=255-a[i+2];}OCTX.putImageData(d,0,0);}
   blit();}
@@ -941,7 +949,11 @@ document.addEventListener('click',e=>{if(menuOpen&&!e.target.closest('.action'))
 
 function splitThree(t){const ch=[...t];const k=Math.ceil(ch.length/3);return [ch.slice(0,k).join(''),ch.slice(k,2*k).join(''),ch.slice(2*k).join('')];}
 function defaultName(){const t=D.single||'taina';return t.slice(0,26).trim().replace(/\s+/g,'_')}
-function savePNG(name){const scale=Math.max(1,Math.round(1200/Math.max(OFF.width,1)));const ex=document.createElement('canvas');ex.width=OFF.width*scale;ex.height=OFF.height*scale;const c=ex.getContext('2d');c.imageSmoothingEnabled=false;c.drawImage(OFF,0,0,OFF.width,OFF.height,0,0,ex.width,ex.height);ex.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name+'.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);tone(660,.09,.07)});}
+/* Зберігаємо ЯК Є, піксель у піксель. Раніше тут було ціле збільшення
+   під друк, через що файли виходили то 1496, то 2130 px. Тепер холст і
+   так близько 1200 px — для друку досить, а кому треба більше, той
+   збільшить сам і обере свій спосіб. */
+function savePNG(name){OFF.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name+'.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);tone(660,.09,.07)});}
 
 const SUPA_URL='https://iieahzklwngqugkovhrs.supabase.co';const SUPA_KEY='sb_publishable_FHtRNaLBvDgDTSLa_8eQnQ_oPMWCIxF';
 function detectLang(t){if(/[\u0400-\u04FF]/.test(t))return 'uk';if(/[\u4E00-\u9FFF]/.test(t))return 'zh';if(/[a-zA-Z]/.test(t))return 'en';return '';}
