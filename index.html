@@ -718,7 +718,7 @@ let BG_COLS=[];
    (світліша посередині), має власний відтінок і потовщення-«вузлики»
    вздовж довжини, як у льону; зверху — дрібне зерно.
    Лягає лише на полотно (фон, тиха зона, просвіти між стібками),
-   нитки вишивки лишаються поверх. Сила обмежена ±10% яскравості,
+   нитки вишивки лишаються поверх. Сила обмежена ±34 рівнями яскравості,
    щоб сканер не плутав зерно тканини з модулями коду. */
 let fabT=0, fabG=35;             /* фактура 0…100 (0 — гладко), крупність 0…100 */
 function _h(n){n=Math.sin(n*127.1+311.7)*43758.5453;return n-Math.floor(n);}
@@ -742,12 +742,15 @@ function fabricMap(W2,H2,p){
 }
 function applyFabric(ctx,W2,H2,flip){
   if(fabT<=0||!BG_COLS.length)return;
-  const A=0.16*fabT/100, p=2+Math.round(7*fabG/100);
+  /* Сила задається в РІВНЯХ ЯСКРАВОСТІ (до ±34), однаково для будь-якого
+     кольору. Раніше вона була відсотком від кольору, і на темному
+     (чорний, синій) відсоток від малого числа майже нічого не давав. */
+  const A=34*fabT/100, p=2+Math.round(7*fabG/100);
   const cols=BG_COLS.map(h=>{const a=hexRGB(h);return flip?a.map(v=>255-v):a;});
   const img=ctx.getImageData(0,0,W2,H2), a=img.data;
   /* Світле полотно може лише темнішати (світлішати нікуди), темне — навпаки;
      середнє — в обидва боки. */
-  const bias=cols.map(c=>{const l=lumA(c);return l>170?-1:l<70?1:0;});
+  const bias=cols.map(c=>{const l=lumA(c);return l>200?-1:l<55?1:0;});
   const which=(r,g,b)=>{for(let k=0;k<cols.length;k++){const c=cols[k];if(c[0]===r&&c[1]===g&&c[2]===b)return k;}return -1;};
   const TX=fabricMap(W2,H2,p);
   for(let y=0;y<H2;y++){
@@ -755,10 +758,11 @@ function applyFabric(ctx,W2,H2,flip){
       const o=(y*W2+x)*4; const r=a[o],g=a[o+1],b=a[o+2];
       const k=which(r,g,b); if(k<0)continue;
       let t=TX[y*W2+x];
-      if(bias[k]<0)t=(t-1)/2; else if(bias[k]>0)t=(t+1)/2;
-      const m=A*t;
-      if(m<0){a[o]=r*(1+m);a[o+1]=g*(1+m);a[o+2]=b*(1+m);}
-      else{a[o]=r+(255-r)*m;a[o+1]=g+(255-g)*m;a[o+2]=b+(255-b)*m;}
+      /* Біля чорного чи білого узор може йти лише в один бік — даємо йому
+         в 1,7 раза ширший розмах, щоб на темному тканину було видно так само. */
+      if(bias[k]<0)t=(t-1)*0.85; else if(bias[k]>0)t=(t+1)*0.85;
+      const m=A*t;      /* Uint8ClampedArray сам обріже до 0…255 */
+      a[o]=r+m;a[o+1]=g+m;a[o+2]=b+m;
     }
   }
   ctx.putImageData(img,0,0);
@@ -768,7 +772,7 @@ function hexRGB(h){const q=/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/.exec(h||'');if(q)r
 function rgbHexA(a){return '#'+a.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');}
 function lumA(a){return (a[0]*77+a[1]*150+a[2]*29)/256;}
 function mixA(a,b,t){return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];}
-let REQ=0.6;
+let REQ=0.7;
 /* ТОНИ ОБ'ЄМУ. Кожна літера шаблону — це основний колір нитки, зсунутий
    до білого (блик) або до чорного (тінь) на свою частку.
    ЗАПАС ПІД БЛИК: щоб блику було куди світлішати, світла нитка плавно
@@ -786,7 +790,11 @@ function stitchTones(ink,bg){
     if(l>hi) base=mixA(base,K,(l-hi)/l);
     else if(l<lo) base=mixA(base,Wt,(lo-l)/(255-l));
   }
-  const lb=lumA(base), lg=lumA(bgc), d=lb-lg, side=d>=0?1:-1;
+  /* Тіні й блики стережемо від «уявного» фону — чорного для нитки, світлішої
+     за полотно, і білого для темнішої. Справжній фон впливає лише на те,
+     з якого боку нитка, тож поки рухаєш яскравість фону, крестики
+     лишаються незмінними. Колір фону вирішує тільки, чи код читається. */
+  const lb=lumA(base), side=(lb>=lumA(bgc))?1:-1, lg=side>0?0:255, d=lb-lg;
   const req=Math.min(REQ*Math.abs(d), side*d);
   const toneL=(X,t)=>{
     const lX=lumA(X);
@@ -1278,7 +1286,9 @@ function inkWarn(){
    більший запас: 55 для пласких клітинок і до 100 — на повному об'ємі,
    для будь-якої форми. Перевірено на збережених PNG і на
    знімках, що імітують камеру. */
-function minD(vol){return 55+45*((vol??volT)/100)+15*(fabT/100);}
+/* + запас на тканину: що сильніша фактура і крупніше плетіння, то більше.
+   Крупне плетіння найнебезпечніше — нитка тканини стає сумірною з модулем. */
+function minD(vol){const g=fabG/100;return 55+45*((vol??volT)/100)+(fabT/100)*(15+35*g*g);}
 function readableWith(b1,b0,ba,vol,margin){
   if(layers===3)return true;
   const MIN_D=minD(vol)+(margin||0);
@@ -1422,7 +1432,7 @@ addEventListener('resize',fitPal);
 function setVol(v){volT=v;['vol','vol-m'].forEach(id=>{const e=$(id);if(e&&+e.value!==v)e.value=v;});scannedImg=null;render();readStatus(true);saveState();}
 $('vol').oninput=e=>setVol(+e.target.value);
 $('fab').oninput=e=>{fabT=+e.target.value;scannedImg=null;render();readStatus(true);saveState();};
-$('fabg').oninput=e=>{fabG=+e.target.value;scannedImg=null;render();saveState();};
+$('fabg').oninput=e=>{fabG=+e.target.value;scannedImg=null;render();readStatus(true);saveState();};
 if($('vol-m'))$('vol-m').oninput=e=>setVol(+e.target.value);
 
 const SYMS={'☺':{name:'смайли',list:[...'😀😃😄😁😆😅😂🤣🙂🙃😉😊😇🥰😍🤩😘😗😚😙🥲😋😛😜🤪😝🤗🤭🤫🤔🫡😐😑😶😏😒🙄😬🤥😌😔😪🤤😴😷🤒🤕🤢🤮🥵🥶😵🤯🤠🥳🥸😎🤓🧐😕😟🙁😮😯😲😳🥺🥹😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀💩🤡👹👺👻👽👾🤖']},'♥':{name:'символи',list:[...'♥★☆✦✧❄☀☾☯☮♪♫✚∞♦♠♣☘✿❀⚘⚡✝☦☪🕉✡☸⚛✴❇✳❈❉']},'♈':{name:'зодіак',list:[...'♈♉♊♋♌♍♎♏♐♑♒♓⛎☉☽☿♀♁♂♃♄♅♆']},'₿':{name:'крипта й гроші',list:[...'₿ΞŁ$€£¥₽¢₹₩₪₴₺₮₦₱₡₫💰💵💴💶💷🪙💸💳']},'ᚠ':{name:'руни',list:[...'ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗᛚᛜᛞᛟᚪᚫᚬᛘᛦᛨ']},'福':{name:'ієрогліфи',list:[...'福愛龍虎鳳凰道德仁義禮智信和平安康壽喜財富貴春夏秋冬日月山水火風雷電花鳥魚']},'🎵':{name:'різне',list:[...'🎵🎶🎼🎹🎸🎺🎻🥁♟♜♞♝♛♚⚀⚁⚂⚃⚄⚅🀄🎲🎯🎰🎴⚽⚾🏀🏐🏈']}};
