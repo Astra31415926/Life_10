@@ -531,8 +531,17 @@ function decodeCells(cells, Tz) {
     return { bst, agree, masks, cand, chans: ags.length, lost };
   }
 
+  /* ПОЛЯРНІСТЬ ФАРБ. Колір буває «світлом» (біт = світлий канал, фон
+     чорний) або «фарбою на папері» (біт = канал З'ЇДЕНО, фон світлий:
+     блакитний, маджента, жовтий). Сайт тепер малює RGB саме так — фон
+     і тиха зона найсвітліші. Пробуємо обидві полярності; хибна не
+     пройде UTF-8 і зворотну звірку, а з двох вірних перемагає повніша. */
+  const flipCls = c => {
+    const f = a => { const o = new Uint8Array(N); for (let i = 0; i < N; i++) o[i] = a[i] ? 0 : 1; return o; };
+    return { name: c.name + '·фарба', cr: f(c.cr), cg: f(c.cg), cb: f(c.cb) };
+  };
   let pick = null;
-  for (const cand of [clsOtsu, clsPal]) {
+  for (const cand of [clsOtsu, clsPal, flipCls(clsOtsu), flipCls(clsPal)]) {
     const r = tryCls(cand);
     if (!r) continue;
     /* Порядок порівняння: спершу СКІЛЬКИ каналів вдалося прочитати —
