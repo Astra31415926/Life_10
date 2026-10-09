@@ -395,6 +395,27 @@ function monoRead(L, n) {
 }
 
 /**
+ * МОНОХРОМ ПО ОКРЕМИХ КАНАЛАХ (з 2.4).
+ * Яскравість — це суміш трьох каналів, і вона гірша за найкращий з них.
+ * Палітри сайту мають «несучий канал», де нитка й фон розходяться найдужче,
+ * а мотив перефарбовує лише два інші канали. Тож пробуємо прочитати код
+ * по яскравості і по кожному каналу R, G, B окремо; канал із шумом мотиву
+ * не пройде UTF-8 і зворотну звірку, чистий — пройде. Нічия — яскравості.
+ */
+function monoReadAny(cells, L, n) {
+  const N = n * n;
+  let best = monoRead(L, n);
+  if (best) best.chan = 'L';
+  for (let c = 0; c < 3; c++) {
+    const v = new Float64Array(N);
+    for (let i = 0; i < N; i++) v[i] = cells[i * 3 + c];
+    const r = monoRead(v, n);
+    if (r && (!best || r.agree > best.agree + 1e-9)) { r.chan = 'RGB'[c]; best = r; }
+  }
+  return best;
+}
+
+/**
  * Декод снятых клеток.
  * @param cells Float64Array длиной n*n*3 — средний RGB каждой клетки
  * @param Tz    размер кольца зебры (Tz = T - 2)
@@ -429,7 +450,7 @@ function decodeCells(cells, Tz) {
   const isColored = medSat > 25 || coloredCnt >= Math.max(3, n * 0.15);
 
   if (!isColored) {
-    const best = monoRead(L, n);
+    const best = monoReadAny(cells, L, n);
     if (!best) return { kind: 'mono', text: null, agree: 0, n, colored: false };
     return { kind: 'mono', text: best.text, parts: [best.text], agree: best.agree,
              mode: best.mode, n, colored: false, palette: null, shape: best.shape,
@@ -467,7 +488,7 @@ function decodeCells(cells, Tz) {
       if (f < 0.97 && f > 0.03) identical = false;
     }
     if (identical) {
-      const best = monoRead(L, n);
+      const best = monoReadAny(cells, L, n);
       if (best) {
         return { kind: 'mono', text: best.text, parts: [best.text], agree: best.agree,
                  mode: best.mode, n, colored: false, tinted: true,
@@ -573,7 +594,7 @@ function decodeCells(cells, Tz) {
      Нічия завжди лишається кольоровому. Мітку rmark тут за ознаку брати
      не можна: це одна центральна клітинка червоного каналу, і в
      декоративному коді вона буває одиницею випадково. */
-  const monoAlt = monoRead(L, n);
+  const monoAlt = monoReadAny(cells, L, n);
   /* ПЕРЕВІРКА «ОДИН ТЕКСТ У ТРЬОХ КАНАЛАХ».
      Генератор ділить текст на три послідовні третини (по символах). Якщо
      прочитані канали так не складаються — це не RGB-код, а одноколірний
@@ -589,7 +610,10 @@ function decodeCells(cells, Tz) {
   }
   const monoWins = monoAlt && monoAlt.agree >= CFG.AGREE_MIN &&
                    (!pick || monolithBad ||
-                    (monoAlt.agree > pick.agree + 1e-9 && pick.chans < 3));
+                    (monoAlt.agree > pick.agree + 1e-9 && pick.chans < 3 &&
+                     /* канал-одиночка не перебиває справжній RGB-моноліт:
+                        у нього кожен канал — окрема третина тексту */
+                     (monoAlt.chan === 'L' || !pick.bst.rmark)));
   if (monoWins) {
     return { kind: 'mono', text: monoAlt.text, parts: [monoAlt.text],
              agree: monoAlt.agree, mode: monoAlt.mode, n, colored: false,
@@ -758,7 +782,7 @@ function pickStructureChannels(px, W, H0) {
   }
   let bi = 1, bv = sd[1];
   for (let k = 2; k <= 3; k++) if (sd[k] > bv) { bv = sd[k]; bi = k; }
-  return bv > sd[0] * 1.4 ? [-1, bi - 1] : [-1];
+  return bv > sd[0] * 1.15 ? [-1, bi - 1] : [-1];
 }
 
 /** Быстрый warp в серое, ближайший сосед — для проверки гипотез.
@@ -1476,7 +1500,7 @@ window.TainaDecoder = {
   last: null,               // результат останнього розбору, разом із діагностикою
   cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
-  version: '2.3',
+  version: '2.4',
   /* внутренности — для decoder-lab.html и автотестов */
   _internal: { decodePixels, warpGrayNN, warpRGB, insetCorners, insetCornersFrac, verifyZebra, zebraRing,
                outerFrameScore, sampleCells, decodeCells, findQuadsCV,
