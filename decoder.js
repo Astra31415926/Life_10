@@ -780,9 +780,11 @@ function pickStructureChannels(px, W, H0) {
     const mu = s[k] / N;
     sd.push(Math.sqrt(Math.max(0, s2[k] / N - mu * mu)));
   }
-  let bi = 1, bv = sd[1];
-  for (let k = 2; k <= 3; k++) if (sd[k] > bv) { bv = sd[k]; bi = k; }
-  return bv > sd[0] * 1.15 ? [-1, bi - 1] : [-1];
+  /* Яскравість першою, далі канали за спаданням розкиду (з 2.4).
+     У палітр сайту рамка найчистіша в несучому каналі, а мотив додає
+     розкиду іншим каналам — тож пробуємо всі помітні канали. */
+  const chans = [0, 1, 2].filter(c => sd[c + 1] > 20).sort((a, b) => sd[b + 1] - sd[a + 1]);
+  return [-1].concat(chans);
 }
 
 /** Быстрый warp в серое, ближайший сосед — для проверки гипотез.
@@ -1172,10 +1174,17 @@ function decode(source, opts) {
   const weak = (x) => x && x.ok && x.n <= 11;
   const order = inv === true ? [true, false] : [false, true];
   let best = runPass(order[0]);
-  const needSecond = (inv === 'auto' && !best.ok) || weak(best);
+  /* НЕПІДТВЕРДЖЕНИЙ РЕЗУЛЬТАТ (з 2.4). Якщо перший прохід дав лише
+     одне читання без повної згоди, на файлі перевіряємо й другу
+     полярність: у негативі звичайний прохід інколи приймає дрібний
+     шматок усередині коду, а цілий код читається перевернутим. */
+  const shaky = (x) => x && x.ok && opts.mode !== 'camera' &&
+                 !(x.confidence.votes >= 2 && x.confidence.agree >= 0.999);
+  const needSecond = (inv === 'auto' && (!best.ok || shaky(best))) || weak(best);
   if (needSecond) {
     const sec = runPass(order[1]);
-    if (sec.ok && (!best.ok || sec.T > best.T)) best = sec;
+    const bl = x => _enc.encode(x.text || '').length;
+    if (sec.ok && (!best.ok || bl(sec) > bl(best) || (bl(sec) === bl(best) && sec.T > best.T))) best = sec;
   }
   return best;
 }
@@ -1373,8 +1382,12 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
       } /* кінець перебору кандидатів розміру */
     }
   }
-  /* Другий канал перебираємо ТІЛЬКИ якщо по яскравості нічого не знайшли. */
-  if (accepted.length) break;
+  /* Інші канали: на камері — лише якщо по яскравості нічого не знайшли.
+     На файлі перебираємо всі: перший прохід інколи приймає дрібний
+     самоузгоджений шматок усередині коду, а справжній код знаходиться
+     в несучому каналі; переможе довший текст. Повна згода — досить. */
+  if (accepted.length && (opts.mode === 'camera' ||
+      accepted.some(c => c.agree >= 0.999 && c.frame >= 0.999))) break;
   }
   } /* кінець етапів */
 
