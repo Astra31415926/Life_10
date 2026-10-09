@@ -1335,7 +1335,28 @@ function lum(h){const m=/^#?([0-9a-f]{6})$/i.exec(h||'');if(!m)return 128;
    «серце» орнаменту у двох власних кольорах палітри. */
 const SEAL_R=2;
 function inSeal(x,y){const c=(W-1)/2;return Math.abs(x-c)<=SEAL_R&&Math.abs(y-c)<=SEAL_R;}
-function sealCol(col){const o=PAL().sv.slice(),k=PAL().c;o[k]=hexRGB(col)[k];return rgbHexA(o);}
+/* КОЛЬОРИ ПЕЧАТКИ підбираються з самої палітри. Вільні канали в печатці
+   однакові для нитки й поля (так треба для сканера), а несучий — свій.
+   Тож шукаємо ці спільні значення так, щоб обидва кольори печатки
+   вийшли якомога ближчими до кольорів, які вже є в орнаменті: поле,
+   нитка й обидва кольори мотиву. Печатка тоді виглядає частиною
+   візерунка, а не плямою. */
+const _sealCache=new Map();
+function sealVals(){
+  const P=PAL(), k=PAL().c, key=palG+':'+palI; if(_sealCache.has(key))return _sealCache.get(key);
+  const cols=[P.bg,P.ink,lockC(P.ai,P.ink),lockC(P.ab,P.bg)];
+  const lo=Math.min(P.bg[k],P.ink[k]), hi=Math.max(P.bg[k],P.ink[k]);
+  const fr=[0,1,2].filter(q=>q!==k);
+  const near=c=>{let m=1e9;for(const q of cols){const d=(c[0]-q[0])**2+(c[1]-q[1])**2+(c[2]-q[2])**2;if(d<m)m=d;}return Math.sqrt(m);};
+  let best=null;
+  for(let a=0;a<=255;a+=5)for(let b=0;b<=255;b+=5){
+    const v=[0,0,0];v[fr[0]]=a;v[fr[1]]=b;
+    const L=v.slice(),Hh=v.slice();L[k]=lo;Hh[k]=hi;
+    const dl=near(L),dh=near(Hh),cost=Math.max(dl,dh)+0.25*(dl+dh);   /* обидва кольори мають бути «своїми» */
+    if(!best||cost<best.cost)best={cost,v};}
+  _sealCache.set(key,best.v);return best.v;
+}
+function sealCol(col){const o=sealVals().slice(),k=PAL().c;o[k]=hexRGB(col)[k];return rgbHexA(o);}
 /* Чи потрапляє клітинка в смугу мотиву. Залежить лише від (|i|,|j|) —
    симетрія ×8 зберігається. */
 function inBand(x,y){
