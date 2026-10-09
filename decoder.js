@@ -108,6 +108,13 @@ function minimalOctN(bits) {
 
 const _enc = new TextEncoder();
 const _dec = new TextDecoder('utf-8', { fatal: true });
+/* Обсяг корисних даних результату: сума байтів частин, без роздільників
+   « · ». Саме ним порівнюємо кандидатів: роздільники не повинні робити
+   три шматочки мусору «довшими» за справжній текст. */
+function payloadBytes(x) {
+  const ps = (x && x.parts && x.parts.length) ? x.parts : [x && x.text || ''];
+  let n = 0; for (const t of ps) if (t) n += _enc.encode(t).length; return n;
+}
 
 /* ═════════════════════ ЧАСТЬ 1. ЯДРО ФОРМАТА TAINA ═════════════════════
    Перенесено из рабочего декодера проекта без изменения логики.
@@ -404,13 +411,20 @@ function monoRead(L, n) {
  */
 function monoReadAny(cells, L, n) {
   const N = n * n;
+  /* Порядок переваги: пройшла звірку → більше даних → краща звірка →
+     яскравість. Мусор у вільному каналі буває й з ідеальною звіркою,
+     але це короткий шматок; справжній текст — найдовший. */
+  const key = r => [r.agree >= CFG.AGREE_MIN ? 1 : 0, _enc.encode(r.text).length, r.agree];
+  const better = (a, b) => { const x = key(a), y = key(b);
+    for (let k = 0; k < 3; k++) { if (x[k] > y[k] + 1e-9) return true; if (x[k] < y[k] - 1e-9) return false; }
+    return false; };
   let best = monoRead(L, n);
   if (best) best.chan = 'L';
   for (let c = 0; c < 3; c++) {
     const v = new Float64Array(N);
     for (let i = 0; i < N; i++) v[i] = cells[i * 3 + c];
     const r = monoRead(v, n);
-    if (r && (!best || r.agree > best.agree + 1e-9)) { r.chan = 'RGB'[c]; best = r; }
+    if (r && (!best || better(r, best))) { r.chan = 'RGB'[c]; best = r; }
   }
   return best;
 }
@@ -613,7 +627,12 @@ function decodeCells(cells, Tz) {
                     (monoAlt.agree > pick.agree + 1e-9 && pick.chans < 3 &&
                      /* канал-одиночка не перебиває справжній RGB-моноліт:
                         у нього кожен канал — окрема третина тексту */
-                     (monoAlt.chan === 'L' || !pick.bst.rmark)));
+                     (monoAlt.chan === 'L' || !pick.bst.rmark)) ||
+                    /* кольорове читання без мітки RGB, що несе МЕНШЕ даних,
+                       ніж монохромне, — це шум мотиву у вільних каналах */
+                    (!pick.bst.rmark &&
+                     _enc.encode(monoAlt.text).length >
+                     [pick.bst.vr, pick.bst.vg, pick.bst.vb].reduce((q, t) => q + (t ? _enc.encode(t).length : 0), 0)));
   if (monoWins) {
     return { kind: 'mono', text: monoAlt.text, parts: [monoAlt.text],
              agree: monoAlt.agree, mode: monoAlt.mode, n, colored: false,
@@ -1183,7 +1202,7 @@ function decode(source, opts) {
   const needSecond = (inv === 'auto' && (!best.ok || shaky(best))) || weak(best);
   if (needSecond) {
     const sec = runPass(order[1]);
-    const bl = x => _enc.encode(x.text || '').length;
+    const bl = payloadBytes;
     if (sec.ok && (!best.ok || bl(sec) > bl(best) || (bl(sec) === bl(best) && sec.T > best.T))) best = sec;
   }
   return best;
@@ -1407,9 +1426,8 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
   /* Спершу — ОБСЯГ прочитаного (з 2.3). Справжній код — найбільший
      самоузгоджений текст у кадрі; зсунута сітка читає лише його шматок
      (коротший), і такий шматок інколи набирає більше голосів, ніж ціле. */
-  const bytesOf = t => _enc.encode(t).length;
   const ranked = [...byText.values()].sort((a, b) =>
-    (bytesOf(b.best.text) - bytesOf(a.best.text)) ||
+    (payloadBytes(b.best) - payloadBytes(a.best)) ||
     (b.votes - a.votes) ||
     (b.best.agree - a.best.agree) ||
     (b.best.frame - a.best.frame)
@@ -1513,7 +1531,7 @@ window.TainaDecoder = {
   last: null,               // результат останнього розбору, разом із діагностикою
   cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
-  version: '2.4',
+  version: '2.5',
   /* внутренности — для decoder-lab.html и автотестов */
   _internal: { decodePixels, warpGrayNN, warpRGB, insetCorners, insetCornersFrac, verifyZebra, zebraRing,
                outerFrameScore, sampleCells, decodeCells, findQuadsCV,

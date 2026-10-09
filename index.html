@@ -540,7 +540,7 @@ body.light-mode .menu .hint{color:#8a4e00}
 <div class="flash" id="flash"></div>
 
 <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
-<script src="decoder.js?v=23"></script>
+<script src="decoder.js?v=24"></script>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -608,20 +608,20 @@ let hasImage=false, menuOpen=false, busy=false, palOpen=false;
    Колір мотиву прив'язаний до свого кольору й переходить разом із ним. */
 const PALS=[
  {uk:'Традиційні',en:'Traditional',items:[
-  {uk:'Червоно-чорна',en:'Red & black',c:1,bg:[22,18,18],ink:[242,232,212],ai:[255,232,120],ab:[178,18,30]},
-  {uk:'Синьо-біла',en:'Blue & white',c:0,bg:[16,36,96],ink:[240,244,250],ai:[240,222,96],ab:[16,78,176]},
-  {uk:'Коричнево-бежева',en:'Brown & beige',c:1,bg:[58,36,20],ink:[234,212,176],ai:[252,212,120],ab:[146,36,22]}]},
+  {uk:'Червоно-чорна',en:'Red & black',c:1,bg:[22,18,18],ink:[242,232,212],ai:[255,232,120],ab:[178,18,30],sv:[230,0,40]},
+  {uk:'Синьо-біла',en:'Blue & white',c:0,bg:[16,36,96],ink:[240,244,250],ai:[240,222,96],ab:[16,78,176],sv:[0,200,235]},
+  {uk:'Коричнево-бежева',en:'Brown & beige',c:1,bg:[58,36,20],ink:[234,212,176],ai:[252,212,120],ab:[146,36,22],sv:[210,0,40]}]},
  {uk:'Контрастні',en:'Contrast',items:[
-  {uk:'Біле по чорному',en:'White on black',c:1,bg:[12,12,12],ink:[250,250,250],ai:[255,250,80],ab:[40,12,160]},
-  {uk:'Жовто-синя',en:'Yellow & blue',c:0,bg:[10,60,170],ink:[255,215,0],ai:[255,128,24],ab:[10,30,110]},
-  {uk:'Зелено-червона',en:'Green & red',c:0,bg:[18,110,50],ink:[230,40,50],ai:[230,200,60],ab:[18,60,120]}]},
+  {uk:'Біле по чорному',en:'White on black',c:1,bg:[12,12,12],ink:[250,250,250],ai:[255,250,80],ab:[40,12,160],sv:[230,0,40]},
+  {uk:'Жовто-синя',en:'Yellow & blue',c:0,bg:[10,60,170],ink:[255,215,0],ai:[255,128,24],ab:[10,30,110],sv:[0,170,40]},
+  {uk:'Зелено-червона',en:'Green & red',c:0,bg:[18,110,50],ink:[230,40,50],ai:[230,200,60],ab:[18,60,120],sv:[0,200,40]}]},
  {uk:'Монохромні',en:'Monochrome',items:[
-  {uk:'Глибокий синій',en:'Deep blue',c:0,bg:[10,24,70],ink:[200,222,250],ai:[200,244,255],ab:[10,52,132]},
-  {uk:'Бордовий',en:'Burgundy',c:1,bg:[70,8,22],ink:[245,215,215],ai:[255,215,170],ab:[142,8,52]},
-  {uk:'Смарагдовий',en:'Emerald',c:0,bg:[4,52,36],ink:[210,245,225],ai:[210,245,140],ab:[4,92,82]}]},
+  {uk:'Глибокий синій',en:'Deep blue',c:0,bg:[10,24,70],ink:[200,222,250],ai:[200,244,255],ab:[10,52,132],sv:[0,170,240]},
+  {uk:'Бордовий',en:'Burgundy',c:1,bg:[70,8,22],ink:[245,215,215],ai:[255,215,170],ab:[142,8,52],sv:[255,0,120]},
+  {uk:'Смарагдовий',en:'Emerald',c:0,bg:[4,52,36],ink:[210,245,225],ai:[210,245,140],ab:[4,92,82],sv:[0,200,120]}]},
  {uk:'Спеціальні',en:'Special',items:[
-  {uk:'Неонова',en:'Neon',c:1,bg:[8,8,18],ink:[60,255,120],ai:[240,255,40],ab:[60,8,92]},
-  {uk:'Золота',en:'Gold',c:0,bg:[30,20,12],ink:[236,190,70],ai:[236,230,170],ab:[30,32,84]}]}
+  {uk:'Неонова',en:'Neon',c:1,bg:[8,8,18],ink:[60,255,120],ai:[240,255,40],ab:[60,8,92],sv:[255,0,255]},
+  {uk:'Золота',en:'Gold',c:0,bg:[30,20,12],ink:[236,190,70],ai:[236,230,170],ab:[30,32,84],sv:[0,90,20]}]}
 ];
 let palG=1, palI=0;      /* старт: «Біле по чорному», позитив */
 function PAL(){return PALS[palG].items[palI];}
@@ -1114,9 +1114,9 @@ function paint(ctx,cell,pad,qz){
   ctx.fillStyle=dataBg;
   ctx.fillRect(ox+pad*cell,oy+pad*cell,W*cell,H*cell);
   const put=(x,y,col)=>{ctx.fillStyle=col;const px=ox+(x+pad)*cell,py=oy+(y+pad)*cell;if(ST)STITCH_LIST.push([px,py,col,dataBg]);if(shape==='circle'){ctx.beginPath();ctx.arc(px+cell/2,py+cell/2,cell/2*.94,0,6.2832);ctx.fill()}else ctx.fillRect(px,py,cell,cell)};
-  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;if(layers===3){const inAny=dmask.r[i]||dmask.g[i]||dmask.b[i];if(!inAny)continue;const on={r:dmask.r[i]&&grid.r[i],g:dmask.g[i]&&grid.g[i],b:dmask.b[i]&&grid.b[i]};if(!on.r&&!on.g&&!on.b)continue;put(x,y,rgbInk(!!on.r!==!!(PM&4),!!on.g!==!!(PM&2),!!on.b!==!!(PM&1)));}else{const band=MOT&&inBand(x,y);
-      if(dmask.r[i]&&grid.r[i])put(x,y,band?a1:c1);
-      else if(band){ctx.fillStyle=a0;ctx.fillRect(ox+(x+pad)*cell,oy+(y+pad)*cell,cell,cell);}}}
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;if(layers===3){const inAny=dmask.r[i]||dmask.g[i]||dmask.b[i];if(!inAny)continue;const on={r:dmask.r[i]&&grid.r[i],g:dmask.g[i]&&grid.g[i],b:dmask.b[i]&&grid.b[i]};if(!on.r&&!on.g&&!on.b)continue;put(x,y,rgbInk(!!on.r!==!!(PM&4),!!on.g!==!!(PM&2),!!on.b!==!!(PM&1)));}else{const band=MOT&&inBand(x,y), pz=MOT&&inSeal(x,y);
+      if(dmask.r[i]&&grid.r[i]){const col=band?a1:c1;put(x,y,pz?sealCol(col):col);}
+      else if(pz||band){ctx.fillStyle=pz?sealCol(c0):a0;ctx.fillRect(ox+(x+pad)*cell,oy+(y+pad)*cell,cell,cell);}}}
 }
 /* РОЗМІР МОДУЛЯ. Холст цілиться в 1161 px по стороні й ділиться на повну
    ширину коду в модулях (поле + рамка 3 + тиха зона 2 з кожного боку).
@@ -1324,6 +1324,18 @@ function motifFn(){const m=MOTIFS.find(x=>x.k===motif);return m?m.f:null;}
 /* Яскравість кольору #rrggbb — за нею рамка обирає, яке кільце темне. */
 function lum(h){const m=/^#?([0-9a-f]{6})$/i.exec(h||'');if(!m)return 128;
   const v=parseInt(m[1],16);return ((v>>16&255)*77+(v>>8&255)*150+(v&255)*29)>>8;}
+/* ═══ ПЕЧАТКА ОРНАМЕНТУ ═══
+   Мотив фарбує два «вільні» канали, і там випадково може скластися
+   читабельний мусор (наприклад, «546 · 4 · ?6?»). Щоб цього не було,
+   центр коду (квадрат 5×5) у вільних каналах робимо РІВНИМ: у кожної
+   клітинки там вільні канали однакові — sv палітри. Перший байт будь-якого
+   вільного каналу тоді виходить 111111xx або 000000xx: це не UTF-8 або
+   керівний символ — сканер такий канал відкидає й знає, що це орнамент.
+   Несучий канал печатка не чіпає, тож сам код не змінюється. Візуально —
+   «серце» орнаменту у двох власних кольорах палітри. */
+const SEAL_R=2;
+function inSeal(x,y){const c=(W-1)/2;return Math.abs(x-c)<=SEAL_R&&Math.abs(y-c)<=SEAL_R;}
+function sealCol(col){const o=PAL().sv.slice(),k=PAL().c;o[k]=hexRGB(col)[k];return rgbHexA(o);}
 /* Чи потрапляє клітинка в смугу мотиву. Залежить лише від (|i|,|j|) —
    симетрія ×8 зберігається. */
 function inBand(x,y){
