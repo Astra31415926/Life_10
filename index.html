@@ -478,7 +478,7 @@ body.light-mode .menu .hint{color:#8a4e00}
         <button class="cornbtn" id="langBtn" type="button" title="Мова / Language">UA</button>
         <button class="arrow" id="undo" title="Назад" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
         <span class="spacer" aria-hidden="true"></span>
-        <button class="trash invbtn" id="invBtn" type="button" title="Негатив"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg></button>
+        <button class="trash invbtn" id="invBtn" type="button" title="Негатив"><svg class="ic-neg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg><svg class="ic-dial" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="9"/><circle id="dialDot" cx="12" cy="12" r="3.2" stroke-width="1.5" fill="#e6e6e6"/><g id="dialArrow" style="transform-origin:12px 12px;transition:transform .3s cubic-bezier(.4,0,.2,1)"><path d="M12 5v2.6" stroke-linecap="round"/><path d="M9.7 6.6 12 4.2l2.3 2.4" stroke-linecap="round" stroke-linejoin="round"/></g></svg></button>
       </div>
       <div class="stagebox">
         <div class="stage" id="stage">
@@ -526,7 +526,7 @@ body.light-mode .menu .hint{color:#8a4e00}
 <div class="flash" id="flash"></div>
 
 <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
-<script src="decoder.js?v=21"></script>
+<script src="decoder.js?v=22"></script>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -542,7 +542,7 @@ const DICT={
      sq:'Квадрат',ci:'Кружечок',cr:'Хрестик',chars:'Символів',bytes:'Байтів',bits:'Біт даних',field:'Поле',
      warn:'Даних більше, ніж уміщає поле',ph:'зашифруй послання',demo:'напиши свій текст',
      merch:'Приміряти на мерч →',save:'Зберегти',load:'Завантажити · сканувати',
-     undo:'Назад',redo:'Вперед',clear:'Очистити',inv:'Негатив',bOk:'✓ цей код читається',bWarn:'ліміт — до 100 байт',bMax:'ліміт 100 байт вичерпано',bUnit:'Б',theme:'Тема',
+     undo:'Назад',redo:'Вперед',clear:'Очистити',inv:'Негатив',invRgb:'Колірна схема (8 варіантів)',bOk:'✓ цей код читається',bWarn:'ліміт — до 100 байт',bMax:'ліміт 100 байт вичерпано',bUnit:'Б',theme:'Тема',
      mbSave:'⤓ Зберегти',mbScan:'⌖ Сканувати',shTitle:'Сканувати код',shCam:'📷 Камера',
      shFile:'🖼 Завантажити з галереї',shCancel:'Скасувати',
      noCode:'Код не прочитано',
@@ -556,7 +556,7 @@ const DICT={
      sq:'Square',ci:'Circle',cr:'Cross',chars:'Characters',bytes:'Bytes',bits:'Data bits',field:'Field',
      warn:'More data than the field can hold',ph:'encode a message',demo:'write your text',
      merch:'Try it on merch →',save:'Save',load:'Load · scan',
-     undo:'Back',redo:'Forward',clear:'Clear',inv:'Negative',bOk:'✓ this code is readable',bWarn:'limit — up to 100 bytes',bMax:'100-byte limit reached',bUnit:'B',theme:'Theme',
+     undo:'Back',redo:'Forward',clear:'Clear',inv:'Negative',invRgb:'Colour scheme (8 variants)',bOk:'✓ this code is readable',bWarn:'limit — up to 100 bytes',bMax:'100-byte limit reached',bUnit:'B',theme:'Theme',
      mbSave:'⤓ Save',mbScan:'⌖ Scan',shTitle:'Scan a code',shCam:'📷 Camera',
      shFile:'🖼 Pick from gallery',shCancel:'Cancel',
      noCode:'Code not read',
@@ -592,7 +592,15 @@ let monoMark=0;
 let scannedImg=null;
 let prevLen=0;
 let isDemo=false;
-let invert=false;   /* негатив */
+let invert=false;   /* негатив (монохром) */
+/* ═══ RGB: ВІСІМ КОЛІРНИХ СХЕМ ═══
+   Кожен канал можна інвертувати окремо: 2³ = 8 схем. Біти маски: R=4, G=2, B=1.
+   Схеми 1–6 (частина каналів) фарбують лише поле даних — рамка й світле поле
+   навколо лишаються сірими, по них декодер знаходить код. Схема 7 (усі три)
+   — давній повний негатив разом із рамкою. Кнопка-циферблат перемикає їх по колу. */
+const INV_SEQ=[0,4,2,1,6,5,3,7];
+let rgbStep=0, rgbDeg=0;
+function rgbMask(){return layers===3?INV_SEQ[rgbStep]:0;}
 const D={single:'', ch:['','','']};
 
 /* ═══════════ ХРЕСТИК: СТІБОК ЗА ШАБЛОНОМ ═══════════
@@ -923,8 +931,14 @@ async function applyScan(best){
   else if(best.kind==='three'){txt=parts[0];}
   else{txt=best.text||best.res[0]||'';}
   isDemo=false;
-  invert=!!best.negative; syncInv();
-  setLayers(colored?3:1);
+  if(colored){
+    /* схема кольорів знятого коду: інверсія кожного каналу, плюс повний
+       негатив, якщо код читався з перевернутого кадру */
+    const ci=best.chanInv||[0,0,0], ng=best.negative?1:0;
+    const m=(((ci[0]||0)^ng)<<2)|(((ci[1]||0)^ng)<<1)|((ci[2]||0)^ng);
+    const k=INV_SEQ.indexOf(m); if(k>=0){rgbStep=k;rgbDeg=k*45;}
+  }else invert=!!best.negative;
+  setLayers(colored?3:1); syncInv();
   D.single=txt; okChime(); $('txt').value='';
   await typeOut($('txt'),txt,26);
   /* Розшифрований текст показуємо З ПОЧАТКУ — інакше поле прокручене
@@ -1006,7 +1020,9 @@ function paint(ctx,cell,pad,qz){
   STITCH_LIST=[];
   qz=qz||0;const ox=qz*cell,oy=qz*cell;
   /* кольори «полотна» — по них потім лягає фактура тканини */
-  BG_COLS=[!MONO?RGB_BG:(XS?c0:(NEG?FRAME_A:FRAME_B)), MONO?c0:RGB_BG];
+  const PM=(rgbMask()===7)?0:rgbMask();          /* часткова інверсія — лише поле даних */
+  const RGB_DBG=rgbInk(PM&4,PM&2,PM&1);
+  BG_COLS=[!MONO?RGB_BG:(XS?c0:(NEG?FRAME_A:FRAME_B)), MONO?c0:RGB_DBG];
   const TW=(W+pad*2)*cell,TH=(H+pad*2)*cell;
   /* Негатив перевертає ВЕСЬ код, разом із рамкою і тихою зоною, —
      як було. Декодер такий код упізнає: не знайшовши звичайного,
@@ -1041,11 +1057,11 @@ function paint(ctx,cell,pad,qz){
     for(let cx=2;cx<CW-2;cx++){cellAt(cx,2,((cx+2)%2===0)?FA:FB);cellAt(cx,CH-3,((cx+CH-3)%2===0)?FA:FB);}
     for(let cy=3;cy<CH-3;cy++){cellAt(2,cy,((2+cy)%2===0)?FA:FB);cellAt(CW-3,cy,((CW-3+cy)%2===0)?FA:FB);}
   }else if(pad>0){ctx.fillStyle=FRAME_COL;ctx.fillRect(ox,oy,TW,TH);}
-  const dataBg=MONO?c0:RGB_BG;
+  const dataBg=MONO?c0:RGB_DBG;
   ctx.fillStyle=dataBg;
   ctx.fillRect(ox+pad*cell,oy+pad*cell,W*cell,H*cell);
   const put=(x,y,col)=>{ctx.fillStyle=col;const px=ox+(x+pad)*cell,py=oy+(y+pad)*cell;if(ST)STITCH_LIST.push([px,py,col,dataBg]);if(shape==='circle'){ctx.beginPath();ctx.arc(px+cell/2,py+cell/2,cell/2*.94,0,6.2832);ctx.fill()}else ctx.fillRect(px,py,cell,cell)};
-  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;if(layers===3){const inAny=dmask.r[i]||dmask.g[i]||dmask.b[i];if(!inAny)continue;const on={r:dmask.r[i]&&grid.r[i],g:dmask.g[i]&&grid.g[i],b:dmask.b[i]&&grid.b[i]};if(!on.r&&!on.g&&!on.b)continue;put(x,y,rgbInk(on.r,on.g,on.b));}else{if(!dmask.r[i])continue;if(!grid.r[i])continue;put(x,y,inkAt(x,y,c1));}}
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;if(layers===3){const inAny=dmask.r[i]||dmask.g[i]||dmask.b[i];if(!inAny)continue;const on={r:dmask.r[i]&&grid.r[i],g:dmask.g[i]&&grid.g[i],b:dmask.b[i]&&grid.b[i]};if(!on.r&&!on.g&&!on.b)continue;put(x,y,rgbInk(!!on.r!==!!(PM&4),!!on.g!==!!(PM&2),!!on.b!==!!(PM&1)));}else{if(!dmask.r[i])continue;if(!grid.r[i])continue;put(x,y,inkAt(x,y,c1));}}
 }
 /* РОЗМІР МОДУЛЯ. Холст цілиться в 1161 px по стороні й ділиться на повну
    ширину коду в модулях (поле + рамка 3 + тиха зона 2 з кожного боку).
@@ -1057,9 +1073,9 @@ function paint(ctx,cell,pad,qz){
    не множиться — іде як є. */
 function render(){const QZ=2;const pad=(frameW>=2?3:frameW),tw=W+pad*2,th=H+pad*2;const side=Math.max(tw+QZ*2,th+QZ*2);const cell=Math.max(3,2*Math.floor(1161/side/2)+1);OFF.width=(tw+QZ*2)*cell;OFF.height=(th+QZ*2)*cell;OCTX.imageSmoothingEnabled=false;paint(OCTX,cell,pad,QZ);
   /* RGB-негатив: повна інверсія пікселів */
-  if(invert&&layers===3){const d=OCTX.getImageData(0,0,OFF.width,OFF.height),a=d.data;for(let i=0;i<a.length;i+=4){a[i]=255-a[i];a[i+1]=255-a[i+1];a[i+2]=255-a[i+2];}OCTX.putImageData(d,0,0);}
-  if(STITCH_LIST.length)drawStitches(OCTX,cell,invert&&layers===3);
-  applyFabric(OCTX,OFF.width,OFF.height,invert&&layers===3);
+  if(rgbMask()===7){const d=OCTX.getImageData(0,0,OFF.width,OFF.height),a=d.data;for(let i=0;i<a.length;i+=4){a[i]=255-a[i];a[i+1]=255-a[i+1];a[i+2]=255-a[i+2];}OCTX.putImageData(d,0,0);}
+  if(STITCH_LIST.length)drawStitches(OCTX,cell,rgbMask()===7);
+  applyFabric(OCTX,OFF.width,OFF.height,rgbMask()===7);
   blit();}
 
 let camStream=null, camRAF=null, camBusy=false, camLastText=null, camTimer=0, camFlip=false;
@@ -1212,7 +1228,7 @@ function savePNG(name){OFF.toBlob(b=>{const a=document.createElement('a');a.href
 const SUPA_URL='https://iieahzklwngqugkovhrs.supabase.co';const SUPA_KEY='sb_publishable_FHtRNaLBvDgDTSLa_8eQnQ_oPMWCIxF';
 function detectLang(t){if(/[\u0400-\u04FF]/.test(t))return 'uk';if(/[\u4E00-\u9FFF]/.test(t))return 'zh';if(/[a-zA-Z]/.test(t))return 'en';return '';}
 function openPublish(){const mainWord=D.single;if(!mainWord.trim()){toast('Спершу напиши щось');return;}const m=$('menu');menuOpen=true;m.classList.remove('hide');m.innerHTML=`<div class="menu-t">Опублікувати в галерею</div><div class="hint">⚠ Байткод — відкритий код. Будь-хто зможе прочитати ваш текст. Не публікуйте таємниць.</div><input id="pub-title" placeholder="Назва (видима всім)" autocomplete="off" spellcheck="false"><div class="row"><button class="b gold" id="pub-yes">✦ Так, опублікувати</button></div><div class="row"><button class="b" id="pub-no">Скасувати</button></div>`;$('pub-yes').onclick=e=>{e.stopPropagation();doPublish(mainWord)};$('pub-no').onclick=e=>{e.stopPropagation();closeMenu()};}
-async function doPublish(word){const btn=$('pub-yes');if(btn){btn.textContent='Публікую…';btn.disabled=true;}const settings={colOne:E1(), colZero:E0(), colAlt:EA(), motif, motifK, shape, volT, fabric:fabT, fabricGrain:fabG, stitch:'tpl51', frame:frameW, monoMark, frameColor:layers!==3, invert, words:layers===3?D.ch.slice():undefined};let image_url=null;try{const scale=Math.max(1,Math.round(1000/Math.max(OFF.width,1)));const ex=document.createElement('canvas');ex.width=OFF.width*scale;ex.height=OFF.height*scale;const cx=ex.getContext('2d');cx.imageSmoothingEnabled=false;cx.drawImage(OFF,0,0,OFF.width,OFF.height,0,0,ex.width,ex.height);const blob=await new Promise(function(res){ex.toBlob(res,'image/png');});const fname='o_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.png';const up=await fetch(SUPA_URL+'/storage/v1/object/ornaments/'+fname,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'image/png'},body:blob});if(up.ok)image_url=SUPA_URL+'/storage/v1/object/public/ornaments/'+fname;else console.log('upload err',up.status);}catch(e){console.log('img err',e);}const pubTitle=($('pub-title')||{}).value||'';const row={word,mode,layers,settings,lang:detectLang(word),image_url,title:pubTitle||word};try{const resp=await fetch(`${SUPA_URL}/rest/v1/bytecodes`,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(row)});closeMenu();if(resp.ok){toast('✦ Опубліковано в галерею!');okChime();}else{const t=await resp.text();toast('Помилка: '+resp.status);console.log('publish err',t);}}catch(e){closeMenu();toast('Немає зв\'язку з галереєю');}}
+async function doPublish(word){const btn=$('pub-yes');if(btn){btn.textContent='Публікую…';btn.disabled=true;}const settings={colOne:E1(), colZero:E0(), colAlt:EA(), motif, motifK, shape, volT, fabric:fabT, fabricGrain:fabG, stitch:'tpl51', frame:frameW, monoMark, frameColor:layers!==3, invert, rgbInv:INV_SEQ[rgbStep], words:layers===3?D.ch.slice():undefined};let image_url=null;try{const scale=Math.max(1,Math.round(1000/Math.max(OFF.width,1)));const ex=document.createElement('canvas');ex.width=OFF.width*scale;ex.height=OFF.height*scale;const cx=ex.getContext('2d');cx.imageSmoothingEnabled=false;cx.drawImage(OFF,0,0,OFF.width,OFF.height,0,0,ex.width,ex.height);const blob=await new Promise(function(res){ex.toBlob(res,'image/png');});const fname='o_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.png';const up=await fetch(SUPA_URL+'/storage/v1/object/ornaments/'+fname,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'image/png'},body:blob});if(up.ok)image_url=SUPA_URL+'/storage/v1/object/public/ornaments/'+fname;else console.log('upload err',up.status);}catch(e){console.log('img err',e);}const pubTitle=($('pub-title')||{}).value||'';const row={word,mode,layers,settings,lang:detectLang(word),image_url,title:pubTitle||word};try{const resp=await fetch(`${SUPA_URL}/rest/v1/bytecodes`,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(row)});closeMenu();if(resp.ok){toast('✦ Опубліковано в галерею!');okChime();}else{const t=await resp.text();toast('Помилка: '+resp.status);console.log('publish err',t);}}catch(e){closeMenu();toast('Немає зв\'язку з галереєю');}}
 
 /* ПАЛІТРИ — тільки базові кольори. Будь-який відтінок, від чорного до
    білого, дає повзунок яскравості під рядком. */
@@ -1449,6 +1465,7 @@ function setLayers(n){
   document.body.classList.toggle('room-mono',n!==3);
   refreshThemeAccent();
   syncPalRows();
+  syncInv();
 }
 function refreshInputs(){$('txt').value=D.single;autoGrow();}
 /* Поле росте РІВНО під текст: мінімум — один рядок, максимум — 55–60%
@@ -1488,8 +1505,18 @@ function schedHist(){clearTimeout(hTimer);hTimer=setTimeout(pushHist,700)}
 function applyHist(){const snap=HIST[hPos]||'1|';isDemo=false;setLayers(snap[0]==='3'?3:1);D.single=snap.slice(2);refreshInputs();prevLen=D.single.length;build();syncHist();tone(560,.06,.05);}
 $('undo').onclick=()=>{if(hPos>0){hPos--;applyHist()}};
 $('redo').onclick=()=>{if(hPos<HIST.length-1){hPos++;applyHist()}};
-function syncInv(){const b=$('invBtn');if(b)b.classList.toggle('on',invert);}
-$('invBtn').onclick=()=>{invert=!invert;syncInv();scannedImg=null;build();readStatus(true);tone(invert?520:640,.07,.05);};
+function rgbBgCol(){const m=INV_SEQ[rgbStep];if(m===7)return '#191919';return rgbInk(m&4,m&2,m&1);}
+function syncInv(){const b=$('invBtn');if(!b)return;const rgb=(layers===3);
+  b.classList.toggle('on',!rgb&&invert);
+  b.querySelector('.ic-neg').style.display=rgb?'none':'';
+  b.querySelector('.ic-dial').style.display=rgb?'':'none';
+  $('dialArrow').style.transform='rotate('+rgbDeg+'deg)';
+  $('dialDot').setAttribute('fill',rgbBgCol());
+  b.title=rgb?t('invRgb'):t('inv');}
+$('invBtn').onclick=()=>{
+  if(layers===3){rgbStep=(rgbStep+1)%8;rgbDeg+=45;tone(480+rgbStep*40,.07,.05);}
+  else{invert=!invert;tone(invert?520:640,.07,.05);}
+  syncInv();scannedImg=null;build();readStatus(true);};
 $('clr').onclick=()=>{clearTimeout(hTimer);isDemo=false;D.single='';D.ch=['','',''];refreshInputs();prevLen=0;pushHist();build();activeInput().focus();tone(320,.09,.06,'triangle');};
 
 /* ═══ ПОКАЗ МОЖЛИВОСТЕЙ (один раз при завантаженні) ═══
@@ -1618,7 +1645,7 @@ function saveState(){
   if(isDemo)return;
   try{sessionStorage.setItem(LAB_KEY,JSON.stringify(
     {t:D.single,l:layers,sh:shape,c1:colOne,c0:colZero,inv:invert,
-     ca:colAlt,mo:motif,mk:motifK,vt:volT,b1:briOne,b0:briZero,ba:briAlt,ft:fabT,fg:fabG}));}catch(e){}
+     ca:colAlt,mo:motif,mk:motifK,vt:volT,b1:briOne,b0:briZero,ba:briAlt,ft:fabT,fg:fabG,rs:rgbStep}));}catch(e){}
 }
 function restoreState(){
   let st=null;
@@ -1630,6 +1657,7 @@ function restoreState(){
   colAlt=st.ca||null; motif=MOTIFS.some(m=>m.k===st.mo)?st.mo:'none'; motifK=st.mk||4;
   if(st.vt!=null)volT=st.vt;
   briOne=+st.b1||0; briZero=+st.b0||0; briAlt=+st.ba||0;
+  rgbStep=((+st.rs||0)%8+8)%8; rgbDeg=rgbStep*45;
   fabT=+st.ft||0; fabG=(st.fg!=null)?+st.fg:35; $('fab').value=fabT; $('fabg').value=fabG; $('vol').value=volT;
   shape=(st.sh==='circle'||st.sh==='cross')?st.sh:'square'; syncSeg('shape','s',shape);
   buildSwatches();
@@ -1771,7 +1799,7 @@ function applyLang(){
   $('s-warn').textContent=t('warn');
   $('txt').placeholder='';   /* у фокусі поле має бути зовсім порожнім */
   const merch=q('.a-center .btn-main'); if(merch)merch.textContent=t('merch');
-  $('undo').title=t('undo'); $('redo').title=t('redo'); $('clr').title=t('clear'); $('invBtn').title=t('inv');
+  $('undo').title=t('undo'); $('redo').title=t('redo'); $('clr').title=t('clear'); syncInv();
   $('themeBtn').title=t('theme');
   $('langBtn').textContent=(LANG==='en')?'EN':'UA';
   const mbS=$('mb-save'), mbC=$('mb-scan');

@@ -487,46 +487,55 @@ function decodeCells(cells, Tz) {
      еталонна палітра — на чистих PNG зі старою галерейною гамою.
      Обирати «перший, що спрацював» не можна: спрацьовують часто обидва,
      і хибний варіант тоді витісняє правильний. */
+  /* ПОЛЯРНІСТЬ КОЖНОГО КАНАЛУ ОКРЕМО (з 2.3).
+     Канали RGB-коду незалежні, тож і полярність у кожного своя: сайт уміє
+     інвертувати будь-який набір каналів (8 колірних схем). Для кожного
+     каналу пробуємо обидві полярності й беремо ту, що прочиталась і краще
+     зійшлася зворотною звіркою. Хибна полярність не проходить UTF-8.
+     Метку rmark читаємо вже в правильній полярності каналу R. */
+  const flipArr = a => { const o = new Uint8Array(N); for (let i = 0; i < N; i++) o[i] = a[i] ? 0 : 1; return o; };
   function tryCls(cand) {
+    const chArr = [cand.cr, cand.cg, cand.cb], confs = [cR, cG, cB];
     let bst = null;
     for (const m of MODES) {
-      const rmark = markCell(cand.cr, n, m);
-      let vr = decodeVoted(cand.cr, n, m, rmark ? 1 : 0, cR);
-      if (rmark && vr === null) vr = decodeVoted(cand.cr, n, m, 0, cR);
-      const vg = decodeVoted(cand.cg, n, m, 0, cG);
-      const vb = decodeVoted(cand.cb, n, m, 0, cB);
-      const nn = [vr, vg, vb].filter(t => t !== null);
+      const res = [null, null, null];
+      for (let c = 0; c < 3; c++) {
+        for (const p of [0, 1]) {
+          const g = p ? flipArr(chArr[c]) : chArr[c];
+          let t, mk = 0;
+          if (c === 0) {
+            mk = markCell(g, n, m);
+            t = decodeVoted(g, n, m, mk ? 1 : 0, confs[0]);
+            if (mk && t === null) { t = decodeVoted(g, n, m, 0, confs[0]); mk = 0; }
+          } else t = decodeVoted(g, n, m, 0, confs[c]);
+          if (t === null) continue;
+          const chk = fillChannel(t, n, m, c === 0 && mk ? 1 : null);
+          const a = agreeOf(g, chk, n);
+          if (!res[c] || a > res[c].a) res[c] = { t, g, p, a, mk, chk };
+        }
+      }
+      const nn = res.filter(r => r);
       if (!nn.length) continue;
-      const sc = nn.length * 1000 + nn.reduce((a, t) => a + t.length, 0);
-      if (!bst || sc > bst.sc) bst = { vr, vg, vb, sc, m, rmark };
+      const sc = nn.length * 1000 + nn.reduce((x, r) => x + r.t.length, 0);
+      if (!bst || sc > bst.sc)
+        bst = { vr: res[0] ? res[0].t : null, vg: res[1] ? res[1].t : null, vb: res[2] ? res[2].t : null,
+                sc, m, rmark: res[0] ? res[0].mk : markCell(chArr[0], n, m), res,
+                pol: res.map(r => r ? r.p : -1) };
     }
     if (!bst) return null;
-    /* ВТРАЧЕНИЙ КАНАЛ.
-       Канал читається цілком або ніяк: одна перевернута клітинка ламає
-       UTF-8, і bytesToText повертає null. Якщо це код виду «один текст,
-       розкладений по R/G/B», втрата каналу означає втрату третини тексту —
-       а зворотна звірка цього не бачить, вона перевіряє лише те, що
-       прочиталося. Саме звідси беруться обрізані вірші з ідеальною звіркою.
-       Порожній канал (короткий текст) — інша річ, він і має бути null. */
+    /* ВТРАЧЕНИЙ КАНАЛ: не прочитався, хоча не порожній. Порожній канал
+       після інверсії стає суцільним — це теж «порожній». */
     let lost = 0;
     if (bst.rmark) {
-      const chArr = [cand.cr, cand.cg, cand.cb];
-      const txts = [bst.vr, bst.vg, bst.vb];
       for (let c = 0; c < 3; c++) {
-        if (txts[c] !== null) continue;
+        if (bst.res[c]) continue;
         let ones = 0;
         for (let i = 0; i < N; i++) ones += chArr[c][i];
-        if (ones > N * 0.02) lost++;        // канал не порожній, але не прочитався
+        if (ones > N * 0.02 && ones < N * 0.98) lost++;
       }
     }
     const ags = [], masks = [];
-    const chs = [[bst.vr, cand.cr, true], [bst.vg, cand.cg, false], [bst.vb, cand.cb, false]];
-    for (const [txt, ch, isR] of chs) {
-      if (txt === null) continue;
-      const chk = fillChannel(txt, n, bst.m, isR ? bst.rmark : null);
-      ags.push(agreeOf(ch, chk, n));
-      masks.push([ch, chk]);
-    }
+    for (const r of bst.res) { if (!r) continue; ags.push(r.a); masks.push([r.g, r.chk]); }
     const agree = ags.length ? ags.reduce((x, y) => x + y, 0) / ags.length : 0;
     return { bst, agree, masks, cand, chans: ags.length, lost };
   }
@@ -536,12 +545,8 @@ function decodeCells(cells, Tz) {
      блакитний, маджента, жовтий). Сайт тепер малює RGB саме так — фон
      і тиха зона найсвітліші. Пробуємо обидві полярності; хибна не
      пройде UTF-8 і зворотну звірку, а з двох вірних перемагає повніша. */
-  const flipCls = c => {
-    const f = a => { const o = new Uint8Array(N); for (let i = 0; i < N; i++) o[i] = a[i] ? 0 : 1; return o; };
-    return { name: c.name + '·фарба', cr: f(c.cr), cg: f(c.cg), cb: f(c.cb) };
-  };
   let pick = null;
-  for (const cand of [clsOtsu, clsPal, flipCls(clsOtsu), flipCls(clsPal)]) {
+  for (const cand of [clsOtsu, clsPal]) {
     const r = tryCls(cand);
     if (!r) continue;
     /* Порядок порівняння: спершу СКІЛЬКИ каналів вдалося прочитати —
@@ -569,8 +574,22 @@ function decodeCells(cells, Tz) {
      не можна: це одна центральна клітинка червоного каналу, і в
      декоративному коді вона буває одиницею випадково. */
   const monoAlt = monoRead(L, n);
+  /* ПЕРЕВІРКА «ОДИН ТЕКСТ У ТРЬОХ КАНАЛАХ».
+     Генератор ділить текст на три послідовні третини (по символах). Якщо
+     прочитані канали так не складаються — це не RGB-код, а одноколірний
+     візерунок, який кілька каналів побачили КОЖЕН ЦІЛКОМ (вишиванка: у
+     G і B той самий орнамент). Такий код читаємо по яскравості. */
+  let monolithBad = false;
+  if (pick && pick.bst.rmark) {
+    const ps = [pick.bst.vr, pick.bst.vg, pick.bst.vb];
+    const whole = ps.map(t => t || '').join('');
+    const ch = [...whole], k = Math.ceil(ch.length / 3);
+    const want = [ch.slice(0, k).join(''), ch.slice(k, 2 * k).join(''), ch.slice(2 * k).join('')];
+    monolithBad = ps.some((t, i) => (t || '') !== want[i]);
+  }
   const monoWins = monoAlt && monoAlt.agree >= CFG.AGREE_MIN &&
-                   (!pick || (monoAlt.agree > pick.agree + 1e-9 && pick.chans < 3));
+                   (!pick || monolithBad ||
+                    (monoAlt.agree > pick.agree + 1e-9 && pick.chans < 3));
   if (monoWins) {
     return { kind: 'mono', text: monoAlt.text, parts: [monoAlt.text],
              agree: monoAlt.agree, mode: monoAlt.mode, n, colored: false,
@@ -593,13 +612,26 @@ function decodeCells(cells, Tz) {
              palette: useCls.name };
   }
   const text = best.rmark
-    ? (parts.every(t => t === parts[0]) ? parts[0] : parts.join(''))
+    /* rmark=1 тепер означає, що R прочитався саме зі зсувом на мітку, —
+       це справжній «один текст у трьох каналах». Однакові третини
+       («666» → «6»,«6»,«6») склеюємо, а не схлопуємо в одну. */
+    ? parts.join('')
     : parts.join(' · ');
 
   return { kind: best.rmark ? 'monolith' : 'three', text, parts, agree, shape,
            lostChannels,
            mode: best.m, n, colored: true, palette: useCls.name, rmark: best.rmark,
-           channels: [best.vr, best.vg, best.vb] };
+           channels: [best.vr, best.vg, best.vb],
+           /* інверсія каналу відносно стандарту сайту (біт = канал «з'їдено»):
+              1 — канал інвертовано, 0 — ні, null — порожній канал */
+           chanInv: best.pol.map((p, c) => {
+             if (p >= 0) return 1 - p;
+             /* порожній канал: полярність видно з фону — світлий фон
+                у каналі означає стандарт сайту */
+             const a = [useCls.cr, useCls.cg, useCls.cb][c];
+             let ones = 0; for (let i = 0; i < N; i++) ones += a[i];
+             return ones > N / 2 ? 0 : 1;
+           }) };
 }
 
 /* ═════════════════════ ЧАСТЬ 2. ГЕОМЕТРИЯ ═════════════════════
@@ -1302,7 +1334,7 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
         shape: dec.shape, tinted: !!dec.tinted, rmark: !!dec.rmark,
         alt: ring.alt, cornersDark: ring.cornersDark,
         corners: pts, quad: qi, inset: h.label, warpSize: S,
-        channels: dec.channels || null
+        channels: dec.channels || null, chanInv: dec.chanInv || null
       });
       diag.candidates.push({ q: qi, k: h.label, T, agree: +dec.agree.toFixed(3),
                              frame: +frame.score.toFixed(2), text: dec.text.slice(0, 40) });
@@ -1335,9 +1367,13 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
     if (e) { e.votes++; if (c.agree > e.best.agree) e.best = c; }
     else byText.set(c.text, { votes: 1, best: c });
   }
+  /* Спершу — ОБСЯГ прочитаного (з 2.3). Справжній код — найбільший
+     самоузгоджений текст у кадрі; зсунута сітка читає лише його шматок
+     (коротший), і такий шматок інколи набирає більше голосів, ніж ціле. */
+  const bytesOf = t => _enc.encode(t).length;
   const ranked = [...byText.values()].sort((a, b) =>
+    (bytesOf(b.best.text) - bytesOf(a.best.text)) ||
     (b.votes - a.votes) ||
-    (b.best.text.length - a.best.text.length) ||
     (b.best.agree - a.best.agree) ||
     (b.best.frame - a.best.frame)
   );
@@ -1357,6 +1393,7 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
     text: best.text,
     parts: best.parts,
     channels: best.channels,
+    chanInv: best.chanInv,
     T: best.T,                  // полный габарит: рамка+зебра+данные+зебра+рамка
     n: best.n,                  // зона данных, n = T - 4
     mode: best.mode,            // oct | quad | half
@@ -1439,7 +1476,7 @@ window.TainaDecoder = {
   last: null,               // результат останнього розбору, разом із діагностикою
   cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
-  version: '2.2',
+  version: '2.3',
   /* внутренности — для decoder-lab.html и автотестов */
   _internal: { decodePixels, warpGrayNN, warpRGB, insetCorners, insetCornersFrac, verifyZebra, zebraRing,
                outerFrameScore, sampleCells, decodeCells, findQuadsCV,
@@ -1468,7 +1505,7 @@ window.runDecodeAttempts = function (img, opts) {
   return [{ kind, mode: r.mode, n: r.n, pad: 2, res, T: r.T,
             confidence: r.confidence, parts: r.parts, channels: r.channels,
             rmark: r.rmark, colored: r.colored, tinted: r.tinted, text: r.text,
-            negative: !!r.negative }];
+            negative: !!r.negative, chanInv: r.chanInv || null }];
 };
 
 })();
