@@ -632,7 +632,13 @@ function decodeCells(cells, Tz) {
                        ніж монохромне, — це шум мотиву у вільних каналах */
                     (!pick.bst.rmark &&
                      _enc.encode(monoAlt.text).length >
-                     [pick.bst.vr, pick.bst.vg, pick.bst.vb].reduce((q, t) => q + (t ? _enc.encode(t).length : 0), 0)));
+                     [pick.bst.vr, pick.bst.vg, pick.bst.vb].reduce((q, t) => q + (t ? _enc.encode(t).length : 0), 0)) ||
+                    /* кольорове читання без мітки, де один із каналів дав рівно
+                       той самий текст, що й монохромне читання, — це монохромний
+                       код: інші канали — мотив і стібки, а не окремі тексти
+                       (з 2.6; особливо хрестик, де стібок «розмазує» печатку) */
+                    (!pick.bst.rmark &&
+                     [pick.bst.vr, pick.bst.vg, pick.bst.vb].some(t => t === monoAlt.text)));
   if (monoWins) {
     return { kind: 'mono', text: monoAlt.text, parts: [monoAlt.text],
              agree: monoAlt.agree, mode: monoAlt.mode, n, colored: false,
@@ -1531,7 +1537,7 @@ window.TainaDecoder = {
   last: null,               // результат останнього розбору, разом із діагностикою
   cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
-  version: '2.5',
+  version: '2.6',
   /* внутренности — для decoder-lab.html и автотестов */
   _internal: { decodePixels, warpGrayNN, warpRGB, insetCorners, insetCornersFrac, verifyZebra, zebraRing,
                outerFrameScore, sampleCells, decodeCells, findQuadsCV,

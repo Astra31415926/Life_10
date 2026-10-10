@@ -540,7 +540,7 @@ body.light-mode .menu .hint{color:#8a4e00}
 <div class="flash" id="flash"></div>
 
 <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
-<script src="decoder.js?v=25"></script>
+<script src="decoder.js?v=27"></script>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -624,7 +624,7 @@ const PALS=[
   {uk:'Червоно-синя',en:'Red & blue',c:0,bg:[4,72,225],ink:[210,72,86],ai:[210,245,225],ab:[4,72,86],sv:[4,72,86]}]},
  {uk:'Спеціальні',en:'Special',items:[
   {uk:'Неонова',en:'Neon',c:1,bg:[43,8,106],ink:[43,255,106],ai:[240,255,29],ab:[240,8,29],sv:[43,8,106]},
-  {uk:'Золота',en:'Gold',c:0,bg:[30,26,55],ink:[236,210,170],ai:[236,26,55],ab:[30,26,55],sv:[30,26,55]}]}
+  {uk:'Золота',en:'Gold',c:0,bg:[0,1,45],ink:[255,229,45],ai:[255,1,45],ab:[0,229,207],sv:[0,1,45]}]}
 ];
 let palG=1, palI=0;      /* старт: «Чорно-біла», позитив */
 function PAL(){return PALS[palG].items[palI];}
@@ -834,9 +834,9 @@ let REQ=0.7;
    ЧИТАНІСТЬ: жоден тон не підходить до фону ближче, ніж на 40% відстані
    між ниткою й фоном (у RGB — по кожному каналу окремо). */
 const TONE_MIX={T:null, H:['w',0.90], h:['w',0.50], r:['w',0.35], B:['k',0.30], d:['k',0.50], O:['k',0.62]};
-function stitchTones(ink,bg){
+function stitchTones(ink,bg,ref){
   const v=volT/100, K=[0,0,0], Wt=[255,255,255];
-  let base=hexRGB(ink); const bgc=hexRGB(bg);
+  let base=hexRGB(ink); const bgc=hexRGB(bg), refc=hexRGB(ref||bg);
   if(v>0){const l=lumA(base), hi=255-55*v, lo=46*v;
     if(l>hi) base=mixA(base,K,(l-hi)/l);
     else if(l<lo) base=mixA(base,Wt,(lo-l)/(255-l));
@@ -847,7 +847,7 @@ function stitchTones(ink,bg){
      лишаються незмінними. Колір фону вирішує тільки, чи код читається. */
   /* у монохромі тіні й блики стережемо в НЕСУЧОМУ каналі — його читає сканер */
   const LV=(layers===3)?lumA:(a=>a[PAL().c]);
-  const lb=LV(base), side=(lb>=LV(bgc))?1:-1, lg=side>0?0:255, d=lb-lg;
+  const lb=LV(base), side=(lb>=LV(refc))?1:-1, lg=side>0?0:255, d=lb-lg;
   const req=Math.min(REQ*Math.abs(d), side*d);
   const toneL=(X,t)=>{
     const lX=LV(X);
@@ -874,12 +874,12 @@ function stitchTones(ink,bg){
 }
 /* frame=1 — клітинка рамки. У кружечків рамка лишається суцільною
    (плитки, а не намистинки): по рівному контуру декодер знаходить код. */
-function stitchTile(ink,bg,cell,frame){
+function stitchTile(ink,bg,cell,frame,ref){
   const TPL=(frame&&shape==='circle')?TILE_TPL:shapeTpl();
-  const key=ink+bg+cell+'|'+volT+'|'+layers+'|'+shape+'|'+(TPL===TILE_TPL?'t':'');
+  const key=ink+bg+(ref||'')+cell+'|'+volT+'|'+layers+'|'+shape+'|'+(TPL===TILE_TPL?'t':'');
   let c=_stCache.get(key); if(c)return c;
   if(_stCache.size>64)_stCache.clear();
-  const P=stitchTones(ink,bg);
+  const P=stitchTones(ink,bg,ref);
   c=document.createElement('canvas');c.width=c.height=cell;
   const g=c.getContext('2d'),img=g.createImageData(cell,cell),a=img.data;
   for(let py=0;py<cell;py++){const row=TPL[Math.floor(py*STITCH_N/cell)];
@@ -890,7 +890,7 @@ function stitchTile(ink,bg,cell,frame){
 /* Малюється ОСТАННІМ, уже після інверсії RGB-негатива: світло падає згори завжди. */
 function drawStitches(ctx,cell,flip){
   const f=h=>flip?rgbHexA(hexRGB(h).map(v=>255-v)):h;
-  for(const [px,py,ink,bg,fr] of STITCH_LIST)ctx.drawImage(stitchTile(f(ink),f(bg),cell,fr),px,py);
+  for(const [px,py,ink,bg,fr,ref] of STITCH_LIST)ctx.drawImage(stitchTile(f(ink),f(bg),cell,fr,ref&&f(ref)),px,py);
 }
 
 /* ═══ ЯСКРАВІСТЬ КОЛЬОРІВ ═══ один повзунок на рядок палітри:
@@ -1066,7 +1066,7 @@ function paint(ctx,cell,pad,qz){
   const a1=MOT?(NEG?A0():A1()):null, a0=MOT?(NEG?A1():A0()):null;
   /* темний і світлий колір пари — за НЕСУЧИМ каналом */
   const pdk=(layers!==3)?((chv(c0)<=chv(c1))?c0:c1):null, plt=(pdk===c0)?c1:c0;
-  const QZC=(layers!==3)?(NEG?pdk:plt):RGB_BG;   /* тиха зона: світла, у негативі темна */
+  const QZC0=(layers!==3)?(NEG?pdk:plt):null;   /* тиха зона: світла, у негативі темна */
   /* ВИШИВКА: фон коду, тиха зона і «порожнеча» в стібках — один колір (c0),
      а вся фарба (рамка, темні модулі зебри, одиниці) — нитка (c1). Якщо фон
      темніший за нитку, код виходить «негативним» за будовою — декодер такий
@@ -1076,14 +1076,24 @@ function paint(ctx,cell,pad,qz){
   STITCH_LIST=[];
   qz=qz||0;const ox=qz*cell,oy=qz*cell;
   /* кольори «полотна» — по них потім лягає фактура тканини */
-  const PM=(rgbMask()===7)?0:rgbMask();          /* часткова інверсія — лише поле даних */
+  const PM=(rgbMask()===7)?0:rgbMask();          /* часткова інверсія */
   const RGB_DBG=rgbInk(PM&4,PM&2,PM&1);
-  BG_COLS=[!MONO?RGB_BG:(XS?c0:QZC), MONO?c0:RGB_DBG].concat(a0?[a0]:[]);
+  /* ТИХА ЗОНА. У монохромі — світла (у негативі темна), однаково для всіх
+     форм: хрестик більше не перевертає картинку. У RGB тиха зона і світлі
+     кільця рамки — колір поля поточної колірної схеми. */
+  const QZC=MONO?QZC0:RGB_DBG;
+  /* ПОЛОТНО ХРЕСТИКА = колір тихої зони. Вишито все, що іншого кольору;
+     клітинки кольору полотна — це сама тканина, без стібка. */
+  const FAB=QZC;
+  /* опорний колір для тонів стібка: клітинка того ж боку коду, що й полотно,
+     рахує тіні від протилежного кольору пари — щоб не перейти на його бік */
+  const refOf=col=>(!MONO||chv(col)!==chv(FAB))?FAB:(FAB===c1?c0:c1);
+  BG_COLS=XS?[FAB]:[QZC, MONO?c0:RGB_DBG].concat(a0?[a0]:[]);
   const TW=(W+pad*2)*cell,TH=(H+pad*2)*cell;
   /* Негатив перевертає ВЕСЬ код, разом із рамкою і тихою зоною, —
      як було. Декодер такий код упізнає: не знайшовши звичайного,
      він перевертає кадр цілком і пробує ще раз. */
-  if(qz>0){ctx.fillStyle=!MONO?RGB_BG:(XS?c0:QZC);ctx.fillRect(0,0,TW+ox*2,TH+oy*2);}
+  if(qz>0){ctx.fillStyle=QZC;ctx.fillRect(0,0,TW+ox*2,TH+oy*2);}
   if(pad>=3){
     /* Рамка фарбується палітрою: темні смуги рамки — колір нуля, світлі —
        колір одиниці. Порядок «темне → світле → зебра» для декодера
@@ -1102,10 +1112,9 @@ function paint(ctx,cell,pad,qz){
        тільки його начинка. */
     const o1=NEG?lt:dk, o2=NEG?dk:lt;
     let FA=o1, FB=o2;
-    if(XS&&MONO){FA=c1;FB=c0;}
-    if(!MONO){FA=RGB_INK;FB=RGB_BG;}
-    ctx.fillStyle=MONO?c0:RGB_BG;ctx.fillRect(ox,oy,TW,TH);const CW=W+pad*2, CH=H+pad*2;const FBG=MONO?c0:RGB_BG;   /* колір полотна: що НЕ йому дорівнює — те фарба й отримує об'єм */
-    const cellAt=(cx,cy,col)=>{ctx.fillStyle=col;ctx.fillRect(ox+cx*cell,oy+cy*cell,cell,cell);if(ST&&col!==FBG)STITCH_LIST.push([ox+cx*cell,oy+cy*cell,col,FBG,1]);};
+    if(!MONO){FA=RGB_INK;FB=RGB_DBG;}
+    ctx.fillStyle=MONO?c0:RGB_DBG;ctx.fillRect(ox,oy,TW,TH);const CW=W+pad*2, CH=H+pad*2;const FBG=XS?FAB:(MONO?c0:RGB_DBG);   /* колір полотна: що НЕ йому дорівнює — те фарба й отримує об'єм */
+    const cellAt=(cx,cy,col)=>{ctx.fillStyle=col;ctx.fillRect(ox+cx*cell,oy+cy*cell,cell,cell);if(ST&&col!==FBG)STITCH_LIST.push([ox+cx*cell,oy+cy*cell,col,FBG,1,XS?refOf(col):null]);};
     for(let cx=0;cx<CW;cx++){cellAt(cx,0,FA);cellAt(cx,CH-1,FA);}
     for(let cy=1;cy<CH-1;cy++){cellAt(0,cy,FA);cellAt(CW-1,cy,FA);}
     for(let cx=1;cx<CW-1;cx++){cellAt(cx,1,FB);cellAt(cx,CH-2,FB);}
@@ -1116,9 +1125,10 @@ function paint(ctx,cell,pad,qz){
   const dataBg=MONO?c0:RGB_DBG;
   ctx.fillStyle=dataBg;
   ctx.fillRect(ox+pad*cell,oy+pad*cell,W*cell,H*cell);
-  const put=(x,y,col)=>{ctx.fillStyle=col;const px=ox+(x+pad)*cell,py=oy+(y+pad)*cell;if(ST)STITCH_LIST.push([px,py,col,dataBg]);if(shape==='circle'){ctx.beginPath();ctx.arc(px+cell/2,py+cell/2,cell/2*.94,0,6.2832);ctx.fill()}else ctx.fillRect(px,py,cell,cell)};
+  const put=(x,y,col)=>{ctx.fillStyle=col;const px=ox+(x+pad)*cell,py=oy+(y+pad)*cell;if(XS){if(col!==FAB)STITCH_LIST.push([px,py,col,FAB,0,refOf(col)]);}else if(ST)STITCH_LIST.push([px,py,col,dataBg]);if(shape==='circle'){ctx.beginPath();ctx.arc(px+cell/2,py+cell/2,cell/2*.94,0,6.2832);ctx.fill()}else ctx.fillRect(px,py,cell,cell)};
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;if(layers===3){const inAny=dmask.r[i]||dmask.g[i]||dmask.b[i];if(!inAny)continue;const on={r:dmask.r[i]&&grid.r[i],g:dmask.g[i]&&grid.g[i],b:dmask.b[i]&&grid.b[i]};if(!on.r&&!on.g&&!on.b)continue;put(x,y,rgbInk(!!on.r!==!!(PM&4),!!on.g!==!!(PM&2),!!on.b!==!!(PM&1)));}else{const band=MOT&&inBand(x,y), pz=MOT&&inSeal(x,y);
       if(dmask.r[i]&&grid.r[i]){const col=band?a1:c1;put(x,y,pz?sealCol(col):col);}
+      else if(XS){const col=pz?sealCol(c0):band?a0:c0;put(x,y,col);}     /* хрестик: нулі теж вишиті, якщо не кольору полотна */
       else if(pz||band){ctx.fillStyle=pz?sealCol(c0):a0;ctx.fillRect(ox+(x+pad)*cell,oy+(y+pad)*cell,cell,cell);}}}
 }
 /* РОЗМІР МОДУЛЯ. Холст цілиться в 1161 px по стороні й ділиться на повну
@@ -1457,8 +1467,8 @@ function syncPalRows(){
 }
 /* Готова вишиванка одним дотиком: червоно-чорна палітра в негативі
    (світле полотно, чорна нитка, червоні ромби), хрестики. */
-function presetVysh(){isDemo=false;invert=true;syncInv();
-  palG=0;palI=0;motif='rhomb';motifK=4;      /* червоно-чорна, негатив: світле полотно */
+function presetVysh(){isDemo=false;invert=false;syncInv();
+  palG=0;palI=0;motif='rhomb';motifK=4;      /* червоно-чорна, позитив: кремове полотно, вишито чорним, червоним і жовтим */
   shape='cross';syncSeg('shape','s',shape);volT=100;$('vol').value=100;
   setLayers(1);buildSwatches();build();readStatus(true);tone(760,.08,.06);}
 $('pres-vysh').onclick=e=>{e.stopPropagation();presetVysh();};
