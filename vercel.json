@@ -1,5 +1,6 @@
 {
   "rewrites": [
-    { "source": "/item/:id", "destination": "/api/item?id=:id" }
+    { "source": "/item/:id", "destination": "/api/item?id=:id" },
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" }
   ]
 }
