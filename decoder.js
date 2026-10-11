@@ -411,20 +411,28 @@ function monoRead(L, n) {
  */
 function monoReadAny(cells, L, n) {
   const N = n * n;
-  /* Порядок переваги: пройшла звірку → більше даних → краща звірка →
-     яскравість. Мусор у вільному каналі буває й з ідеальною звіркою,
-     але це короткий шматок; справжній текст — найдовший. */
-  const key = r => [r.agree >= CFG.AGREE_MIN ? 1 : 0, _enc.encode(r.text).length, r.agree];
-  const better = (a, b) => { const x = key(a), y = key(b);
-    for (let k = 0; k < 3; k++) { if (x[k] > y[k] + 1e-9) return true; if (x[k] < y[k] - 1e-9) return false; }
-    return false; };
-  let best = monoRead(L, n);
-  if (best) best.chan = 'L';
+  /* Порядок переваги (з 2.7): пройшла звірку → більше даних → скільки
+     каналів дали ТОЙ САМИЙ текст → краща звірка → чистий канал, а не
+     яскравість. Справжній текст зазвичай читається в кількох каналах
+     (несучий, яскравість, часто ще один), а мусор мотиву — лише в одному. */
+  const reads = [];
+  const L0 = monoRead(L, n); if (L0) { L0.chan = 'L'; reads.push(L0); }
   for (let c = 0; c < 3; c++) {
     const v = new Float64Array(N);
     for (let i = 0; i < N; i++) v[i] = cells[i * 3 + c];
-    const r = monoRead(v, n);
-    if (r && (!best || better(r, best))) { r.chan = 'RGB'[c]; best = r; }
+    const r = monoRead(v, n); if (r) { r.chan = 'RGB'[c]; reads.push(r); }
+  }
+  if (!reads.length) return null;
+  const ok = r => r.agree >= CFG.AGREE_MIN;
+  const cnt = t => reads.filter(r => ok(r) && r.text === t).length;
+  const key = r => [ok(r) ? 1 : 0, _enc.encode(r.text).length, cnt(r.text), r.agree, r.chan === 'L' ? 0 : 1];
+  let best = reads[0], bk = key(best);
+  for (const r of reads.slice(1)) {
+    const k = key(r);
+    for (let i = 0; i < k.length; i++) {
+      if (k[i] > bk[i] + 1e-9) { best = r; bk = k; break; }
+      if (k[i] < bk[i] - 1e-9) break;
+    }
   }
   return best;
 }
@@ -1537,7 +1545,7 @@ window.TainaDecoder = {
   last: null,               // результат останнього розбору, разом із діагностикою
   cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
-  version: '2.6',
+  version: '2.7',
   /* внутренности — для decoder-lab.html и автотестов */
   _internal: { decodePixels, warpGrayNN, warpRGB, insetCorners, insetCornersFrac, verifyZebra, zebraRing,
                outerFrameScore, sampleCells, decodeCells, findQuadsCV,
