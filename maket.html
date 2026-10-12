@@ -1,0 +1,655 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>TAINA мобільний макет</title>
+<style>
+/* Макет телефонного інтерфейсу TAINA.
+   Шар 1 — завжди видно: поле тексту, орнамент, смуга з п'яти кнопок.
+   Шар 2 — шухляда, що виїжджає ПОВЕРХ орнамента й ховається назад.
+   Кольори й шрифти взяті з наявного сайту. */
+:root{
+  --ink:#f6f2ea; --panel:#fffdf7; --panel2:#f1ece1; --line:rgba(120,98,62,.22);
+  --fg:#2a241c; --muted:#8c806d; --acc:#8a6b2f; --acc-hot:#6d521f; --acc-dim:#a3906c;
+  --on-acc:#fffdf7; --stage:#fffdf8; --ok:#1d6b3a;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --sans:"Inter",system-ui,-apple-system,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ink:#14110d; --panel:#1d1813; --panel2:#262019; --line:rgba(201,168,118,.22);
+  --fg:#efe6d6; --muted:#8a7f6d; --acc:#c9a876; --acc-hot:#e8c890; --acc-dim:#8f7451;
+  --on-acc:#14110d; --stage:#0a0806; --ok:#6fd99a; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --ink:#14110d; --panel:#1d1813; --panel2:#262019; --line:rgba(201,168,118,.22);
+  --fg:#efe6d6; --muted:#8a7f6d; --acc:#c9a876; --acc-hot:#e8c890; --acc-dim:#8f7451;
+  --on-acc:#14110d; --stage:#0a0806; --ok:#6fd99a; color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--ink);color:var(--fg);font-family:var(--sans);
+  display:flex;align-items:center;justify-content:center}
+button{font-family:inherit;color:inherit}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--acc-hot);outline-offset:2px}
+
+/* ── каркас телефону ───────────────────────────────────────────── */
+.phone{position:relative;width:100%;height:100%;max-width:400px;
+  display:flex;flex-direction:column;background:var(--ink);overflow:hidden}
+@media (min-width:560px) and (min-height:700px){
+  .phone{height:min(860px,96vh);border-radius:34px;border:1px solid var(--line);
+    box-shadow:0 30px 80px rgba(0,0,0,.45)}
+}
+
+/* ── шапка: тиха ───────────────────────────────────────────────── */
+.top{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px 6px;flex:0 0 auto}
+.top .mini{width:38px;height:38px;border:0;background:transparent;color:var(--muted);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:10px;
+  font-family:var(--mono);font-size:12px;font-weight:700}
+.top .mini:hover{color:var(--acc-hot)}
+.top .mini svg{width:19px;height:19px}
+.brand{font-family:var(--mono);font-size:19px;font-weight:700;letter-spacing:.42em;
+  color:var(--fg);text-indent:.42em}
+
+/* ── поле вводу ────────────────────────────────────────────────── */
+.inrow{flex:0 0 auto;padding:0 12px 8px;position:relative}
+.inbox{display:flex;align-items:center;gap:4px;background:var(--panel);
+  border:1px solid var(--line);border-radius:14px;padding:0 6px 0 14px}
+.inbox:focus-within{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 14%,transparent)}
+#txt{flex:1 1 auto;min-width:0;background:transparent;border:0;outline:none;color:var(--fg);
+  font-family:var(--mono);font-size:17px;line-height:1.35;padding:13px 0;resize:none;
+  height:46px;max-height:96px;overflow-y:auto}
+#txt::placeholder{color:var(--muted)}
+.inbtn{flex:0 0 auto;width:38px;height:38px;border:0;background:transparent;color:var(--muted);
+  border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.inbtn svg{width:20px;height:20px}
+.inbtn.scan{background:var(--acc);color:var(--on-acc)}
+.inbtn.trash:hover{color:#c0392b}
+.hintline{font-family:var(--mono);font-size:11.5px;color:var(--muted);text-align:center;
+  padding-top:5px;min-height:17px}
+.hintline b{color:var(--ok);font-weight:600}
+.hintline.warn b{color:#d08a2a}
+
+/* ── орнамент: усе вільне місце ────────────────────────────────── */
+.stagewrap{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;
+  padding:0 12px}
+.stage{position:relative;width:100%;max-width:min(100%,calc(100vh - 290px));aspect-ratio:1;
+  background:var(--stage);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.stage canvas{width:100%;height:100%;display:block;image-rendering:pixelated}
+.cta{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:12px;background:var(--stage);cursor:pointer;
+  transition:opacity .25s;border:0;width:100%;color:var(--fg)}
+.cta[hidden]{display:none}
+.cta .eye{width:74px;height:74px;border-radius:22px;background:var(--acc);color:var(--on-acc);
+  display:flex;align-items:center;justify-content:center}
+.cta .eye svg{width:40px;height:40px}
+.cta strong{font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.03em}
+.cta small{font-family:var(--mono);font-size:12px;color:var(--muted)}
+
+/* ── нижня смуга: п'ять кнопок ─────────────────────────────────── */
+.bar{flex:0 0 auto;display:flex;gap:6px;align-items:stretch;
+  padding:9px 10px calc(9px + env(safe-area-inset-bottom,0px));
+  border-top:1px solid var(--line);background:var(--panel);z-index:30}
+.bar button{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:8px 2px 6px;border:1px solid transparent;border-radius:13px;background:transparent;
+  cursor:pointer;font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.02em;
+  color:var(--muted);transition:.14s}
+.bar button svg{width:23px;height:23px}
+.bar button.on{color:var(--acc-hot);background:color-mix(in srgb,var(--acc) 15%,transparent);
+  border-color:color-mix(in srgb,var(--acc) 35%,transparent)}
+.bar button.save{background:var(--acc);color:var(--on-acc);border-color:var(--acc);flex:1.25 1 0}
+.bar button.save.on{background:var(--acc-hot);border-color:var(--acc-hot);color:var(--on-acc)}
+
+/* ── шухляда ───────────────────────────────────────────────────── */
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.34);opacity:0;pointer-events:none;
+  transition:opacity .22s;z-index:40}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:50;background:var(--panel);
+  border-top:1px solid var(--line);border-radius:20px 20px 0 0;
+  box-shadow:0 -14px 40px rgba(0,0,0,.3);
+  transform:translateY(102%);transition:transform .26s cubic-bezier(.3,.9,.3,1);
+  max-height:62%;display:flex;flex-direction:column}
+.sheet.on{transform:translateY(0)}
+.grip{flex:0 0 auto;padding:9px 0 3px;display:flex;justify-content:center;cursor:grab}
+.grip i{display:block;width:42px;height:4px;border-radius:3px;background:var(--line)}
+.sheet h3{flex:0 0 auto;margin:0;padding:2px 16px 10px;font-family:var(--mono);font-size:11px;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--acc-dim);font-weight:700}
+.sheetbody{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  padding:0 14px calc(16px + env(safe-area-inset-bottom,0px))}
+
+/* вкладки всередині шухляди */
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{flex:1;padding:11px 6px;border-radius:11px;border:1px solid var(--line);
+  background:transparent;cursor:pointer;font-family:var(--mono);font-size:13px;font-weight:700;
+  color:var(--muted)}
+.tabs button.on{background:var(--acc);border-color:var(--acc);color:var(--on-acc)}
+
+.lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--acc-dim);margin:14px 0 7px;font-weight:700}
+.lbl:first-child{margin-top:2px}
+
+/* палітри */
+.plist{display:flex;flex-direction:column;gap:7px}
+.plbtn{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:11px;
+  border:1px solid var(--line);background:transparent;cursor:pointer;text-align:left;
+  font-family:var(--mono);font-size:13px;font-weight:600;color:var(--fg)}
+.plbtn.on{border-color:var(--acc-hot);box-shadow:0 0 0 1px var(--acc-hot) inset}
+.chips{display:flex;flex:0 0 auto;border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+.chips i{display:block;width:15px;height:26px}
+
+/* мотиви й форми — великі кнопки з малюнком */
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px 8px;
+  border-radius:12px;border:1px solid var(--line);background:transparent;cursor:pointer;
+  font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--fg)}
+.tile canvas{width:48px;height:48px;border-radius:7px;image-rendering:pixelated;display:block}
+.tile svg{width:40px;height:40px;color:var(--fg)}
+.tile.on{border-color:var(--acc-hot);background:color-mix(in srgb,var(--acc) 16%,transparent);
+  color:var(--acc-hot);box-shadow:0 0 0 1px var(--acc-hot) inset}
+
+/* перемикач-рядок */
+.srow{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:12px 13px;border:1px solid var(--line);border-radius:12px;margin-top:10px}
+.srow span{font-family:var(--mono);font-size:13px;font-weight:600}
+.sw{position:relative;width:50px;height:30px;border-radius:16px;border:0;background:var(--panel2);
+  cursor:pointer;flex:0 0 auto;transition:.18s}
+.sw::after{content:'';position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;
+  background:var(--muted);transition:.18s}
+.sw.on{background:color-mix(in srgb,var(--acc) 45%,transparent)}
+.sw.on::after{left:23px;background:var(--acc-hot)}
+
+/* повзунки — на всю ширину, у стовпчик, під палець */
+.slider{margin-top:14px}
+.slider .head{display:flex;justify-content:space-between;align-items:baseline;
+  font-family:var(--mono);font-size:12.5px;margin-bottom:2px}
+.slider .head b{color:var(--acc-hot);font-weight:700;font-variant-numeric:tabular-nums}
+.slider input{-webkit-appearance:none;appearance:none;width:100%;height:44px;background:transparent;
+  cursor:pointer;margin:0;display:block}
+.slider input::-webkit-slider-runnable-track{height:10px;border-radius:6px;background:var(--panel2);
+  border:1px solid var(--line)}
+.slider input::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:30px;border-radius:50%;
+  background:var(--acc);border:3px solid var(--panel);margin-top:-11px;
+  box-shadow:0 2px 7px rgba(0,0,0,.28)}
+.slider input::-moz-range-track{height:10px;border-radius:6px;background:var(--panel2);border:1px solid var(--line)}
+.slider input::-moz-range-thumb{width:30px;height:30px;border-radius:50%;background:var(--acc);
+  border:3px solid var(--panel);box-shadow:0 2px 7px rgba(0,0,0,.28)}
+
+/* знаки */
+.symtabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
+.symtabs::-webkit-scrollbar{display:none}
+.symtabs button{flex:0 0 auto;width:46px;height:42px;border-radius:11px;border:1px solid var(--line);
+  background:transparent;font-size:19px;cursor:pointer;line-height:1}
+.symtabs button.on{background:var(--acc);border-color:var(--acc)}
+.symgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-top:10px}
+.symgrid button{aspect-ratio:1;border-radius:11px;border:1px solid var(--line);background:transparent;
+  font-size:23px;cursor:pointer;padding:0;line-height:1}
+
+/* дії (зберегти) */
+.acts{display:flex;flex-direction:column;gap:9px}
+.act{display:flex;align-items:center;gap:12px;padding:15px 15px;border-radius:13px;
+  border:1px solid var(--line);background:transparent;cursor:pointer;text-align:left;
+  font-family:var(--mono);font-size:14px;font-weight:600;color:var(--fg)}
+.act.pri{background:var(--acc);border-color:var(--acc);color:var(--on-acc)}
+.act svg{width:21px;height:21px;flex:0 0 auto}
+.act small{display:block;font-weight:400;font-size:11.5px;opacity:.72;margin-top:2px;
+  font-family:var(--sans)}
+
+.toast{position:absolute;left:50%;bottom:96px;transform:translateX(-50%) translateY(10px);
+  background:var(--fg);color:var(--ink);font-family:var(--mono);font-size:12.5px;font-weight:600;
+  padding:10px 16px;border-radius:11px;opacity:0;pointer-events:none;transition:.22s;z-index:60;
+  white-space:nowrap;max-width:90%}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<div class="phone">
+
+  <div class="top">
+    <button class="mini" id="themeBtn" title="Тема" aria-label="Тема">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11z"/></svg>
+    </button>
+    <div class="brand">TAINA</div>
+    <button class="mini" id="langBtn" title="Мова">UA</button>
+  </div>
+
+  <div class="inrow">
+    <div class="inbox">
+      <textarea id="txt" rows="1" placeholder="напиши слово…" autocomplete="off" spellcheck="false"></textarea>
+      <button class="inbtn scan" id="scanIn" title="Сканувати" aria-label="Сканувати">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+      <button class="inbtn trash" id="clrBtn" title="Очистити" aria-label="Очистити">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+      </button>
+    </div>
+    <div class="hintline" id="hint"></div>
+  </div>
+
+  <div class="stagewrap">
+    <div class="stage">
+      <canvas id="cv"></canvas>
+      <button class="cta" id="cta">
+        <span class="eye"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3"/><circle cx="12" cy="12" r="3"/></svg></span>
+        <strong>Сканувати орнамент</strong>
+        <small>або напиши слово вище</small>
+      </button>
+    </div>
+  </div>
+
+  <div class="scrim" id="scrim"></div>
+
+  <div class="sheet" id="sheet">
+    <div class="grip" id="grip"><i></i></div>
+    <h3 id="sheetTitle">—</h3>
+    <div class="sheetbody" id="sheetBody"></div>
+  </div>
+
+  <nav class="bar">
+    <button data-sheet="color"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a9 9 0 100 18c1.3 0 2-.9 2-1.8 0-1.3-1.2-1.6-1.2-2.7 0-.8.7-1.5 1.6-1.5H16a5 5 0 005-5c0-3.9-4-7-9-7z"/><circle cx="7.5" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="9.8" cy="7.9" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.4" cy="7.6" r="1.1" fill="currentColor" stroke="none"/></svg><span>Колір</span></button>
+    <button data-sheet="form"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1.4" fill="currentColor" stroke="none"/><circle cx="17" cy="7.2" r="3.8"/><path d="M4.6 15.4l5.8 5.8M10.4 15.4l-5.8 5.8" stroke-linecap="round"/><path d="M14.2 16.2h5.6M17 13.4v5.6" stroke-linecap="round"/></svg><span>Форма</span></button>
+    <button data-sheet="syms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.6"/><circle cx="9.3" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="14.7" cy="10" r="1" fill="currentColor" stroke="none"/><path d="M8.6 14.3a4.3 4.3 0 006.8 0" stroke-linecap="round"/></svg><span>Знаки</span></button>
+    <button id="diceBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.6" y="3.6" width="16.8" height="16.8" rx="3.4"/><circle cx="8.4" cy="8.4" r="1.25" fill="currentColor" stroke="none"/><circle cx="15.6" cy="15.6" r="1.25" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.25" fill="currentColor" stroke="none"/></svg><span>Навмання</span></button>
+    <button class="save" data-sheet="save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span>Зберегти</span></button>
+  </nav>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+
+/* ══ ДАНІ: палітри, мотиви — як на сайті ══════════════════════════ */
+const PALS=[
+ {uk:'Чорно-біла',      c:1,bg:[12,12,12],  ink:[250,250,250],ai:[250,250,12], ab:[250,12,12]},
+ {uk:'Червоно-чорна',   c:0,bg:[0,0,0],     ink:[195,0,0],    ai:[195,152,0],  ab:[0,0,0]},
+ {uk:'Синьо-чорна',     c:2,bg:[0,0,0],     ink:[0,0,255],    ai:[0,255,255],  ab:[0,0,0]},
+ {uk:'Коричнево-жовта', c:1,bg:[59,36,0],   ink:[254,217,0],  ai:[254,217,0],  ab:[254,36,0]},
+ {uk:'Зелено-чорна',    c:1,bg:[0,11,0],    ink:[0,218,0],    ai:[255,218,0],  ab:[0,11,0]},
+ {uk:'Кремово-зелена',  c:0,bg:[10,41,12],  ink:[255,215,140],ai:[255,41,12],  ab:[10,215,140]},
+ {uk:'Зелено-червона',  c:0,bg:[0,255,0],   ink:[206,0,0],    ai:[206,255,237],ab:[0,0,0]},
+ {uk:'Жовто-синя',      c:0,bg:[0,6,128],   ink:[228,224,128],ai:[228,6,128],  ab:[0,6,128]},
+ {uk:'Фіалково-бірюзова',c:1,bg:[24,0,48],  ink:[24,236,254], ai:[255,236,48], ab:[255,0,48]},
+ {uk:'Червоно-синя',    c:0,bg:[0,11,62],   ink:[255,11,62],  ai:[255,245,244],ab:[0,11,62]},
+ {uk:'Неонова',         c:1,bg:[0,8,40],    ink:[0,255,40],   ai:[255,255,0],  ab:[255,8,0]},
+ {uk:'Блакитно-синя',   c:1,bg:[0,255,255], ink:[0,0,255],    ai:[0,0,255],    ab:[255,255,0]}
+];
+const MOTIFS=[
+ {k:'none',  uk:'немає',     f:null},
+ {k:'rhomb', uk:'ромби',     f:(i,j)=>i+j},
+ {k:'square',uk:'рамки',     f:(i,j)=>Math.max(i,j)},
+ {k:'medal', uk:'медальйон', f:(i,j)=>Math.round(Math.hypot(i,j))},
+ {k:'cross', uk:'хрести',    f:(i,j)=>Math.abs(i-j)},
+ {k:'plus',  uk:'плюс',      f:(i,j)=>Math.min(i,j)}
+];
+const SYMS={'☺':[...'😀😄😁😊😍🥰😎🤩🥳😇🙂😉😌😏🤔🤭😴🤗🥲😺'],
+            '♥':[...'♥★☆✦✧❄☀☾☯☮♪♫✚∞♦♠♣☘✿❀⚘'],
+            '♈':[...'♈♉♊♋♌♍♎♏♐♑♒♓☉☽☿♀♂♃♄♅♆'],
+            'ᚠ':[...'ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗ'],
+            '福':[...'福愛龍虎鳳道德仁義禮智信和平安康壽喜財富']};
+
+/* ══ СТАН ════════════════════════════════════════════════════════ */
+let text='', palI=0, motif='none', motifK=4, shape='square',
+    volT=70, fabT=0, fabG=35, invert=false, rgb=false, rgbStep=0,
+    curSym='☺', openSheet=null;
+const INV_SEQ=[0,4,2,1,6,5,3,7];
+const PAL=()=>PALS[palI];
+
+/* ══ ЯДРО ОРНАМЕНТА (симетрія ×8) ════════════════════════════════ */
+const enc=new TextEncoder();
+const capOct=n=>{const R=(n-1)/2;return (R+1)*(R+2)/2;};
+function pickN(bits){for(let n=7;n<=145;n+=2)if(capOct(n)>=bits)return n;return 145;}
+function baseCells(n){const c=(n-1)/2,o=[];for(let i=0;i<=c;i++)for(let j=0;j<=i;j++)o.push([c+i,c+j]);return o;}
+function mirrors(n,x,y){const c=(n-1)/2,i=x-c,j=y-c,o=[];
+  for(const [a,b] of [[i,j],[j,i],[-i,j],[-j,i],[i,-j],[j,-i],[-i,-j],[-j,-i]]){
+    const X=c+a,Y=c+b; if(X>=0&&Y>=0&&X<n&&Y<n)o.push([X,Y]);}
+  return o;}
+function bitsOf(t,mark){const d=enc.encode(t),b=[];if(mark!=null)b.push(mark);
+  for(const v of d)for(let k=7;k>=0;k--)b.push((v>>k)&1);return b;}
+function fill(t,n,mark){const g=new Uint8Array(n*n),bc=baseCells(n),seq=bitsOf(t,mark);
+  const lim=Math.min(seq.length,bc.length);
+  for(let i=0;i<lim;i++){if(!seq[i])continue;const [x,y]=bc[i];
+    for(const [X,Y] of mirrors(n,x,y))g[Y*n+X]=1;}
+  return g;}
+const split3=t=>{const ch=[...t],k=Math.ceil(ch.length/3);
+  return [ch.slice(0,k).join(''),ch.slice(k,2*k).join(''),ch.slice(2*k).join('')];};
+
+const hex=a=>'#'+a.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+const lum=a=>(a[0]*77+a[1]*150+a[2]*29)/256;
+const mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+const lockC=(a,b)=>{const o=a.slice();o[PAL().c]=b[PAL().c];return o;};
+const RGB_HI=0xe6,RGB_LO=0x22;
+const rgbInk=(r,g,b)=>[r?RGB_LO:RGB_HI,g?RGB_LO:RGB_HI,b?RGB_LO:RGB_HI];
+
+function inBand(x,y,n){const m=MOTIFS.find(v=>v.k===motif);if(!m||!m.f)return false;
+  const c=(n-1)/2,r=m.f(Math.abs(x-c),Math.abs(y-c));
+  return (((r%motifK)+motifK)%motifK)<Math.floor(motifK/2);}
+
+/* ══ МАЛЮВАННЯ ═══════════════════════════════════════════════════ */
+const CV=$('cv'), CTX=CV.getContext('2d');
+function cellPaint(g,px,py,cell,col,bg,solid){
+  const c=hex(col);
+  if(shape==='cross'&&!solid){
+    g.strokeStyle=c;g.lineWidth=Math.max(1,cell*.3);g.lineCap='round';
+    const m=cell*.17;
+    g.beginPath();g.moveTo(px+m,py+m);g.lineTo(px+cell-m,py+cell-m);
+    g.moveTo(px+cell-m,py+m);g.lineTo(px+m,py+cell-m);g.stroke();
+    return;
+  }
+  g.fillStyle=c;
+  if(shape==='circle'&&!solid){g.beginPath();g.arc(px+cell/2,py+cell/2,cell*.47,0,6.2832);g.fill();}
+  else g.fillRect(px,py,cell,cell);
+  if(volT>0&&cell>=4){                       /* об'єм: фаска світло/тінь */
+    const v=volT/100*.5, w=Math.max(1,cell*.17);
+    g.globalAlpha=v*.75;
+    g.fillStyle=hex(mix(col,[255,255,255],.75));
+    if(shape==='circle'){g.beginPath();g.arc(px+cell*.38,py+cell*.36,cell*.18,0,6.2832);g.fill();}
+    else g.fillRect(px,py,cell,w);
+    g.globalAlpha=v*.6;
+    g.fillStyle=hex(mix(col,[0,0,0],.7));
+    if(shape!=='circle'){g.fillRect(px,py+cell-w,cell,w);g.fillRect(px+cell-w,py,w,cell);}
+    g.globalAlpha=1;
+  }
+}
+function draw(){
+  const box=CV.parentElement.getBoundingClientRect();
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const S=Math.max(120,Math.round(Math.min(box.width,box.height)));
+  CV.width=S*dpr;CV.height=S*dpr;CV.style.width=CV.style.height='100%';
+  const g=CTX;g.setTransform(dpr,0,0,dpr,0,0);
+
+  if(!text){g.clearRect(0,0,S,S);return;}
+
+  /* поле даних */
+  let n,grids,mask=0;
+  if(rgb){
+    const parts=split3(text);
+    const bits=Math.max(...parts.map(t=>enc.encode(t).length*8))+1;
+    n=pickN(bits);
+    grids=[fill(parts[0],n,1),fill(parts[1],n,null),fill(parts[2],n,null)];
+    mask=INV_SEQ[rgbStep];
+  }else{
+    n=pickN(enc.encode(text).length*8);
+    grids=[fill(text,n,null)];
+  }
+
+  const pad=3, qz=2, side=n+pad*2+qz*2;
+  const cell=Math.max(2,Math.floor(S/side));
+  const total=cell*side, ox=Math.round((S-total)/2), oy=ox;
+
+  /* кольори */
+  const P=PAL();
+  const NEG=invert&&!rgb;
+  const c1=NEG?P.bg:P.ink, c0=NEG?P.ink:P.bg;
+  const a1=NEG?lockC(P.ab,c0):lockC(P.ai,c1);
+  const a0=NEG?lockC(P.ai,c1):lockC(P.ab,c0);
+  const RBG=rgbInk(mask&4,mask&2,mask&1);
+  const dataBg=rgb?RBG:c0;
+  const dk=rgb?rgbInk(1,1,1):(lum(c0)<=lum(c1)?c0:c1);
+  const lt=rgb?RBG:(dk===c0?c1:c0);
+  const FA=NEG?lt:dk, FB=NEG?dk:lt;             /* зовнішнє / друге кільце */
+  const QZ=NEG?dk:lt;
+
+  g.fillStyle=hex(rgb?RBG:QZ);g.fillRect(0,0,S,S);
+
+  const cellAt=(cx,cy,col)=>{g.fillStyle=hex(col);
+    g.fillRect(ox+cx*cell,oy+cy*cell,cell,cell);};
+  const CW=n+pad*2;
+  g.fillStyle=hex(dataBg);g.fillRect(ox+qz*cell,oy+qz*cell,CW*cell,CW*cell);
+  const F=(cx,cy,col)=>cellAt(cx+qz,cy+qz,col);
+  for(let x=0;x<CW;x++){F(x,0,FA);F(x,CW-1,FA);}
+  for(let y=1;y<CW-1;y++){F(0,y,FA);F(CW-1,y,FA);}
+  for(let x=1;x<CW-1;x++){F(x,1,FB);F(x,CW-2,FB);}
+  for(let y=2;y<CW-2;y++){F(1,y,FB);F(CW-2,y,FB);}
+  for(let x=2;x<CW-2;x++){F(x,2,(x%2===0)?FA:FB);F(x,CW-3,((x+CW-3)%2===0)?FA:FB);}
+  for(let y=3;y<CW-3;y++){F(2,y,(y%2===0)?FA:FB);F(CW-3,y,((CW-3+y)%2===0)?FA:FB);}
+
+  const base=qz+pad;
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+    const i=y*n+x, px=ox+(x+base)*cell, py=oy+(y+base)*cell;
+    if(rgb){
+      const on=[grids[0][i],grids[1][i],grids[2][i]];
+      if(!on[0]&&!on[1]&&!on[2])continue;
+      cellPaint(g,px,py,cell,rgbInk(!!on[0]!==!!(mask&4),!!on[1]!==!!(mask&2),!!on[2]!==!!(mask&1)),dataBg);
+    }else if(grids[0][i]){
+      cellPaint(g,px,py,cell,inBand(x,y,n)?a1:c1,dataBg);
+    }else if(inBand(x,y,n)){
+      g.fillStyle=hex(a0);g.fillRect(px,py,cell,cell);
+    }
+  }
+
+  /* фактура тканини — легке плетіння поверх усього */
+  if(fabT>0){
+    const p=Math.max(2,2+Math.round(7*fabG/100));
+    g.globalAlpha=Math.min(.3,fabT/100*.3);
+    g.strokeStyle='#000';g.lineWidth=1;
+    g.beginPath();
+    for(let x=0;x<S;x+=p){g.moveTo(x+.5,0);g.lineTo(x+.5,S);}
+    for(let y=0;y<S;y+=p){g.moveTo(0,y+.5);g.lineTo(S,y+.5);}
+    g.stroke();g.globalAlpha=1;
+  }
+
+  $('hint').className='hintline';
+  const by=enc.encode(text).length;
+  $('hint').innerHTML = by>100 ? '<b>забагато — межа 100 Б</b>'
+                      : by>50  ? '<b>'+by+' / 100 Б</b>' : '<b>✓ цей код читається</b>';
+  if(by>50)$('hint').className='hintline warn';
+}
+
+/* ══ ШУХЛЯДИ ═════════════════════════════════════════════════════ */
+const TITLES={color:'Колір',form:'Форма',syms:'Знаки',save:'Зберегти й поділитися',scan:'Сканувати код'};
+function show(name){
+  if(openSheet===name){hide();return;}
+  openSheet=name;
+  $('sheetTitle').textContent=TITLES[name]||'';
+  $('sheetBody').innerHTML='';
+  BUILD[name]($('sheetBody'));
+  $('sheet').classList.add('on');$('scrim').classList.add('on');
+  document.querySelectorAll('.bar button').forEach(b=>b.classList.toggle('on',b.dataset.sheet===name));
+}
+function hide(){openSheet=null;$('sheet').classList.remove('on');$('scrim').classList.remove('on');
+  document.querySelectorAll('.bar button').forEach(b=>b.classList.remove('on'));}
+$('scrim').onclick=hide; $('grip').onclick=hide;
+
+function el(tag,cls,html){const e=document.createElement(tag);if(cls)e.className=cls;
+  if(html!=null)e.innerHTML=html;return e;}
+function label(box,t){box.appendChild(el('div','lbl',t));}
+
+function slider(box,title,val,min,max,oninput,suffix){
+  const w=el('div','slider');
+  w.innerHTML='<div class="head"><span>'+title+'</span><b>'+val+(suffix||'')+'</b></div>';
+  const inp=el('input');inp.type='range';inp.min=min;inp.max=max;inp.value=val;
+  inp.oninput=e=>{w.querySelector('b').textContent=e.target.value+(suffix||'');oninput(+e.target.value);};
+  w.appendChild(inp);box.appendChild(w);
+}
+
+const BUILD={
+  color(box){
+    const tabs=el('div','tabs');
+    ['Монохром','Кольоровий'].forEach((t,i)=>{const b=el('button',(rgb?i===1:i===0)?'on':'',t);
+      b.onclick=()=>{rgb=(i===1);draw();show('color');};tabs.appendChild(b);});
+    box.appendChild(tabs);
+
+    if(!rgb){
+      label(box,'палітра');
+      const list=el('div','plist');
+      PALS.forEach((p,i)=>{const b=el('button','plbtn'+(i===palI?' on':''));
+        const cols=invert?[p.ink,p.bg,p.ai,p.ab]:[p.bg,p.ink,p.ab,p.ai];
+        b.innerHTML='<span class="chips">'+cols.map(c=>'<i style="background:rgb('+c+')"></i>').join('')+
+                    '</span><span>'+p.uk+'</span>';
+        b.onclick=()=>{palI=i;draw();show('color');};list.appendChild(b);});
+      box.appendChild(list);
+
+      label(box,'мотив');
+      const tiles=el('div','tiles');
+      MOTIFS.forEach(m=>{const b=el('button','tile'+(m.k===motif?' on':''));
+        b.appendChild(motifIcon(m));b.appendChild(el('span',null,m.uk));
+        b.onclick=()=>{motif=m.k;draw();show('color');};tiles.appendChild(b);});
+      box.appendChild(tiles);
+
+      const row=el('div','srow','<span>Негатив</span>');
+      const sw=el('button','sw'+(invert?' on':''));sw.setAttribute('aria-pressed',invert);
+      sw.onclick=()=>{invert=!invert;draw();show('color');};
+      row.appendChild(sw);box.appendChild(row);
+    }else{
+      label(box,'колірна схема — 8 варіантів');
+      const tiles=el('div','tiles');
+      for(let i=0;i<8;i++){const b=el('button','tile'+(i===rgbStep?' on':''));
+        const m=INV_SEQ[i], c=rgbInk(m&4,m&2,m&1);
+        b.appendChild(schemeIcon(m));b.appendChild(el('span',null,'№'+(i+1)));
+        b.onclick=()=>{rgbStep=i;draw();show('color');};tiles.appendChild(b);}
+      box.appendChild(tiles);
+    }
+  },
+
+  form(box){
+    label(box,'готові варіанти');
+    const presets=[['Пласко',{shape:'square',volT:0,fabT:0}],
+                   ["Об'ємно",{shape:'square',volT:85,fabT:0}],
+                   ['Намистини',{shape:'circle',volT:90,fabT:0}],
+                   ['Вишиванка',{shape:'cross',volT:100,fabT:55,fabG:45}]];
+    const pg=el('div','tiles');pg.style.gridTemplateColumns='repeat(4,1fr)';
+    presets.forEach(([nm,s])=>{const b=el('button','tile');
+      b.appendChild(presetIcon(s));b.appendChild(el('span',null,nm));
+      b.onclick=()=>{Object.assign(window,{});shape=s.shape;volT=s.volT;fabT=s.fabT;
+        if(s.fabG!=null)fabG=s.fabG;draw();show('form');};pg.appendChild(b);});
+    box.appendChild(pg);
+
+    label(box,'форма клітинки');
+    const sg=el('div','tiles');
+    [['square','Квадрат','<rect x="4" y="4" width="16" height="16" rx="2.5" fill="currentColor"/>'],
+     ['circle','Кружечок','<circle cx="12" cy="12" r="8.5" fill="currentColor"/>'],
+     ['cross','Хрестик','<path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>']]
+    .forEach(([k,nm,p])=>{const b=el('button','tile'+(shape===k?' on':''));
+      b.innerHTML='<svg viewBox="0 0 24 24">'+p+'</svg><span>'+nm+'</span>';
+      b.onclick=()=>{shape=k;draw();show('form');};sg.appendChild(b);});
+    box.appendChild(sg);
+
+    slider(box,"Об'єм",volT,0,100,v=>{volT=v;draw();},'%');
+    if(shape==='cross'){
+      slider(box,'Фактура тканини',fabT,0,100,v=>{fabT=v;draw();},'%');
+      slider(box,'Крупність плетіння',fabG,0,100,v=>{fabG=v;draw();},'%');
+    }else{
+      box.appendChild(el('div','lbl','тканина — лише для хрестика'));
+    }
+  },
+
+  syms(box){
+    const tabs=el('div','symtabs');
+    Object.keys(SYMS).forEach(k=>{const b=el('button',k===curSym?'on':'',k);
+      b.onclick=()=>{curSym=k;show('syms');};tabs.appendChild(b);});
+    box.appendChild(tabs);
+    const grid=el('div','symgrid');
+    SYMS[curSym].forEach(s=>{const b=el('button',null,s);
+      b.onclick=()=>{setText(([...text,s].join('')).slice(0,60));};grid.appendChild(b);});
+    box.appendChild(grid);
+  },
+
+  save(box){
+    const acts=el('div','acts');
+    const mk=(cls,icon,title,sub)=>{const b=el('button','act'+(cls?' '+cls:''));
+      b.innerHTML=icon+'<span>'+title+(sub?'<small>'+sub+'</small>':'')+'</span>';
+      return b;};
+    const I_DL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>';
+    const I_TH='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20 20 4M4 4l16 16"/><circle cx="12" cy="12" r="2.4"/></svg>';
+    const I_UP='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V8"/><path d="m7 13 5-5 5 5"/><path d="M5 4h14"/></svg>';
+    const I_SH='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>';
+    const a=mk('pri',I_DL,'Зберегти картинку','PNG, готовий до друку');
+    const b=mk('',I_TH,'Схема для вишивки','клітинки й номери ниток DMC');
+    const c=mk('',I_UP,'Опублікувати в галерею','побачать усі відвідувачі');
+    const d=mk('',I_SH,'Приміряти на мерч','футболка, торба, листівка');
+    [a,b,c,d].forEach(x=>{x.onclick=()=>{hide();toast('У макеті кнопки не працюють');};acts.appendChild(x);});
+    box.appendChild(acts);
+  },
+
+  scan(box){
+    const acts=el('div','acts');
+    [['pri','📷 Камера'],['','🖼 Завантажити з галереї']].forEach(([cls,t])=>{
+      const b=el('button','act'+(cls?' '+cls:''),'<span>'+t+'</span>');
+      b.onclick=()=>{hide();toast('У макеті сканування не працює');};acts.appendChild(b);});
+    box.appendChild(acts);
+  }
+};
+
+/* іконки-мініатюри */
+function tinyCanvas(px){const c=document.createElement('canvas');c.width=c.height=px;return c;}
+function motifIcon(m){
+  const N=13,c=tinyCanvas(N),g=c.getContext('2d'),P=PAL();
+  const f0=invert?P.ink:P.bg, f1=invert?P.ab:P.ai, f2=invert?P.ai:P.ab, mid=(N-1)/2;
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){let col=f0;
+    if(m.f){const r=m.f(Math.abs(x-mid),Math.abs(y-mid));
+      if((((r%motifK)+motifK)%motifK)<Math.floor(motifK/2))col=((x+y)%2)?f1:f2;}
+    g.fillStyle='rgb('+col+')';g.fillRect(x,y,1,1);}
+  return c;
+}
+function schemeIcon(mask){
+  const N=12,c=tinyCanvas(N),g=c.getContext('2d');
+  const bg=rgbInk(mask&4,mask&2,mask&1);
+  g.fillStyle='rgb('+bg+')';g.fillRect(0,0,N,N);
+  const picks=[[1,0,0],[0,1,0],[0,0,1],[1,1,0]];
+  picks.forEach((p,i)=>{const col=rgbInk(!!p[0]!==!!(mask&4),!!p[1]!==!!(mask&2),!!p[2]!==!!(mask&1));
+    g.fillStyle='rgb('+col+')';g.fillRect((i%2)*6+1,Math.floor(i/2)*6+1,4,4);});
+  return c;
+}
+function presetIcon(s){
+  const N=44,c=tinyCanvas(N),g=c.getContext('2d'),P=PAL();
+  g.fillStyle='rgb('+(invert?P.ink:P.bg)+')';g.fillRect(0,0,N,N);
+  const col=invert?P.bg:P.ink, cell=11;
+  for(let y=0;y<4;y++)for(let x=0;x<4;x++){
+    if((x+y)%2)continue;
+    const px=x*cell,py=y*cell;
+    g.fillStyle='rgb('+col+')';
+    if(s.shape==='circle'){g.beginPath();g.arc(px+cell/2,py+cell/2,cell*.45,0,6.3);g.fill();}
+    else if(s.shape==='cross'){g.strokeStyle='rgb('+col+')';g.lineWidth=3;g.lineCap='round';
+      g.beginPath();g.moveTo(px+2,py+2);g.lineTo(px+cell-2,py+cell-2);
+      g.moveTo(px+cell-2,py+2);g.lineTo(px+2,py+cell-2);g.stroke();}
+    else g.fillRect(px,py,cell,cell);
+    if(s.volT>0&&s.shape!=='cross'){g.globalAlpha=.45;
+      g.fillStyle='rgb('+mix(col,[255,255,255],.8).map(Math.round)+')';
+      g.fillRect(px,py,cell,2);g.globalAlpha=1;}
+  }
+  if(s.fabT>0){g.globalAlpha=.25;g.strokeStyle='#000';g.lineWidth=1;g.beginPath();
+    for(let i=0;i<N;i+=4){g.moveTo(i+.5,0);g.lineTo(i+.5,N);g.moveTo(0,i+.5);g.lineTo(N,i+.5);}
+    g.stroke();g.globalAlpha=1;}
+  return c;
+}
+
+/* ══ ПОДІЇ ═══════════════════════════════════════════════════════ */
+function setText(v){
+  text=v;$('txt').value=v;
+  $('cta').hidden=!!v;
+  const el=$('txt');el.style.height='46px';el.style.height=Math.min(96,el.scrollHeight)+'px';
+  if(!v)$('hint').textContent='';
+  draw();
+}
+$('txt').addEventListener('input',e=>setText(e.target.value.slice(0,60)));
+$('clrBtn').onclick=()=>{setText('');$('txt').focus();};
+$('scanIn').onclick=()=>show('scan');
+$('cta').onclick=()=>show('scan');
+document.querySelectorAll('.bar button[data-sheet]').forEach(b=>b.onclick=()=>show(b.dataset.sheet));
+$('diceBtn').onclick=()=>{
+  if(rgb){let s;do{s=Math.floor(Math.random()*8);}while(s===rgbStep);rgbStep=s;}
+  else{palI=Math.floor(Math.random()*PALS.length);invert=Math.random()<.4;
+    motif=Math.random()<.85?MOTIFS[1+Math.floor(Math.random()*5)].k:'none';
+    motifK=[3,4,5,6][Math.floor(Math.random()*4)];}
+  draw();if(openSheet==='color')show('color');
+};
+$('themeBtn').onclick=()=>{
+  const cur=document.documentElement.getAttribute('data-theme');
+  const dark=cur? cur==='dark' : matchMedia('(prefers-color-scheme:dark)').matches;
+  document.documentElement.setAttribute('data-theme',dark?'light':'dark');
+};
+let LANG='UA';
+$('langBtn').onclick=()=>{LANG=LANG==='UA'?'EN':'UA';$('langBtn').textContent=LANG;
+  toast(LANG==='EN'?'Interface language: English':'Мова інтерфейсу: українська');};
+
+let tt=0;
+function toast(msg){const e=$('toast');e.textContent=msg;e.classList.add('on');
+  clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('on'),1900);}
+
+addEventListener('resize',()=>draw());
+setText('Таїна');
+</script>
+
+</body></html>
