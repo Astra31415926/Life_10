@@ -1,10 +1,9 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>TAINA мобільний макет</title>
 <style>
-/* Макет телефонного інтерфейсу TAINA.
-   Шар 1 — завжди видно: поле тексту, орнамент, смуга з п'яти кнопок.
-   Шар 2 — шухляда, що виїжджає ПОВЕРХ орнамента й ховається назад.
-   Кольори й шрифти взяті з наявного сайту. */
+/* Макет телефонного інтерфейсу TAINA, версія 2.
+   Орнамент притиснутий до поля вводу — клавіатура й шухляда його не закривають.
+   Шухляда займає тільки вільне місце знизу; орнамент при цьому зменшується,
+   але лишається видимим цілком. Закривається лише стрілкою біля назви. */
 :root{
   --ink:#f6f2ea; --panel:#fffdf7; --panel2:#f1ece1; --line:rgba(120,98,62,.22);
   --fg:#2a241c; --muted:#8c806d; --acc:#8a6b2f; --acc-hot:#6d521f; --acc-dim:#a3906c;
@@ -31,7 +30,6 @@ body{background:var(--ink);color:var(--fg);font-family:var(--sans);
 button{font-family:inherit;color:inherit}
 button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--acc-hot);outline-offset:2px}
 
-/* ── каркас телефону ───────────────────────────────────────────── */
 .phone{position:relative;width:100%;height:100%;max-width:400px;
   display:flex;flex-direction:column;background:var(--ink);overflow:hidden}
 @media (min-width:560px) and (min-height:700px){
@@ -39,130 +37,124 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
     box-shadow:0 30px 80px rgba(0,0,0,.45)}
 }
 
-/* ── шапка: тиха ───────────────────────────────────────────────── */
+/* ── шапка ─────────────────────────────────────────────────────── */
 .top{display:flex;align-items:center;justify-content:space-between;
-  padding:10px 14px 6px;flex:0 0 auto}
+  padding:8px 14px 4px;flex:0 0 auto}
 .top .mini{width:38px;height:38px;border:0;background:transparent;color:var(--muted);
   display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:10px;
   font-family:var(--mono);font-size:12px;font-weight:700}
-.top .mini:hover{color:var(--acc-hot)}
 .top .mini svg{width:19px;height:19px}
 .brand{font-family:var(--mono);font-size:19px;font-weight:700;letter-spacing:.42em;
-  color:var(--fg);text-indent:.42em}
+  text-indent:.42em}
 
 /* ── поле вводу ────────────────────────────────────────────────── */
-.inrow{flex:0 0 auto;padding:0 12px 8px;position:relative}
-.inbox{display:flex;align-items:center;gap:4px;background:var(--panel);
+.inrow{flex:0 0 auto;padding:0 12px 6px}
+.inbox{display:flex;align-items:center;gap:2px;background:var(--panel);
   border:1px solid var(--line);border-radius:14px;padding:0 6px 0 14px}
 .inbox:focus-within{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 14%,transparent)}
 #txt{flex:1 1 auto;min-width:0;background:transparent;border:0;outline:none;color:var(--fg);
   font-family:var(--mono);font-size:17px;line-height:1.35;padding:13px 0;resize:none;
-  height:46px;max-height:96px;overflow-y:auto}
+  height:46px;max-height:92px;overflow-y:auto}
 #txt::placeholder{color:var(--muted)}
 .inbtn{flex:0 0 auto;width:38px;height:38px;border:0;background:transparent;color:var(--muted);
   border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer}
-.inbtn svg{width:20px;height:20px}
-.inbtn.scan{background:var(--acc);color:var(--on-acc)}
-.inbtn.trash:hover{color:#c0392b}
-.hintline{font-family:var(--mono);font-size:11.5px;color:var(--muted);text-align:center;
-  padding-top:5px;min-height:17px}
+.inbtn svg{width:19px;height:19px}
+.inbtn:hover{color:var(--acc-hot)}
+.hintline{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;
+  padding-top:4px;min-height:15px}
 .hintline b{color:var(--ok);font-weight:600}
 .hintline.warn b{color:#d08a2a}
 
-/* ── орнамент: усе вільне місце ────────────────────────────────── */
-.stagewrap{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;
-  padding:0 12px}
-.stage{position:relative;width:100%;max-width:min(100%,calc(100vh - 290px));aspect-ratio:1;
-  background:var(--stage);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+/* ── орнамент: притиснутий до поля вводу ───────────────────────── */
+.stagewrap{flex:1 1 auto;min-height:0;position:relative}
+.slot{position:absolute;left:12px;right:12px;top:0;display:flex;
+  align-items:flex-start;justify-content:center;transition:bottom .24s cubic-bezier(.3,.9,.3,1)}
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);
+  border-radius:18px;overflow:hidden;flex:0 0 auto}
 .stage canvas{width:100%;height:100%;display:block;image-rendering:pixelated}
 .cta{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:12px;background:var(--stage);cursor:pointer;
-  transition:opacity .25s;border:0;width:100%;color:var(--fg)}
+  justify-content:center;gap:11px;background:var(--stage);cursor:pointer;border:0;
+  width:100%;color:var(--fg)}
 .cta[hidden]{display:none}
-.cta .eye{width:74px;height:74px;border-radius:22px;background:var(--acc);color:var(--on-acc);
+.cta .eye{width:70px;height:70px;border-radius:50%;background:var(--acc);color:var(--on-acc);
   display:flex;align-items:center;justify-content:center}
-.cta .eye svg{width:40px;height:40px}
-.cta strong{font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.03em}
-.cta small{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.cta .eye svg{width:38px;height:38px}
+.cta strong{font-family:var(--mono);font-size:14.5px;font-weight:700}
+.cta small{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
 
-/* ── нижня смуга: п'ять кнопок ─────────────────────────────────── */
-.bar{flex:0 0 auto;display:flex;gap:6px;align-items:stretch;
-  padding:9px 10px calc(9px + env(safe-area-inset-bottom,0px));
+/* ── нижня смуга ───────────────────────────────────────────────── */
+.bar{flex:0 0 auto;display:flex;gap:6px;
+  padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));
   border-top:1px solid var(--line);background:var(--panel);z-index:30}
-.bar button{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;
-  padding:8px 2px 6px;border:1px solid transparent;border-radius:13px;background:transparent;
-  cursor:pointer;font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.02em;
+.bar button{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:7px 2px 5px;border:1px solid transparent;border-radius:13px;background:transparent;
+  cursor:pointer;font-family:var(--mono);font-size:10.5px;font-weight:600;
   color:var(--muted);transition:.14s}
-.bar button svg{width:23px;height:23px}
+.bar button svg{width:22px;height:22px}
 .bar button.on{color:var(--acc-hot);background:color-mix(in srgb,var(--acc) 15%,transparent);
   border-color:color-mix(in srgb,var(--acc) 35%,transparent)}
 .bar button.save{background:var(--acc);color:var(--on-acc);border-color:var(--acc);flex:1.25 1 0}
-.bar button.save.on{background:var(--acc-hot);border-color:var(--acc-hot);color:var(--on-acc)}
+.bar button.save.on{background:var(--acc-hot);border-color:var(--acc-hot)}
 
 /* ── шухляда ───────────────────────────────────────────────────── */
-.scrim{position:absolute;inset:0;background:rgba(0,0,0,.34);opacity:0;pointer-events:none;
-  transition:opacity .22s;z-index:40}
-.scrim.on{opacity:1;pointer-events:auto}
 .sheet{position:absolute;left:0;right:0;bottom:0;z-index:50;background:var(--panel);
-  border-top:1px solid var(--line);border-radius:20px 20px 0 0;
-  box-shadow:0 -14px 40px rgba(0,0,0,.3);
-  transform:translateY(102%);transition:transform .26s cubic-bezier(.3,.9,.3,1);
-  max-height:62%;display:flex;flex-direction:column}
+  border-top:1px solid var(--line);border-radius:18px 18px 0 0;
+  box-shadow:0 -10px 28px rgba(0,0,0,.18);
+  transform:translateY(102%);transition:transform .24s cubic-bezier(.3,.9,.3,1);
+  display:flex;flex-direction:column;overflow:hidden}
 .sheet.on{transform:translateY(0)}
-.grip{flex:0 0 auto;padding:9px 0 3px;display:flex;justify-content:center;cursor:grab}
-.grip i{display:block;width:42px;height:4px;border-radius:3px;background:var(--line)}
-.sheet h3{flex:0 0 auto;margin:0;padding:2px 16px 10px;font-family:var(--mono);font-size:11px;
-  letter-spacing:.18em;text-transform:uppercase;color:var(--acc-dim);font-weight:700}
+.shead{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+  padding:8px 8px 6px 16px}
+.shead span{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--acc-dim);font-weight:700}
+.shead button{width:40px;height:34px;border:0;background:transparent;color:var(--muted);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:9px}
+.shead button svg{width:22px;height:22px}
+.shead button:hover{color:var(--acc-hot);background:var(--panel2)}
 .sheetbody{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
-  padding:0 14px calc(16px + env(safe-area-inset-bottom,0px))}
+  padding:0 12px calc(12px + env(safe-area-inset-bottom,0px))}
 
-/* вкладки всередині шухляди */
-.tabs{display:flex;gap:6px;margin-bottom:12px}
-.tabs button{flex:1;padding:11px 6px;border-radius:11px;border:1px solid var(--line);
+/* ── вміст шухляд ──────────────────────────────────────────────── */
+.rowtop{display:flex;gap:7px;align-items:stretch;margin-bottom:9px}
+.tabs{display:flex;gap:6px;flex:1 1 auto}
+.tabs button{flex:1;padding:0 8px;height:42px;border-radius:11px;border:1px solid var(--line);
   background:transparent;cursor:pointer;font-family:var(--mono);font-size:13px;font-weight:700;
   color:var(--muted)}
 .tabs button.on{background:var(--acc);border-color:var(--acc);color:var(--on-acc)}
+.negbtn{flex:0 0 auto;width:52px;height:42px;border-radius:11px;border:1px solid var(--line);
+  background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:var(--muted)}
+.negbtn svg{width:22px;height:22px}
+.negbtn.on{background:color-mix(in srgb,var(--acc) 20%,transparent);
+  border-color:var(--acc);color:var(--acc-hot)}
 
-.lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--acc-dim);margin:14px 0 7px;font-weight:700}
-.lbl:first-child{margin-top:2px}
+.lbl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--acc-dim);margin:9px 0 5px;font-weight:700}
 
-/* палітри */
-.plist{display:flex;flex-direction:column;gap:7px}
-.plbtn{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:11px;
-  border:1px solid var(--line);background:transparent;cursor:pointer;text-align:left;
-  font-family:var(--mono);font-size:13px;font-weight:600;color:var(--fg)}
-.plbtn.on{border-color:var(--acc-hot);box-shadow:0 0 0 1px var(--acc-hot) inset}
-.chips{display:flex;flex:0 0 auto;border-radius:6px;overflow:hidden;border:1px solid var(--line)}
-.chips i{display:block;width:15px;height:26px}
+/* стрічка, що гортається вбік */
+.strip{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:3px}
+.strip::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;width:60px;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:4px 2px;border:1.5px solid transparent;border-radius:11px;background:transparent;
+  cursor:pointer;font-family:var(--mono);font-size:9.5px;font-weight:600;color:var(--muted)}
+.chip canvas,.chip .ico{width:50px;height:50px;border-radius:9px;display:block;
+  image-rendering:pixelated;border:1px solid var(--line)}
+.chip .ico{display:flex;align-items:center;justify-content:center;color:var(--fg)}
+.chip .ico svg{width:30px;height:30px}
+.chip span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.chip.on{border-color:var(--acc-hot);color:var(--acc-hot)}
 
-/* мотиви й форми — великі кнопки з малюнком */
-.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px 8px;
-  border-radius:12px;border:1px solid var(--line);background:transparent;cursor:pointer;
-  font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--fg)}
-.tile canvas{width:48px;height:48px;border-radius:7px;image-rendering:pixelated;display:block}
-.tile svg{width:40px;height:40px;color:var(--fg)}
-.tile.on{border-color:var(--acc-hot);background:color-mix(in srgb,var(--acc) 16%,transparent);
-  color:var(--acc-hot);box-shadow:0 0 0 1px var(--acc-hot) inset}
+/* вісім схем — два ряди, гортаються вбік */
+.grid2{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,auto);gap:7px;
+  overflow-x:auto;scrollbar-width:none;padding-bottom:3px}
+.grid2::-webkit-scrollbar{display:none}
 
-/* перемикач-рядок */
-.srow{display:flex;align-items:center;justify-content:space-between;gap:12px;
-  padding:12px 13px;border:1px solid var(--line);border-radius:12px;margin-top:10px}
-.srow span{font-family:var(--mono);font-size:13px;font-weight:600}
-.sw{position:relative;width:50px;height:30px;border-radius:16px;border:0;background:var(--panel2);
-  cursor:pointer;flex:0 0 auto;transition:.18s}
-.sw::after{content:'';position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;
-  background:var(--muted);transition:.18s}
-.sw.on{background:color-mix(in srgb,var(--acc) 45%,transparent)}
-.sw.on::after{left:23px;background:var(--acc-hot)}
-
-/* повзунки — на всю ширину, у стовпчик, під палець */
-.slider{margin-top:14px}
+/* повзунки */
+.slider{margin-top:8px}
 .slider .head{display:flex;justify-content:space-between;align-items:baseline;
-  font-family:var(--mono);font-size:12.5px;margin-bottom:2px}
+  font-family:var(--mono);font-size:12px}
 .slider .head b{color:var(--acc-hot);font-weight:700;font-variant-numeric:tabular-nums}
-.slider input{-webkit-appearance:none;appearance:none;width:100%;height:44px;background:transparent;
+.slider input{-webkit-appearance:none;appearance:none;width:100%;height:40px;background:transparent;
   cursor:pointer;margin:0;display:block}
 .slider input::-webkit-slider-runnable-track{height:10px;border-radius:6px;background:var(--panel2);
   border:1px solid var(--line)}
@@ -174,30 +166,24 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
   border:3px solid var(--panel);box-shadow:0 2px 7px rgba(0,0,0,.28)}
 
 /* знаки */
-.symtabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
-.symtabs::-webkit-scrollbar{display:none}
-.symtabs button{flex:0 0 auto;width:46px;height:42px;border-radius:11px;border:1px solid var(--line);
-  background:transparent;font-size:19px;cursor:pointer;line-height:1}
-.symtabs button.on{background:var(--acc);border-color:var(--acc)}
-.symgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-top:10px}
-.symgrid button{aspect-ratio:1;border-radius:11px;border:1px solid var(--line);background:transparent;
-  font-size:23px;cursor:pointer;padding:0;line-height:1}
+.symgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:6px}
+.symgrid button{aspect-ratio:1;border-radius:10px;border:1px solid var(--line);background:transparent;
+  font-size:22px;cursor:pointer;padding:0;line-height:1}
 
-/* дії (зберегти) */
-.acts{display:flex;flex-direction:column;gap:9px}
-.act{display:flex;align-items:center;gap:12px;padding:15px 15px;border-radius:13px;
+/* дії */
+.acts{display:flex;flex-direction:column;gap:8px;padding-top:2px}
+.act{display:flex;align-items:center;gap:11px;padding:13px 14px;border-radius:12px;
   border:1px solid var(--line);background:transparent;cursor:pointer;text-align:left;
-  font-family:var(--mono);font-size:14px;font-weight:600;color:var(--fg)}
+  font-family:var(--mono);font-size:13.5px;font-weight:600;color:var(--fg)}
 .act.pri{background:var(--acc);border-color:var(--acc);color:var(--on-acc)}
-.act svg{width:21px;height:21px;flex:0 0 auto}
-.act small{display:block;font-weight:400;font-size:11.5px;opacity:.72;margin-top:2px;
-  font-family:var(--sans)}
+.act svg{width:20px;height:20px;flex:0 0 auto}
+.act small{display:block;font-weight:400;font-size:11px;opacity:.72;margin-top:2px;font-family:var(--sans)}
 
-.toast{position:absolute;left:50%;bottom:96px;transform:translateX(-50%) translateY(10px);
+.toast{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.96);
   background:var(--fg);color:var(--ink);font-family:var(--mono);font-size:12.5px;font-weight:600;
-  padding:10px 16px;border-radius:11px;opacity:0;pointer-events:none;transition:.22s;z-index:60;
-  white-space:nowrap;max-width:90%}
-.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  padding:11px 17px;border-radius:11px;opacity:0;pointer-events:none;transition:.2s;z-index:60;
+  white-space:nowrap}
+.toast.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -217,32 +203,32 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
   <div class="inrow">
     <div class="inbox">
       <textarea id="txt" rows="1" placeholder="напиши слово…" autocomplete="off" spellcheck="false"></textarea>
-      <button class="inbtn scan" id="scanIn" title="Сканувати" aria-label="Сканувати">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3"/><circle cx="12" cy="12" r="3"/></svg>
-      </button>
-      <button class="inbtn trash" id="clrBtn" title="Очистити" aria-label="Очистити">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+      <button class="inbtn" id="clrBtn" title="Очистити" aria-label="Очистити">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
       </button>
     </div>
     <div class="hintline" id="hint"></div>
   </div>
 
   <div class="stagewrap">
-    <div class="stage">
-      <canvas id="cv"></canvas>
-      <button class="cta" id="cta">
-        <span class="eye"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3"/><circle cx="12" cy="12" r="3"/></svg></span>
-        <strong>Сканувати орнамент</strong>
-        <small>або напиши слово вище</small>
-      </button>
+    <div class="slot" id="slot">
+      <div class="stage" id="stage">
+        <canvas id="cv"></canvas>
+        <button class="cta" id="cta">
+          <span class="eye"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1.8 12s3.8-7 10.2-7 10.2 7 10.2 7-3.8 7-10.2 7S1.8 12 1.8 12z"/><circle cx="12" cy="12" r="3.3"/></svg></span>
+          <strong>Сканувати орнамент</strong>
+          <small>або напиши слово вище</small>
+        </button>
+      </div>
     </div>
   </div>
 
-  <div class="scrim" id="scrim"></div>
-
   <div class="sheet" id="sheet">
-    <div class="grip" id="grip"><i></i></div>
-    <h3 id="sheetTitle">—</h3>
+    <div class="shead"><span id="sheetTitle">—</span>
+      <button id="sheetClose" title="Згорнути" aria-label="Згорнути">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
+      </button>
+    </div>
     <div class="sheetbody" id="sheetBody"></div>
   </div>
 
@@ -260,17 +246,17 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 <script>
 const $=id=>document.getElementById(id);
 
-/* ══ ДАНІ: палітри, мотиви — як на сайті ══════════════════════════ */
+/* ══ ПАЛІТРИ. Перша — чорно-біла, вона ж за замовчуванням ═════════ */
 const PALS=[
- {uk:'Чорно-біла',      c:1,bg:[12,12,12],  ink:[250,250,250],ai:[250,250,12], ab:[250,12,12]},
+ {uk:'Ч/Б',             c:1,bg:[255,255,255],ink:[12,12,12],  ai:[128,128,128],ab:[205,205,205],mono:true},
  {uk:'Червоно-чорна',   c:0,bg:[0,0,0],     ink:[195,0,0],    ai:[195,152,0],  ab:[0,0,0]},
  {uk:'Синьо-чорна',     c:2,bg:[0,0,0],     ink:[0,0,255],    ai:[0,255,255],  ab:[0,0,0]},
- {uk:'Коричнево-жовта', c:1,bg:[59,36,0],   ink:[254,217,0],  ai:[254,217,0],  ab:[254,36,0]},
+ {uk:'Жовто-брунатна',  c:1,bg:[59,36,0],   ink:[254,217,0],  ai:[254,217,0],  ab:[254,36,0]},
  {uk:'Зелено-чорна',    c:1,bg:[0,11,0],    ink:[0,218,0],    ai:[255,218,0],  ab:[0,11,0]},
  {uk:'Кремово-зелена',  c:0,bg:[10,41,12],  ink:[255,215,140],ai:[255,41,12],  ab:[10,215,140]},
  {uk:'Зелено-червона',  c:0,bg:[0,255,0],   ink:[206,0,0],    ai:[206,255,237],ab:[0,0,0]},
  {uk:'Жовто-синя',      c:0,bg:[0,6,128],   ink:[228,224,128],ai:[228,6,128],  ab:[0,6,128]},
- {uk:'Фіалково-бірюзова',c:1,bg:[24,0,48],  ink:[24,236,254], ai:[255,236,48], ab:[255,0,48]},
+ {uk:'Фіалк.-бірюза',   c:1,bg:[24,0,48],   ink:[24,236,254], ai:[255,236,48], ab:[255,0,48]},
  {uk:'Червоно-синя',    c:0,bg:[0,11,62],   ink:[255,11,62],  ai:[255,245,244],ab:[0,11,62]},
  {uk:'Неонова',         c:1,bg:[0,8,40],    ink:[0,255,40],   ai:[255,255,0],  ab:[255,8,0]},
  {uk:'Блакитно-синя',   c:1,bg:[0,255,255], ink:[0,0,255],    ai:[0,0,255],    ab:[255,255,0]}
@@ -283,15 +269,14 @@ const MOTIFS=[
  {k:'cross', uk:'хрести',    f:(i,j)=>Math.abs(i-j)},
  {k:'plus',  uk:'плюс',      f:(i,j)=>Math.min(i,j)}
 ];
-const SYMS={'☺':[...'😀😄😁😊😍🥰😎🤩🥳😇🙂😉😌😏🤔🤭😴🤗🥲😺'],
+const SYMS={'☺':[...'😀😄😁😊😍🥰😎🤩🥳😇🙂😉😌😏🤭😴🤗🥲'],
             '♥':[...'♥★☆✦✧❄☀☾☯☮♪♫✚∞♦♠♣☘✿❀⚘'],
             '♈':[...'♈♉♊♋♌♍♎♏♐♑♒♓☉☽☿♀♂♃♄♅♆'],
             'ᚠ':[...'ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗ'],
             '福':[...'福愛龍虎鳳道德仁義禮智信和平安康壽喜財富']};
 
-/* ══ СТАН ════════════════════════════════════════════════════════ */
 let text='', palI=0, motif='none', motifK=4, shape='square',
-    volT=70, fabT=0, fabG=35, invert=false, rgb=false, rgbStep=0,
+    volT=0, fabT=0, fabG=35, invert=false, rgb=false, rgbStep=0,
     curSym='☺', openSheet=null;
 const INV_SEQ=[0,4,2,1,6,5,3,7];
 const PAL=()=>PALS[palI];
@@ -318,19 +303,20 @@ const split3=t=>{const ch=[...t],k=Math.ceil(ch.length/3);
 const hex=a=>'#'+a.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
 const lum=a=>(a[0]*77+a[1]*150+a[2]*29)/256;
 const mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
-const lockC=(a,b)=>{const o=a.slice();o[PAL().c]=b[PAL().c];return o;};
-const RGB_HI=0xe6,RGB_LO=0x22;
-const rgbInk=(r,g,b)=>[r?RGB_LO:RGB_HI,g?RGB_LO:RGB_HI,b?RGB_LO:RGB_HI];
+/* У кольорових палітрах мотив не чіпає несучий канал — інакше код ламається.
+   Чорно-біла палітра позначена mono: там мотив лишається сірим. */
+const lockC=(a,b)=>{if(PAL().mono)return a.slice();const o=a.slice();o[PAL().c]=b[PAL().c];return o;};
+const rgbInk=(r,g,b)=>[r?0x22:0xe6,g?0x22:0xe6,b?0x22:0xe6];
 
-function inBand(x,y,n){const m=MOTIFS.find(v=>v.k===motif);if(!m||!m.f)return false;
-  const c=(n-1)/2,r=m.f(Math.abs(x-c),Math.abs(y-c));
-  return (((r%motifK)+motifK)%motifK)<Math.floor(motifK/2);}
+function inBand(x,y,n,mk,mf){const m=mf!==undefined?mf:MOTIFS.find(v=>v.k===motif).f;
+  if(!m)return false;const k=mk||motifK,c=(n-1)/2,r=m(Math.abs(x-c),Math.abs(y-c));
+  return (((r%k)+k)%k)<Math.floor(k/2);}
 
 /* ══ МАЛЮВАННЯ ═══════════════════════════════════════════════════ */
 const CV=$('cv'), CTX=CV.getContext('2d');
-function cellPaint(g,px,py,cell,col,bg,solid){
+function cellPaint(g,px,py,cell,col){
   const c=hex(col);
-  if(shape==='cross'&&!solid){
+  if(shape==='cross'){
     g.strokeStyle=c;g.lineWidth=Math.max(1,cell*.3);g.lineCap='round';
     const m=cell*.17;
     g.beginPath();g.moveTo(px+m,py+m);g.lineTo(px+cell-m,py+cell-m);
@@ -338,30 +324,25 @@ function cellPaint(g,px,py,cell,col,bg,solid){
     return;
   }
   g.fillStyle=c;
-  if(shape==='circle'&&!solid){g.beginPath();g.arc(px+cell/2,py+cell/2,cell*.47,0,6.2832);g.fill();}
+  if(shape==='circle'){g.beginPath();g.arc(px+cell/2,py+cell/2,cell*.47,0,6.2832);g.fill();}
   else g.fillRect(px,py,cell,cell);
-  if(volT>0&&cell>=4){                       /* об'єм: фаска світло/тінь */
+  if(volT>0&&cell>=4){
     const v=volT/100*.5, w=Math.max(1,cell*.17);
-    g.globalAlpha=v*.75;
-    g.fillStyle=hex(mix(col,[255,255,255],.75));
+    g.globalAlpha=v*.75;g.fillStyle=hex(mix(col,[255,255,255],.75));
     if(shape==='circle'){g.beginPath();g.arc(px+cell*.38,py+cell*.36,cell*.18,0,6.2832);g.fill();}
     else g.fillRect(px,py,cell,w);
-    g.globalAlpha=v*.6;
-    g.fillStyle=hex(mix(col,[0,0,0],.7));
+    g.globalAlpha=v*.6;g.fillStyle=hex(mix(col,[0,0,0],.7));
     if(shape!=='circle'){g.fillRect(px,py+cell-w,cell,w);g.fillRect(px+cell-w,py,w,cell);}
     g.globalAlpha=1;
   }
 }
 function draw(){
-  const box=CV.parentElement.getBoundingClientRect();
+  const S=Math.round(parseFloat(CV.style.width)||300);
   const dpr=Math.min(2,window.devicePixelRatio||1);
-  const S=Math.max(120,Math.round(Math.min(box.width,box.height)));
-  CV.width=S*dpr;CV.height=S*dpr;CV.style.width=CV.style.height='100%';
+  CV.width=Math.round(S*dpr);CV.height=Math.round(S*dpr);
   const g=CTX;g.setTransform(dpr,0,0,dpr,0,0);
-
   if(!text){g.clearRect(0,0,S,S);return;}
 
-  /* поле даних */
   let n,grids,mask=0;
   if(rgb){
     const parts=split3(text);
@@ -378,9 +359,7 @@ function draw(){
   const cell=Math.max(2,Math.floor(S/side));
   const total=cell*side, ox=Math.round((S-total)/2), oy=ox;
 
-  /* кольори */
-  const P=PAL();
-  const NEG=invert&&!rgb;
+  const P=PAL(), NEG=invert&&!rgb;
   const c1=NEG?P.bg:P.ink, c0=NEG?P.ink:P.bg;
   const a1=NEG?lockC(P.ab,c0):lockC(P.ai,c1);
   const a0=NEG?lockC(P.ai,c1):lockC(P.ab,c0);
@@ -388,16 +367,13 @@ function draw(){
   const dataBg=rgb?RBG:c0;
   const dk=rgb?rgbInk(1,1,1):(lum(c0)<=lum(c1)?c0:c1);
   const lt=rgb?RBG:(dk===c0?c1:c0);
-  const FA=NEG?lt:dk, FB=NEG?dk:lt;             /* зовнішнє / друге кільце */
-  const QZ=NEG?dk:lt;
+  const FA=NEG?lt:dk, FB=NEG?dk:lt, QZ=NEG?dk:lt;
 
   g.fillStyle=hex(rgb?RBG:QZ);g.fillRect(0,0,S,S);
-
-  const cellAt=(cx,cy,col)=>{g.fillStyle=hex(col);
-    g.fillRect(ox+cx*cell,oy+cy*cell,cell,cell);};
   const CW=n+pad*2;
   g.fillStyle=hex(dataBg);g.fillRect(ox+qz*cell,oy+qz*cell,CW*cell,CW*cell);
-  const F=(cx,cy,col)=>cellAt(cx+qz,cy+qz,col);
+  const F=(cx,cy,col)=>{g.fillStyle=hex(col);
+    g.fillRect(ox+(cx+qz)*cell,oy+(cy+qz)*cell,cell,cell);};
   for(let x=0;x<CW;x++){F(x,0,FA);F(x,CW-1,FA);}
   for(let y=1;y<CW-1;y++){F(0,y,FA);F(CW-1,y,FA);}
   for(let x=1;x<CW-1;x++){F(x,1,FB);F(x,CW-2,FB);}
@@ -411,155 +387,175 @@ function draw(){
     if(rgb){
       const on=[grids[0][i],grids[1][i],grids[2][i]];
       if(!on[0]&&!on[1]&&!on[2])continue;
-      cellPaint(g,px,py,cell,rgbInk(!!on[0]!==!!(mask&4),!!on[1]!==!!(mask&2),!!on[2]!==!!(mask&1)),dataBg);
+      cellPaint(g,px,py,cell,rgbInk(!!on[0]!==!!(mask&4),!!on[1]!==!!(mask&2),!!on[2]!==!!(mask&1)));
     }else if(grids[0][i]){
-      cellPaint(g,px,py,cell,inBand(x,y,n)?a1:c1,dataBg);
+      cellPaint(g,px,py,cell,inBand(x,y,n)?a1:c1);
     }else if(inBand(x,y,n)){
       g.fillStyle=hex(a0);g.fillRect(px,py,cell,cell);
     }
   }
 
-  /* фактура тканини — легке плетіння поверх усього */
   if(fabT>0){
     const p=Math.max(2,2+Math.round(7*fabG/100));
-    g.globalAlpha=Math.min(.3,fabT/100*.3);
-    g.strokeStyle='#000';g.lineWidth=1;
-    g.beginPath();
+    g.globalAlpha=Math.min(.3,fabT/100*.3);g.strokeStyle='#000';g.lineWidth=1;g.beginPath();
     for(let x=0;x<S;x+=p){g.moveTo(x+.5,0);g.lineTo(x+.5,S);}
     for(let y=0;y<S;y+=p){g.moveTo(0,y+.5);g.lineTo(S,y+.5);}
     g.stroke();g.globalAlpha=1;
   }
 
-  $('hint').className='hintline';
-  const by=enc.encode(text).length;
-  $('hint').innerHTML = by>100 ? '<b>забагато — межа 100 Б</b>'
-                      : by>50  ? '<b>'+by+' / 100 Б</b>' : '<b>✓ цей код читається</b>';
-  if(by>50)$('hint').className='hintline warn';
+  const by=enc.encode(text).length, h=$('hint');
+  h.className='hintline';
+  if(by>100){h.innerHTML='<b>забагато — межа 100 Б</b>';h.className='hintline warn';}
+  else if(by>50){h.innerHTML='<b>'+by+' / 100 Б</b>';h.className='hintline warn';}
+  else h.innerHTML='<b>✓ цей код читається</b>';
+}
+
+/* ══ РОЗКЛАДКА: орнамент ніколи не ховається за шухлядою ═════════ */
+function layout(){
+  const wrap=document.querySelector('.stagewrap');
+  const sh=openSheet?$('sheet').offsetHeight:0;
+  const slot=$('slot');
+  slot.style.bottom=(sh+8)+'px';
+  const h=Math.max(90,wrap.clientHeight-sh-8);
+  const w=slot.clientWidth;
+  const size=Math.max(90,Math.min(w,h));
+  const st=$('stage');
+  st.style.width=st.style.height=size+'px';
+  CV.style.width=CV.style.height=size+'px';
+  draw();
+}
+function sheetHeight(){
+  const ph=document.querySelector('.phone').clientHeight;
+  return Math.round(Math.max(190,Math.min(310,ph*0.40)));
 }
 
 /* ══ ШУХЛЯДИ ═════════════════════════════════════════════════════ */
 const TITLES={color:'Колір',form:'Форма',syms:'Знаки',save:'Зберегти й поділитися',scan:'Сканувати код'};
 function show(name){
-  if(openSheet===name){hide();return;}
+  if(openSheet===name&&$('sheet').classList.contains('on')){rebuild();return;}
   openSheet=name;
   $('sheetTitle').textContent=TITLES[name]||'';
-  $('sheetBody').innerHTML='';
-  BUILD[name]($('sheetBody'));
-  $('sheet').classList.add('on');$('scrim').classList.add('on');
+  $('sheet').style.height=sheetHeight()+'px';
+  rebuild();
+  $('sheet').classList.add('on');
   document.querySelectorAll('.bar button').forEach(b=>b.classList.toggle('on',b.dataset.sheet===name));
+  requestAnimationFrame(layout);
 }
-function hide(){openSheet=null;$('sheet').classList.remove('on');$('scrim').classList.remove('on');
-  document.querySelectorAll('.bar button').forEach(b=>b.classList.remove('on'));}
-$('scrim').onclick=hide; $('grip').onclick=hide;
+/* перебудова вмісту НЕ закриває шухляду — людина гортає й пробує далі */
+function rebuild(){
+  if(!openSheet)return;
+  const box=$('sheetBody');const sc=box.scrollTop;
+  box.innerHTML='';BUILD[openSheet](box);box.scrollTop=sc;
+}
+function hide(){openSheet=null;$('sheet').classList.remove('on');
+  document.querySelectorAll('.bar button').forEach(b=>b.classList.remove('on'));
+  requestAnimationFrame(layout);}
+$('sheetClose').onclick=hide;
 
 function el(tag,cls,html){const e=document.createElement(tag);if(cls)e.className=cls;
   if(html!=null)e.innerHTML=html;return e;}
 function label(box,t){box.appendChild(el('div','lbl',t));}
-
-function slider(box,title,val,min,max,oninput,suffix){
+function chip(on,icon,name,onclick){
+  const b=el('button','chip'+(on?' on':''));
+  b.appendChild(icon);b.appendChild(el('span',null,name));b.onclick=onclick;return b;}
+function slider(box,title,val,oninput){
   const w=el('div','slider');
-  w.innerHTML='<div class="head"><span>'+title+'</span><b>'+val+(suffix||'')+'</b></div>';
-  const inp=el('input');inp.type='range';inp.min=min;inp.max=max;inp.value=val;
-  inp.oninput=e=>{w.querySelector('b').textContent=e.target.value+(suffix||'');oninput(+e.target.value);};
+  w.innerHTML='<div class="head"><span>'+title+'</span><b>'+val+'%</b></div>';
+  const inp=el('input');inp.type='range';inp.min=0;inp.max=100;inp.value=val;
+  inp.oninput=e=>{w.querySelector('b').textContent=e.target.value+'%';oninput(+e.target.value);};
   w.appendChild(inp);box.appendChild(w);
 }
 
 const BUILD={
   color(box){
+    const top=el('div','rowtop');
     const tabs=el('div','tabs');
-    ['Монохром','Кольоровий'].forEach((t,i)=>{const b=el('button',(rgb?i===1:i===0)?'on':'',t);
-      b.onclick=()=>{rgb=(i===1);draw();show('color');};tabs.appendChild(b);});
-    box.appendChild(tabs);
+    ['Монохром','Кольоровий'].forEach((t,i)=>{
+      const b=el('button',(rgb?i===1:i===0)?'on':'',t);
+      b.onclick=()=>{rgb=(i===1);draw();rebuild();};tabs.appendChild(b);});
+    top.appendChild(tabs);
+    if(!rgb){
+      const nb=el('button','negbtn'+(invert?' on':''),
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>');
+      nb.title='Негатив';nb.onclick=()=>{invert=!invert;draw();rebuild();};
+      top.appendChild(nb);
+    }
+    box.appendChild(top);
 
     if(!rgb){
-      label(box,'палітра');
-      const list=el('div','plist');
-      PALS.forEach((p,i)=>{const b=el('button','plbtn'+(i===palI?' on':''));
-        const cols=invert?[p.ink,p.bg,p.ai,p.ab]:[p.bg,p.ink,p.ab,p.ai];
-        b.innerHTML='<span class="chips">'+cols.map(c=>'<i style="background:rgb('+c+')"></i>').join('')+
-                    '</span><span>'+p.uk+'</span>';
-        b.onclick=()=>{palI=i;draw();show('color');};list.appendChild(b);});
-      box.appendChild(list);
-
       label(box,'мотив');
-      const tiles=el('div','tiles');
-      MOTIFS.forEach(m=>{const b=el('button','tile'+(m.k===motif?' on':''));
-        b.appendChild(motifIcon(m));b.appendChild(el('span',null,m.uk));
-        b.onclick=()=>{motif=m.k;draw();show('color');};tiles.appendChild(b);});
-      box.appendChild(tiles);
+      const ms=el('div','strip');
+      MOTIFS.forEach(m=>ms.appendChild(chip(m.k===motif,motifIcon(m),m.uk,
+        ()=>{motif=m.k;draw();rebuild();})));
+      box.appendChild(ms);
 
-      const row=el('div','srow','<span>Негатив</span>');
-      const sw=el('button','sw'+(invert?' on':''));sw.setAttribute('aria-pressed',invert);
-      sw.onclick=()=>{invert=!invert;draw();show('color');};
-      row.appendChild(sw);box.appendChild(row);
+      label(box,'кольори');
+      const ps=el('div','strip');
+      PALS.forEach((p,i)=>ps.appendChild(chip(i===palI,palIcon(i),p.uk,
+        ()=>{palI=i;draw();rebuild();})));
+      box.appendChild(ps);
     }else{
-      label(box,'колірна схема — 8 варіантів');
-      const tiles=el('div','tiles');
-      for(let i=0;i<8;i++){const b=el('button','tile'+(i===rgbStep?' on':''));
-        const m=INV_SEQ[i], c=rgbInk(m&4,m&2,m&1);
-        b.appendChild(schemeIcon(m));b.appendChild(el('span',null,'№'+(i+1)));
-        b.onclick=()=>{rgbStep=i;draw();show('color');};tiles.appendChild(b);}
-      box.appendChild(tiles);
+      label(box,'колірна схема');
+      const g=el('div','grid2');
+      for(let i=0;i<8;i++)g.appendChild(chip(i===rgbStep,schemeIcon(INV_SEQ[i]),'№'+(i+1),
+        ()=>{rgbStep=i;draw();rebuild();}));
+      box.appendChild(g);
     }
   },
 
   form(box){
+    label(box,'форма клітинки');
+    const sg=el('div','strip');
+    [['square','Квадрат','<rect x="4" y="4" width="16" height="16" rx="2.5" fill="currentColor"/>'],
+     ['circle','Кружечок','<circle cx="12" cy="12" r="8.5" fill="currentColor"/>'],
+     ['cross','Хрестик','<path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>']]
+    .forEach(([k,nm,p])=>{
+      const ic=el('div','ico','<svg viewBox="0 0 24 24">'+p+'</svg>');
+      sg.appendChild(chip(shape===k,ic,nm,()=>{shape=k;draw();rebuild();}));});
+    box.appendChild(sg);
+
     label(box,'готові варіанти');
     const presets=[['Пласко',{shape:'square',volT:0,fabT:0}],
                    ["Об'ємно",{shape:'square',volT:85,fabT:0}],
                    ['Намистини',{shape:'circle',volT:90,fabT:0}],
                    ['Вишиванка',{shape:'cross',volT:100,fabT:55,fabG:45}]];
-    const pg=el('div','tiles');pg.style.gridTemplateColumns='repeat(4,1fr)';
-    presets.forEach(([nm,s])=>{const b=el('button','tile');
-      b.appendChild(presetIcon(s));b.appendChild(el('span',null,nm));
-      b.onclick=()=>{Object.assign(window,{});shape=s.shape;volT=s.volT;fabT=s.fabT;
-        if(s.fabG!=null)fabG=s.fabG;draw();show('form');};pg.appendChild(b);});
+    const pg=el('div','strip');
+    presets.forEach(([nm,s])=>pg.appendChild(chip(false,presetIcon(s),nm,()=>{
+      shape=s.shape;volT=s.volT;fabT=s.fabT;if(s.fabG!=null)fabG=s.fabG;draw();rebuild();})));
     box.appendChild(pg);
 
-    label(box,'форма клітинки');
-    const sg=el('div','tiles');
-    [['square','Квадрат','<rect x="4" y="4" width="16" height="16" rx="2.5" fill="currentColor"/>'],
-     ['circle','Кружечок','<circle cx="12" cy="12" r="8.5" fill="currentColor"/>'],
-     ['cross','Хрестик','<path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>']]
-    .forEach(([k,nm,p])=>{const b=el('button','tile'+(shape===k?' on':''));
-      b.innerHTML='<svg viewBox="0 0 24 24">'+p+'</svg><span>'+nm+'</span>';
-      b.onclick=()=>{shape=k;draw();show('form');};sg.appendChild(b);});
-    box.appendChild(sg);
-
-    slider(box,"Об'єм",volT,0,100,v=>{volT=v;draw();},'%');
+    slider(box,"Об'єм",volT,v=>{volT=v;draw();});
     if(shape==='cross'){
-      slider(box,'Фактура тканини',fabT,0,100,v=>{fabT=v;draw();},'%');
-      slider(box,'Крупність плетіння',fabG,0,100,v=>{fabG=v;draw();},'%');
-    }else{
-      box.appendChild(el('div','lbl','тканина — лише для хрестика'));
+      slider(box,'Фактура тканини',fabT,v=>{fabT=v;draw();});
+      slider(box,'Крупність плетіння',fabG,v=>{fabG=v;draw();});
     }
   },
 
   syms(box){
-    const tabs=el('div','symtabs');
-    Object.keys(SYMS).forEach(k=>{const b=el('button',k===curSym?'on':'',k);
-      b.onclick=()=>{curSym=k;show('syms');};tabs.appendChild(b);});
-    box.appendChild(tabs);
+    const strip=el('div','strip');
+    Object.keys(SYMS).forEach(k=>{const b=el('button','chip'+(k===curSym?' on':''));
+      const ic=el('div','ico');ic.style.fontSize='26px';ic.textContent=k;
+      b.appendChild(ic);b.onclick=()=>{curSym=k;rebuild();};strip.appendChild(b);});
+    box.appendChild(strip);
     const grid=el('div','symgrid');
     SYMS[curSym].forEach(s=>{const b=el('button',null,s);
-      b.onclick=()=>{setText(([...text,s].join('')).slice(0,60));};grid.appendChild(b);});
+      b.onclick=()=>setText(([...text,s].join('')).slice(0,60));grid.appendChild(b);});
     box.appendChild(grid);
   },
 
   save(box){
+    const I={dl:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>',
+      th:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20 20 4M4 4l16 16"/><circle cx="12" cy="12" r="2.4"/></svg>',
+      up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V8"/><path d="m7 13 5-5 5 5"/><path d="M5 4h14"/></svg>',
+      sh:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>'};
     const acts=el('div','acts');
-    const mk=(cls,icon,title,sub)=>{const b=el('button','act'+(cls?' '+cls:''));
-      b.innerHTML=icon+'<span>'+title+(sub?'<small>'+sub+'</small>':'')+'</span>';
-      return b;};
-    const I_DL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>';
-    const I_TH='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20 20 4M4 4l16 16"/><circle cx="12" cy="12" r="2.4"/></svg>';
-    const I_UP='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V8"/><path d="m7 13 5-5 5 5"/><path d="M5 4h14"/></svg>';
-    const I_SH='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>';
-    const a=mk('pri',I_DL,'Зберегти картинку','PNG, готовий до друку');
-    const b=mk('',I_TH,'Схема для вишивки','клітинки й номери ниток DMC');
-    const c=mk('',I_UP,'Опублікувати в галерею','побачать усі відвідувачі');
-    const d=mk('',I_SH,'Приміряти на мерч','футболка, торба, листівка');
-    [a,b,c,d].forEach(x=>{x.onclick=()=>{hide();toast('У макеті кнопки не працюють');};acts.appendChild(x);});
+    [['pri',I.dl,'Зберегти картинку','PNG, готовий до друку'],
+     ['',I.th,'Схема для вишивки','клітинки й номери ниток DMC'],
+     ['',I.up,'Опублікувати в галерею','побачать усі відвідувачі'],
+     ['',I.sh,'Приміряти на мерч','футболка, торба, листівка']]
+    .forEach(([cls,ic,t,s])=>{const b=el('button','act'+(cls?' '+cls:''),
+      ic+'<span>'+t+'<small>'+s+'</small></span>');
+      b.onclick=()=>toast('У макеті кнопки не працюють');acts.appendChild(b);});
     box.appendChild(acts);
   },
 
@@ -567,39 +563,44 @@ const BUILD={
     const acts=el('div','acts');
     [['pri','📷 Камера'],['','🖼 Завантажити з галереї']].forEach(([cls,t])=>{
       const b=el('button','act'+(cls?' '+cls:''),'<span>'+t+'</span>');
-      b.onclick=()=>{hide();toast('У макеті сканування не працює');};acts.appendChild(b);});
+      b.onclick=()=>toast('У макеті сканування не працює');acts.appendChild(b);});
     box.appendChild(acts);
   }
 };
 
-/* іконки-мініатюри */
-function tinyCanvas(px){const c=document.createElement('canvas');c.width=c.height=px;return c;}
-function motifIcon(m){
-  const N=13,c=tinyCanvas(N),g=c.getContext('2d'),P=PAL();
-  const f0=invert?P.ink:P.bg, f1=invert?P.ab:P.ai, f2=invert?P.ai:P.ab, mid=(N-1)/2;
-  for(let y=0;y<N;y++)for(let x=0;x<N;x++){let col=f0;
-    if(m.f){const r=m.f(Math.abs(x-mid),Math.abs(y-mid));
-      if((((r%motifK)+motifK)%motifK)<Math.floor(motifK/2))col=((x+y)%2)?f1:f2;}
+/* ══ МІНІАТЮРИ ═══════════════════════════════════════════════════ */
+function tiny(px){const c=document.createElement('canvas');c.width=c.height=px;return c;}
+/* орнаментик 13×13: мотив у поточних кольорах, кольори з поточним мотивом */
+function patch(palIdx,motifObj){
+  const N=13,c=tiny(N),g=c.getContext('2d'),P=PALS[palIdx];
+  const neg=invert, bg=neg?P.ink:P.bg, ink=neg?P.bg:P.ink;
+  const m1=neg?P.ab:P.ai, m0=neg?P.ai:P.ab, mid=(N-1)/2;
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    let col=((x+y)%3===0)?ink:bg;
+    if(motifObj&&motifObj.f){
+      const r=motifObj.f(Math.abs(x-mid),Math.abs(y-mid));
+      if((((r%motifK)+motifK)%motifK)<Math.floor(motifK/2))col=((x+y)%3===0)?m1:m0;
+    }
     g.fillStyle='rgb('+col+')';g.fillRect(x,y,1,1);}
   return c;
 }
+const motifIcon=m=>patch(palI,m);
+const palIcon=i=>patch(i,MOTIFS.find(m=>m.k===motif));
 function schemeIcon(mask){
-  const N=12,c=tinyCanvas(N),g=c.getContext('2d');
-  const bg=rgbInk(mask&4,mask&2,mask&1);
-  g.fillStyle='rgb('+bg+')';g.fillRect(0,0,N,N);
-  const picks=[[1,0,0],[0,1,0],[0,0,1],[1,1,0]];
-  picks.forEach((p,i)=>{const col=rgbInk(!!p[0]!==!!(mask&4),!!p[1]!==!!(mask&2),!!p[2]!==!!(mask&1));
+  const N=12,c=tiny(N),g=c.getContext('2d');
+  g.fillStyle='rgb('+rgbInk(mask&4,mask&2,mask&1)+')';g.fillRect(0,0,N,N);
+  [[1,0,0],[0,1,0],[0,0,1],[1,1,0]].forEach((p,i)=>{
+    const col=rgbInk(!!p[0]!==!!(mask&4),!!p[1]!==!!(mask&2),!!p[2]!==!!(mask&1));
     g.fillStyle='rgb('+col+')';g.fillRect((i%2)*6+1,Math.floor(i/2)*6+1,4,4);});
   return c;
 }
 function presetIcon(s){
-  const N=44,c=tinyCanvas(N),g=c.getContext('2d'),P=PAL();
-  g.fillStyle='rgb('+(invert?P.ink:P.bg)+')';g.fillRect(0,0,N,N);
-  const col=invert?P.bg:P.ink, cell=11;
+  const N=44,c=tiny(N),g=c.getContext('2d'),P=PAL();
+  const bg=invert?P.ink:P.bg, col=invert?P.bg:P.ink, cell=11;
+  g.fillStyle='rgb('+bg+')';g.fillRect(0,0,N,N);
   for(let y=0;y<4;y++)for(let x=0;x<4;x++){
     if((x+y)%2)continue;
-    const px=x*cell,py=y*cell;
-    g.fillStyle='rgb('+col+')';
+    const px=x*cell,py=y*cell;g.fillStyle='rgb('+col+')';
     if(s.shape==='circle'){g.beginPath();g.arc(px+cell/2,py+cell/2,cell*.45,0,6.3);g.fill();}
     else if(s.shape==='cross'){g.strokeStyle='rgb('+col+')';g.lineWidth=3;g.lineCap='round';
       g.beginPath();g.moveTo(px+2,py+2);g.lineTo(px+cell-2,py+cell-2);
@@ -615,30 +616,46 @@ function presetIcon(s){
   return c;
 }
 
+/* ══ КУБИК: повний цикл без повторів ═════════════════════════════
+   Колода = всі монохромні поєднання (палітра × мотив × позитив/негатив)
+   плюс усі вісім колірних схем. Перемішується, проходиться до кінця,
+   тоді перемішується знову. Кожен варіант за цикл трапляється раз. */
+let deck=[],deckI=0;
+function buildDeck(){
+  deck=[];
+  for(let p=0;p<PALS.length;p++)for(const m of MOTIFS)for(const inv of [false,true])
+    deck.push({rgb:false,p,m:m.k,inv});
+  for(let s=0;s<8;s++)deck.push({rgb:true,s});
+  for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));
+    [deck[i],deck[j]]=[deck[j],deck[i]];}
+  deckI=0;
+}
+function nextVariant(){
+  if(deckI>=deck.length)buildDeck();
+  const v=deck[deckI++];
+  if(v.rgb){rgb=true;rgbStep=v.s;}
+  else{rgb=false;palI=v.p;motif=v.m;invert=v.inv;}
+  draw();rebuild();
+  toast(deckI+' / '+deck.length);
+}
+
 /* ══ ПОДІЇ ═══════════════════════════════════════════════════════ */
 function setText(v){
-  text=v;$('txt').value=v;
-  $('cta').hidden=!!v;
-  const el=$('txt');el.style.height='46px';el.style.height=Math.min(96,el.scrollHeight)+'px';
+  text=v;$('txt').value=v;$('cta').hidden=!!v;
+  const e=$('txt');e.style.height='46px';e.style.height=Math.min(92,e.scrollHeight)+'px';
   if(!v)$('hint').textContent='';
-  draw();
+  layout();
 }
 $('txt').addEventListener('input',e=>setText(e.target.value.slice(0,60)));
 $('clrBtn').onclick=()=>{setText('');$('txt').focus();};
-$('scanIn').onclick=()=>show('scan');
 $('cta').onclick=()=>show('scan');
 document.querySelectorAll('.bar button[data-sheet]').forEach(b=>b.onclick=()=>show(b.dataset.sheet));
-$('diceBtn').onclick=()=>{
-  if(rgb){let s;do{s=Math.floor(Math.random()*8);}while(s===rgbStep);rgbStep=s;}
-  else{palI=Math.floor(Math.random()*PALS.length);invert=Math.random()<.4;
-    motif=Math.random()<.85?MOTIFS[1+Math.floor(Math.random()*5)].k:'none';
-    motifK=[3,4,5,6][Math.floor(Math.random()*4)];}
-  draw();if(openSheet==='color')show('color');
-};
+$('diceBtn').onclick=nextVariant;
 $('themeBtn').onclick=()=>{
   const cur=document.documentElement.getAttribute('data-theme');
-  const dark=cur? cur==='dark' : matchMedia('(prefers-color-scheme:dark)').matches;
+  const dark=cur?cur==='dark':matchMedia('(prefers-color-scheme:dark)').matches;
   document.documentElement.setAttribute('data-theme',dark?'light':'dark');
+  if(openSheet)rebuild();
 };
 let LANG='UA';
 $('langBtn').onclick=()=>{LANG=LANG==='UA'?'EN':'UA';$('langBtn').textContent=LANG;
@@ -646,10 +663,9 @@ $('langBtn').onclick=()=>{LANG=LANG==='UA'?'EN':'UA';$('langBtn').textContent=LA
 
 let tt=0;
 function toast(msg){const e=$('toast');e.textContent=msg;e.classList.add('on');
-  clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('on'),1900);}
+  clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('on'),1400);}
 
-addEventListener('resize',()=>draw());
+addEventListener('resize',()=>{if(openSheet)$('sheet').style.height=sheetHeight()+'px';layout();});
+buildDeck();
 setText('Таїна');
 </script>
-
-</body></html>
