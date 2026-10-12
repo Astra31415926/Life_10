@@ -94,9 +94,11 @@ var M = {
 /* Знак TAINA — піксельний, 30×4 модулі: з того ж «матеріалу», що й орнамент.
    Вектор (не картинка): різкий на будь-якому екрані й сам бере колір теми.
    crispEdges — щоб краї модулів не розмивались. */
+/* Крапка над «i» — єдина червона клітинка знака; решта бере колір теми. */
 var LOGO_SVG =
-  '<svg viewBox="0 0 30 4" fill="currentColor" shape-rendering="crispEdges">' +
-  '<path d="M0 0h5v1h-5zM8 0h1v1h-1zM13 0h1v1h-1zM16 0h2v1h-2zM21 0h1v1h-1zM26 0h1v1h-1zM2 1h1v1h-1zM7 1h1v1h-1zM9 1h1v1h-1zM16 1h1v1h-1zM18 1h1v1h-1zM21 1h1v1h-1zM25 1h1v1h-1zM27 1h1v1h-1zM2 2h1v1h-1zM6 2h1v1h-1zM8 2h1v1h-1zM10 2h1v1h-1zM13 2h1v1h-1zM16 2h1v1h-1zM19 2h1v1h-1zM21 2h1v1h-1zM24 2h1v1h-1zM26 2h1v1h-1zM28 2h1v1h-1zM2 3h1v1h-1zM5 3h1v1h-1zM11 3h1v1h-1zM13 3h1v1h-1zM16 3h1v1h-1zM20 3h2v1h-2zM23 3h1v1h-1zM29 3h1v1h-1z"/></svg>';
+  '<svg viewBox="0 0 30 4" shape-rendering="crispEdges">' +
+  '<path fill="currentColor" d="M0 0h5v1h-5zM8 0h1v1h-1zM16 0h2v1h-2zM21 0h1v1h-1zM26 0h1v1h-1zM2 1h1v1h-1zM7 1h1v1h-1zM9 1h1v1h-1zM16 1h1v1h-1zM18 1h1v1h-1zM21 1h1v1h-1zM25 1h1v1h-1zM27 1h1v1h-1zM2 2h1v1h-1zM6 2h1v1h-1zM8 2h1v1h-1zM10 2h1v1h-1zM13 2h1v1h-1zM16 2h1v1h-1zM19 2h1v1h-1zM21 2h1v1h-1zM24 2h1v1h-1zM26 2h1v1h-1zM28 2h1v1h-1zM2 3h1v1h-1zM5 3h1v1h-1zM11 3h1v1h-1zM13 3h1v1h-1zM16 3h1v1h-1zM20 3h2v1h-2zM23 3h1v1h-1zM29 3h1v1h-1z"/>' +
+  '<rect x="13" y="0" width="1" height="1" fill="#e4120f"/></svg>';
 
 var PHONE_SVG =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +

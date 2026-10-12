@@ -676,26 +676,27 @@ let hasImage=false, menuOpen=false, busy=false, palOpen=false;
    Колір мотиву прив'язаний до свого кольору й переходить разом із ним.
    Палітри налаштовано в «Майстерні палітр»: у кожному вільному каналі лише
    два рівні, тож зайвих відтінків немає. sv — вільні канали печатки. */
+/* ДВАНАДЦЯТЬ ПОЄДНАНЬ — рівно як у «Майстерні палітр» (експорт 12.10.2026).
+   Чорно-білу винесено першою: сайт стартує з неї.
+   mono:true означає, що мотив їй не пропонується — мотив фарбує два вільні
+   канали, тож із мотивом вона перестала б бути чорно-білою. */
 const PALS=[
  {uk:'Традиційні',en:'Traditional',items:[
-  /* ЧОРНО-БІЛА — перша в списку й за замовчуванням: чорна нитка на білому полі.
-     mono:true означає, що мотив їй не пропонується: мотив фарбує два вільні
-     канали, а в сірому їх немає. */
-  {uk:'Чорно-біла',en:'Black & white',c:1,bg:[250,250,250],ink:[12,12,12],ai:[12,12,12],ab:[250,250,250],sv:[12,12,12],mono:true},
+  {uk:'Чорно-біла',en:'Black & white',c:1,bg:[12,12,12],ink:[250,250,250],ai:[250,250,12],ab:[250,12,12],sv:[250,12,12],mono:true},
   {uk:'Червоно-чорна',en:'Red & black',c:0,bg:[0,0,0],ink:[195,0,0],ai:[195,152,0],ab:[0,0,0],sv:[0,0,0]},
-  {uk:'Синьо-чорна',en:'Blue & black',c:2,bg:[0,0,0],ink:[0,0,255],ai:[0,255,255],ab:[0,0,0],sv:[0,0,0]},
+  {uk:'Синьо-біла',en:'Blue & white',c:2,bg:[0,0,0],ink:[0,0,255],ai:[0,255,255],ab:[0,0,0],sv:[0,0,0]},
   {uk:'Коричнево-жовта',en:'Brown & ochre',c:1,bg:[59,36,0],ink:[254,217,0],ai:[254,217,0],ab:[254,36,0],sv:[254,36,0]}]},
  {uk:'Контрастні',en:'Contrast',items:[
-  {uk:'Зелено-чорна',en:'Green & black',c:1,bg:[0,11,0],ink:[0,218,0],ai:[255,218,0],ab:[0,11,0],sv:[0,11,0]},
+  {uk:'Зелена на індиго',en:'Green on indigo',c:1,bg:[0,11,0],ink:[0,218,0],ai:[255,218,0],ab:[0,11,0],sv:[0,11,0]},
   {uk:'Кремово-зелена',en:'Cream & pine',c:0,bg:[10,41,12],ink:[255,215,140],ai:[255,41,12],ab:[10,215,140],sv:[10,41,12]},
   {uk:'Зелено-червона',en:'Green & red',c:0,bg:[0,255,0],ink:[206,0,0],ai:[206,255,237],ab:[0,0,0],sv:[0,0,0]}]},
  {uk:'Яскраві',en:'Bright',items:[
-  {uk:'Жовто-синя',en:'Yellow & navy',c:0,bg:[0,6,128],ink:[228,224,128],ai:[228,6,128],ab:[0,6,128],sv:[0,6,137]},
-  {uk:'Фіолетово-бірюзова',en:'Violet & cyan',c:1,bg:[24,0,48],ink:[24,236,254],ai:[255,236,48],ab:[255,0,48],sv:[255,0,48]},
+  {uk:'Бірюзово-коралова',en:'Teal & coral',c:0,bg:[0,6,128],ink:[228,224,128],ai:[228,6,128],ab:[0,6,128],sv:[0,6,137]},
+  {uk:'Бордова',en:'Burgundy',c:1,bg:[24,0,48],ink:[24,236,254],ai:[255,236,48],ab:[255,0,48],sv:[255,0,48]},
   {uk:'Червоно-синя',en:'Red & blue',c:0,bg:[0,11,62],ink:[255,11,62],ai:[255,245,244],ab:[0,11,62],sv:[0,11,62]}]},
  {uk:'Спеціальні',en:'Special',items:[
   {uk:'Неонова',en:'Neon',c:1,bg:[0,8,40],ink:[0,255,40],ai:[255,255,0],ab:[255,8,0],sv:[0,8,40]},
-  {uk:'Блакитно-синя',en:'Sky & blue',c:1,bg:[0,255,255],ink:[0,0,255],ai:[0,0,255],ab:[255,255,0],sv:[0,0,255]}]}
+  {uk:'Золота',en:'Gold',c:1,bg:[0,255,255],ink:[0,0,255],ai:[0,0,255],ab:[255,255,0],sv:[0,255,255]}]}
 ];
 let palG=0, palI=0;      /* старт: «Чорно-біла», позитив */
 function PAL(){return PALS[palG].items[palI];}
@@ -2135,8 +2136,8 @@ applyLang();
   .m-top .m-ico{width:38px;height:38px;border:0;background:transparent;color:var(--muted);
     display:flex;align-items:center;justify-content:center;border-radius:10px;cursor:pointer;padding:0}
   .m-top .m-ico svg{width:20px;height:20px}
-  .m-top .m-brand{font-family:var(--mono);font-size:18px;font-weight:700;letter-spacing:.4em;
-    text-indent:.4em;color:var(--parchment);text-decoration:none}
+  .m-top .m-brand{display:flex;align-items:center;color:var(--parchment);text-decoration:none;padding:4px 2px}
+  .m-top .m-brand svg{height:17px;width:auto;display:block}   /* 4 модулі × 4,25px */
   body.light-mode .m-top .m-ico{color:var(--parchment)}
 
   /* ── хрестик у полі вводу (сюди переїжджає кошик) ── */
@@ -2286,11 +2287,21 @@ var box=document.querySelector('.stagebox');
 var SV=function(p,w){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="'+
   (w||2)+'" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>';};
 
+/* ЗНАК TAINA — піксельний, 30×4 модулі: з того ж «матеріалу», що й орнамент.
+   Крапка над «i» — єдина червона клітинка, решта бере колір теми. */
+var LOGO='<svg viewBox="0 0 30 4" shape-rendering="crispEdges">'+
+  '<path fill="currentColor" d="M0 0h5v1h-5zM8 0h1v1h-1zM16 0h2v1h-2zM21 0h1v1h-1zM26 0h1v1h-1z'+
+  'M2 1h1v1h-1zM7 1h1v1h-1zM9 1h1v1h-1zM16 1h1v1h-1zM18 1h1v1h-1zM21 1h1v1h-1zM25 1h1v1h-1zM27 1h1v1h-1z'+
+  'M2 2h1v1h-1zM6 2h1v1h-1zM8 2h1v1h-1zM10 2h1v1h-1zM13 2h1v1h-1zM16 2h1v1h-1zM19 2h1v1h-1zM21 2h1v1h-1z'+
+  'M24 2h1v1h-1zM26 2h1v1h-1zM28 2h1v1h-1z'+
+  'M2 3h1v1h-1zM5 3h1v1h-1zM11 3h1v1h-1zM13 3h1v1h-1zM16 3h1v1h-1zM20 3h2v1h-2zM23 3h1v1h-1zM29 3h1v1h-1z"/>'+
+  '<rect x="13" y="0" width="1" height="1" fill="#e4120f"/></svg>';
+
 /* ── 1. ШАПКА ─────────────────────────────────────────────────── */
 var tbar=document.createElement('div');tbar.className='m-top';
 tbar.innerHTML='<button class="m-ico" id="m-menu" aria-label="Меню">'+
     SV('<path d="M4 7h16M4 12h16M4 17h16"/>')+'</button>'+
-  '<a class="m-brand" href="index.html">TAINA</a>'+
+  '<a class="m-brand" href="index.html" aria-label="TAINA">'+LOGO+'</a>'+
   '<span id="m-theme-slot"></span>';
 document.body.insertBefore(tbar,app);
 $('m-theme-slot').appendChild($('themeBtn'));
