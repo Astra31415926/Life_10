@@ -383,10 +383,13 @@ body.light-mode .menu .hint{color:#8a4e00}
   textarea.inp.big{padding-right:50px;padding-left:50px}
   .stage-cta{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;pointer-events:none}
   .stage-cta.off{display:none}
-  .stage-cta button{pointer-events:auto;display:flex;flex-direction:column;align-items:center;gap:10px;padding:22px 26px;border-radius:18px;
-    border:0;background:var(--acc);color:var(--on-acc);font-family:var(--mono);font-size:16px;font-weight:700;letter-spacing:.03em;cursor:pointer;
-    box-shadow:0 10px 30px rgba(0,0,0,.25)}
-  .stage-cta button svg{width:46px;height:46px}
+  /* Кнопка як у макеті: круглий глаз кольору акценту, під ним підпис */
+  .stage-cta button{pointer-events:auto;display:flex;flex-direction:column;align-items:center;gap:14px;padding:10px;
+    border:0;background:transparent;color:var(--parchment);font-family:var(--mono);font-size:15px;font-weight:700;
+    letter-spacing:.02em;cursor:pointer;box-shadow:none}
+  .stage-cta .eye{width:84px;height:84px;border-radius:50%;background:var(--acc);color:var(--on-acc);
+    display:flex;align-items:center;justify-content:center}
+  .stage-cta .eye svg{width:44px;height:44px}
   .stage-cta p{margin:0;font-family:var(--mono);font-size:13px;color:var(--muted)}
 }
 
@@ -564,7 +567,7 @@ body.light-mode .menu .hint{color:#8a4e00}
       <div class="stagebox">
         <div class="stage" id="stage">
           <canvas id="cv" width="512" height="512"></canvas>
-          <div class="stage-cta" id="stage-cta"><button type="button" id="cta-scan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3"/><circle cx="12" cy="12" r="3"/></svg><span>Сканувати орнамент</span></button><p id="cta-hint">або напиши слово вище</p></div>
+          <div class="stage-cta" id="stage-cta"><button type="button" id="cta-scan"><span class="eye"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1.8 12s3.8-7 10.2-7 10.2 7 10.2 7-3.8 7-10.2 7S1.8 12 1.8 12z"/><circle cx="12" cy="12" r="3.3"/></svg></span><span>Сканувати орнамент</span></button><p id="cta-hint">або напиши слово вище</p></div>
           <video id="cam-video" playsinline muted class="cam-live hide"></video>
           <div class="vf hide" id="vf"><span></span><span></span><span></span><span></span></div>
           <div class="grid-ov"></div><div class="scanline"></div>
@@ -1420,7 +1423,7 @@ setInterval(()=>{const c=$('stage-cta');if(!c)return;
   const empty=!(D.single&&D.single.length)&&!isDemo&&!camStream&&!(typeof scannedImg!=='undefined'&&scannedImg);
   c.classList.toggle('off',!empty);
   const en=(typeof LANG!=='undefined'&&LANG==='en');
-  c.querySelector('span').textContent=en?'Scan an ornament':'Сканувати орнамент';
+  c.querySelector('button>span:last-child').textContent=en?'Scan an ornament':'Сканувати орнамент';
   $('cta-hint').textContent=en?'or type a word above':'або напиши слово вище';},400);
 
 
@@ -2153,9 +2156,26 @@ applyLang();
   #cta-hint{display:none!important}
 
   /* «цей код читається» — окремим рядком ПІД орнаментом, нічого не закриває */
-  #rt{position:static!important;transform:none!important;left:auto!important;top:auto!important;
-    flex:0 0 auto;background:transparent!important;padding:2px 12px 4px!important;
-    border-radius:0!important;white-space:normal;min-height:0!important;z-index:auto}
+  /* Рядок завжди займає ОДНЕ й те саме місце — порожній він чи ні.
+     Інакше напис з'являвся й зникав, і орнамент щоразу смикався. */
+  #rt,#rt:empty{display:block!important;position:static!important;transform:none!important;
+    left:auto!important;top:auto!important;flex:0 0 auto;background:transparent!important;
+    padding:0 12px!important;border-radius:0!important;z-index:auto;text-align:center;
+    height:22px!important;min-height:22px!important;max-height:22px;line-height:22px;
+    overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:12px}
+  #rt .linkbtn{padding:1px 10px;font-size:11px}
+
+  /* ВІСІМ КОЛІРНИХ СХЕМ — кубики 2×2 під номерами, два ряди по чотири */
+  .m-rgb{display:none;grid-template-columns:repeat(4,1fr);gap:10px 8px;padding-top:4px}
+  body.room-rgb .m-rgb{display:grid}
+  .m-rgb button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:5px 0 3px;
+    border:1.5px solid transparent;border-radius:12px;background:transparent;cursor:pointer;
+    font-family:var(--mono);font-size:11px;font-weight:600;color:var(--muted)}
+  .m-rgb .cube{width:54px;height:54px;border-radius:9px;display:grid;grid-template-columns:1fr 1fr;
+    gap:7px;padding:8px;box-sizing:border-box;border:1px solid var(--line)}
+  .m-rgb .cube i{display:block;border-radius:2px}
+  .m-rgb button.on{border-color:var(--acc-hot);color:var(--acc-hot)}
+  body.room-rgb .m-rowtop .invbtn{display:none!important}   /* у кольоровому негатив не потрібен */
 
   /* ── гніздо орнамента ── */
   .m-slot{position:absolute;left:12px;right:12px;top:0;display:flex;
@@ -2176,11 +2196,13 @@ applyLang();
   body.light-mode .m-bar button.pri{color:var(--on-acc)}
 
   /* ── шухляда ── */
-  .m-sheet{position:fixed;left:0;right:0;z-index:69;background:var(--panel);
+  /* закрита шухляда стоїть унизу й невидима — ніде не висить порожньою */
+  .m-sheet{position:fixed;left:0;right:0;bottom:0;height:0;z-index:69;background:var(--panel);
     border-top:1px solid var(--line);border-radius:18px 18px 0 0;
     box-shadow:0 -10px 28px rgba(0,0,0,.25);display:flex;flex-direction:column;
-    transform:translateY(102%);transition:transform .24s cubic-bezier(.3,.9,.3,1)}
-  .m-sheet.on{transform:translateY(0)}
+    transform:translateY(102%);visibility:hidden;
+    transition:transform .24s cubic-bezier(.3,.9,.3,1),visibility 0s .24s}
+  .m-sheet.on{transform:translateY(0);visibility:visible;transition:transform .24s cubic-bezier(.3,.9,.3,1)}
   .m-head{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
     padding:8px 8px 4px 16px}
   .m-head span{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
@@ -2424,9 +2446,34 @@ BAR.forEach(function(r){
 document.body.appendChild(bar);
 /* рядок «цей код читається» переїжджає під орнамент, окремим рядком */
 var rtl=$('rt');
-if(rtl){document.body.insertBefore(rtl,bar);
-  new MutationObserver(function(){layout();}).observe(rtl,
-    {childList:true,subtree:true,characterData:true});}
+if(rtl)document.body.insertBefore(rtl,bar);   /* висота стала — перераховувати орнамент не треба */
+
+/* ── ВІСІМ КОЛІРНИХ СХЕМ ─────────────────────────────────────────
+   Кожен кубик: фон схеми й чотири клітинки, як виглядатимуть канали.
+   Порядок 1-3-5-7 / 2-4-6-8: у першому ряду непарні, у другому парні. */
+var rgbBox=document.createElement('div');rgbBox.className='m-rgb';
+pane('color').appendChild(rgbBox);
+var CELLS=[[1,0,0],[0,1,0],[0,0,1],[1,1,0]];
+var ORDER=[0,2,4,6,1,3,5,7];
+function hexA(a){return 'rgb('+a.join(',')+')';}
+function buildRgb(){
+  rgbBox.innerHTML='';
+  ORDER.forEach(function(s){
+    var m=INV_SEQ[s];
+    var bg=(m===7)?'#191919':rgbInk(m&4,m&2,m&1);
+    var b=document.createElement('button');b.type='button';
+    if(s===rgbStep)b.className='on';
+    var cells=CELLS.map(function(c){
+      var col=rgbInk(!!c[0]!==!!(m&4),!!c[1]!==!!(m&2),!!c[2]!==!!(m&1));
+      return '<i style="background:'+(typeof col==='string'?col:hexA(col))+'"></i>';}).join('');
+    b.innerHTML='<span class="cube" style="background:'+(typeof bg==='string'?bg:hexA(bg))+'">'+
+      cells+'</span><span>№'+(s+1)+'</span>';
+    b.onclick=function(){rgbStep=s;rgbDeg=s*45;syncInv();scannedImg=null;build();
+      readStatus(true);saveState();tone(480+s*40,.07,.05);buildRgb();};
+    rgbBox.appendChild(b);});
+}
+buildRgb();
+$('layers').addEventListener('click',function(){setTimeout(buildRgb,0);});
 $('m-menu').onclick=function(){toggle('menu');};
 $('m-close').onclick=closeSheet;
 
@@ -2541,6 +2588,7 @@ function diceCycle(){
   syncInv();scannedImg=null;build();readStatus(true);saveState();
   if(typeof diceSound==='function')diceSound();
   if(cur==='color')buildSwatches();
+  buildRgb();
   toast(di+' / '+deck.length);
 }
 buildDeck();
