@@ -686,7 +686,6 @@ const PALS=[
   {uk:'Синьо-чорна',en:'Blue & black',c:2,bg:[0,0,0],ink:[0,0,255],ai:[0,255,255],ab:[0,0,0],sv:[0,0,0]},
   {uk:'Коричнево-жовта',en:'Brown & ochre',c:1,bg:[59,36,0],ink:[254,217,0],ai:[254,217,0],ab:[254,36,0],sv:[254,36,0]}]},
  {uk:'Контрастні',en:'Contrast',items:[
-  {uk:'Біло-чорна',en:'White & black',c:1,bg:[12,12,12],ink:[250,250,250],ai:[250,250,12],ab:[250,12,12],sv:[250,12,12]},
   {uk:'Зелено-чорна',en:'Green & black',c:1,bg:[0,11,0],ink:[0,218,0],ai:[255,218,0],ab:[0,11,0],sv:[0,11,0]},
   {uk:'Кремово-зелена',en:'Cream & pine',c:0,bg:[10,41,12],ink:[255,215,140],ai:[255,41,12],ab:[10,215,140],sv:[10,41,12]},
   {uk:'Зелено-червона',en:'Green & red',c:0,bg:[0,255,0],ink:[206,0,0],ai:[206,255,237],ab:[0,0,0],sv:[0,0,0]}]},
@@ -2146,7 +2145,16 @@ applyLang();
     display:flex!important;align-items:center;justify-content:center;z-index:3;
     color:var(--muted);cursor:pointer;padding:0;bottom:auto!important;left:auto!important}
   .inbox-x svg{width:18px;height:18px}
-  textarea.inp.big{padding-right:48px!important;padding-left:16px!important;text-align:left}
+  /* Поле порожнє — лише курсор посередині й ледь помітне «пиши».
+     Відступи однакові з обох боків, тому текст росте рівно від центру. */
+  textarea.inp.big{padding-left:48px!important;padding-right:48px!important;text-align:center}
+  .inp::placeholder{color:var(--muted);opacity:.38}
+  #cta-hint{display:none!important}
+
+  /* «цей код читається» — окремим рядком ПІД орнаментом, нічого не закриває */
+  #rt{position:static!important;transform:none!important;left:auto!important;top:auto!important;
+    flex:0 0 auto;background:transparent!important;padding:2px 12px 4px!important;
+    border-radius:0!important;white-space:normal;min-height:0!important;z-index:auto}
 
   /* ── гніздо орнамента ── */
   .m-slot{position:absolute;left:12px;right:12px;top:0;display:flex;
@@ -2208,15 +2216,17 @@ applyLang();
   .m-pane .motb.off{opacity:.3;pointer-events:none}
   body.light-mode .m-pane .motb.on{background:transparent;color:var(--acc-hot)}
 
-  .m-pane .plist{display:flex!important;flex-direction:row!important;gap:7px;overflow-x:auto;
-    scrollbar-width:none;padding-bottom:3px}
-  .m-pane .plist::-webkit-scrollbar{display:none}
-  .m-pane .plbtn{flex:0 0 auto;width:62px;flex-direction:column;gap:4px;padding:6px 2px 5px;
-    border-color:transparent;font-size:9.5px;text-align:center}
-  .m-pane .plbtn .plchips{flex-direction:column;width:48px;height:48px;border-radius:9px}
+  /* дванадцять поєднань — два ряди по шість, усі видно одразу */
+  .m-pane .plist{display:grid!important;grid-template-columns:repeat(6,1fr);gap:6px;
+    overflow:visible;padding:0}
+  .m-pane .plbtn{width:auto;padding:0;gap:0;border:2px solid transparent;border-radius:11px;
+    background:transparent}
+  .m-pane .plbtn .plchips{flex-direction:column;width:100%;height:auto;aspect-ratio:1;
+    border-radius:8px;border:1px solid var(--line)}
   .m-pane .plbtn .plchips i{width:100%;height:auto;flex:1 1 0}
-  .m-pane .plbtn>span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-  .m-pane .plbtn.on{border-color:var(--acc-hot);box-shadow:none;color:var(--acc-hot)}
+  .m-pane .plbtn>span:last-child{display:none}          /* назву видно по самому кольору */
+  .m-pane .plbtn.on{border-color:var(--acc-hot);box-shadow:none}
+  .m-pane #row-mot .lbl{display:none!important}         /* підписи зайві: знаки й так зрозумілі */
 
   /* форма й повзунки */
   .m-pane .seg button{min-height:52px}
@@ -2401,6 +2411,11 @@ BAR.forEach(function(r){
   b.onclick=(r[0]==='dice')?diceCycle:function(){toggle(r[1]);};
   bar.appendChild(b);});
 document.body.appendChild(bar);
+/* рядок «цей код читається» переїжджає під орнамент, окремим рядком */
+var rtl=$('rt');
+if(rtl){document.body.insertBefore(rtl,bar);
+  new MutationObserver(function(){layout();}).observe(rtl,
+    {childList:true,subtree:true,characterData:true});}
 $('m-menu').onclick=function(){toggle('menu');};
 $('m-close').onclick=closeSheet;
 
@@ -2484,7 +2499,7 @@ buildSwatches();
    Він підсвічував кнопки лівої й правої колонок, а їх тут немає:
    прожектор стрибав би в порожнечу. Замість нього — підказка в полі. */
 tourDead=true;
-function ph(){$('txt').placeholder=(LANG==='en')?'write anything…':'напиши слово…';}
+function ph(){$('txt').placeholder=(LANG==='en')?'type':'пиши';}
 var _al=window.applyLang;
 window.applyLang=function(){_al();ph();};
 ph();
@@ -2501,6 +2516,10 @@ function buildDeck(){
   for(var s=0;s<8;s++)deck.push({c:1,s:s});
   for(var i=deck.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));
     var t=deck[i];deck[i]=deck[j];deck[j]=t;}
+  /* Чорно-білу відсуваємо в САМИЙ КІНЕЦЬ: сайт і так стартує з неї,
+     тож перший кидок має дати колір, а ч/б замикає коло. */
+  var isBW=function(v){return !v.c&&PALS[v.gi].items[v.ii].mono;};
+  deck=deck.filter(function(v){return !isBW(v);}).concat(deck.filter(isBW));
   di=0;
 }
 function diceCycle(){
