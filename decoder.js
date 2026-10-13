@@ -46,6 +46,9 @@ const CFG = {
   /* Пом'якшений режим для перекритого коду: розбіжності приймаються,
      якщо вони зібрані в одну пляму, а не розсипані по полю. */
   AGREE_BLOB:      0.70,   // мінімальна звірка, коли розбіжності — одна пляма
+  AGREE_SCATTER:   0.985,  // (з 2.8) РОЗСИПАНІ розбіжності — лише при майже повній згоді.
+                           // Хрестик із тканиною на кроці сітки +1 давав 90–98% згоди
+                           // з помилками по всьому полю — і виходило «ІВАМ», «ІВИؼ;».
   BLOB_MAX_AREA:   0.30,   // пляма не більша за 30% поля
   BLOB_MAX_BBOX:   0.40,   // габарит плями не більший за 40% поля
   T_MIN:           9,      // T = 9 → n = 5
@@ -1081,35 +1084,56 @@ function findQuadsCV(canvas, W, H) {
     const src = cv.imread(canvas); mats.push(src);
     const gray = new cv.Mat(); mats.push(gray);
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-    const blur = new cv.Mat(); mats.push(blur);
-    cv.GaussianBlur(gray, blur, new cv.Size(5, 5), 0);
-    const bin = new cv.Mat(); mats.push(bin);
+    /* ЯСКРАВИЙ КАНАЛ (з 2.8): найсвітліший із R, G, B у кожній точці.
+       На сірій копії синя рамка на чорному полі зливається (синій темний
+       за яскравістю), і контур чіпляється за шум тканини. У яскравому
+       каналі синій, зелений, червоний — усі світлі, а чорне поле темне,
+       тож рамка видна чітко. Шукаємо в ОБОХ і беремо всі знахідки:
+       старі не зникають, додаються нові. */
+    const mv = new cv.MatVector(); mats.push(mv);
+    cv.split(src, mv);
+    const r = mv.get(0), g = mv.get(1), b = mv.get(2); mats.push(r, g, b);
+    const vmax = new cv.Mat(); mats.push(vmax);
+    cv.max(r, g, vmax); cv.max(vmax, b, vmax);
+
     let bs = Math.floor(Math.min(W, H) / 20) * 2 + 1;
     bs = Math.max(11, Math.min(151, bs));
-    cv.adaptiveThreshold(blur, bin, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, bs, 7);
-    const contours = new cv.MatVector(); mats.push(contours);
-    const hier = new cv.Mat(); mats.push(hier);
-    cv.findContours(bin, contours, hier, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-
     const minA = W * H * 0.002, maxA = W * H * 0.98;
     const quads = [];
-    for (let i = 0; i < contours.size(); i++) {
-      const cnt = contours.get(i);
-      const area = cv.contourArea(cnt);
-      if (area < minA || area > maxA) { cnt.delete(); continue; }
-      const peri = cv.arcLength(cnt, true);
-      const ap = new cv.Mat();
-      cv.approxPolyDP(cnt, ap, 0.04 * peri, true);
-      if (ap.rows === 4 && cv.isContourConvex(ap)) {
-        const pts = [];
-        for (let p = 0; p < 4; p++) pts.push([ap.data32S[p*2], ap.data32S[p*2+1]]);
-        const ord = orderCorners(pts);
-        const sq = squareness(ord);
-        if (sq > CFG.SQUARENESS_MIN) quads.push({ pts: ord, area, sq });
+    const same = (a, bq) => {
+      const tol = Math.max(3, meanSide(a) * 0.02);
+      return a.every((p, i) => Math.hypot(p[0] - bq[i][0], p[1] - bq[i][1]) <= tol);
+    };
+    for (const chan of [gray, vmax]) {
+      const blur = new cv.Mat(); mats.push(blur);
+      cv.GaussianBlur(chan, blur, new cv.Size(5, 5), 0);
+      const bin = new cv.Mat(); mats.push(bin);
+      cv.adaptiveThreshold(blur, bin, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, bs, 7);
+      const contours = new cv.MatVector(); mats.push(contours);
+      const hier = new cv.Mat(); mats.push(hier);
+      cv.findContours(bin, contours, hier, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+      for (let i = 0; i < contours.size(); i++) {
+        const cnt = contours.get(i);
+        const area = cv.contourArea(cnt);
+        if (area < minA || area > maxA) { cnt.delete(); continue; }
+        const peri = cv.arcLength(cnt, true);
+        const ap = new cv.Mat();
+        cv.approxPolyDP(cnt, ap, 0.04 * peri, true);
+        if (ap.rows === 4 && cv.isContourConvex(ap)) {
+          const pts = [];
+          for (let p = 0; p < 4; p++) pts.push([ap.data32S[p*2], ap.data32S[p*2+1]]);
+          const ord = orderCorners(pts);
+          const sq = squareness(ord);
+          if (sq > CFG.SQUARENESS_MIN && !quads.some(q => same(q.pts, ord)))
+            quads.push({ pts: ord, area, sq, ch: chan === gray ? 'gray' : 'max' });
+        }
+        ap.delete(); cnt.delete();
       }
-      ap.delete(); cnt.delete();
     }
-    quads.sort((a, b) => b.area - a.area);
+    /* Спершу — знахідки з сірої копії, як було до 2.8; знахідки яскравого
+       каналу — ПІСЛЯ них, як доповнення. На камері час на кадр короткий,
+       і нові контури не мають відсувати старі, що вже працювали. */
+    quads.sort((a, b) => (a.ch === b.ch ? 0 : a.ch === 'gray' ? -1 : 1) || (b.area - a.area));
     return quads;
   } catch (e) {
     return null;
@@ -1193,6 +1217,15 @@ function decode(source, opts) {
     }));
     mark('CANDIDATES', { found: quads.length, detectScale: +scale.toFixed(3), opencv: true });
   }
+  /* ЗАПАСНИЙ ВАРІАНТ «ВЕСЬ КАДР» (з 2.8, лише для файлу). Якщо контури
+     знайдено, але всі криві (тканина, хрестики), раніше весь кадр уже
+     не пробувався — а саме так читається збережена картинка. */
+  if (opts.mode !== 'camera' && !quads.some(q => q.fallback)) {
+    const m = Math.min(W, H), ox = (W - m) / 2, oy = (H - m) / 2;
+    const fq = [[ox,oy],[ox+m,oy],[ox+m,oy+m],[ox,oy+m]];
+    if (!quads.some(q => q.pts.every((p, i) => Math.hypot(p[0]-fq[i][0], p[1]-fq[i][1]) < m * 0.02)))
+      quads.push({ pts: fq, area: m * m, sq: 1, fallback: true });
+  }
 
   /* НЕГАТИВ (як інвертовані QR-коди): світлі одиниці стали темними,
      тиха зона — темною. Якщо звичайний прохід нічого не знайшов,
@@ -1263,7 +1296,11 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
   if (opts.roiHint && opts.roiHint.length === 4) {
     quads = [{ pts: opts.roiHint, area: 0, sq: 1, tracked: true }].concat(quads);
   }
-  quads = quads.slice(0, maxQuads + (opts.roiHint ? 1 : 0));
+  {
+    const fb = quads.find(q => q.fallback);
+    quads = quads.slice(0, maxQuads + (opts.roiHint ? 1 : 0));
+    if (fb && quads.indexOf(fb) < 0) quads.push(fb);   /* «весь кадр» не обрізаємо */
+  }
 
   const accepted = [];
   let evaluated = 0;
@@ -1386,6 +1423,15 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
       const blobOk = dec.agree >= CFG.AGREE_BLOB &&
                      sh.frac <= CFG.BLOB_MAX_AREA &&
                      sh.bbox <= CFG.BLOB_MAX_BBOX;
+      /* (з 2.8) розбіжності, розкидані по всьому полю, а не одною плямою,
+         прощаємо лише коли їх майже немає: інакше це зсунута сітка */
+      if (!blobOk && dec.agree >= CFG.AGREE_MIN && dec.agree < CFG.AGREE_SCATTER) {
+        diag.rejected.push({ q: qi, k: h.label, T, why: 'розсипані розбіжності',
+                             agree: +dec.agree.toFixed(3),
+                             plama: +sh.frac.toFixed(2), gabarit: +sh.bbox.toFixed(2),
+                             text: dec.text.slice(0, 20) });
+        continue;
+      }
       if (dec.agree < CFG.AGREE_MIN && !blobOk) {
         diag.rejected.push({ q: qi, k: h.label, T, why: 'обратная сверка',
                              agree: +dec.agree.toFixed(3),
