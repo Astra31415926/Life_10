@@ -1335,8 +1335,8 @@ function openScheme(){
     m.addEventListener('click',e=>{if(e.target===m)closeScheme();});
     $('sch-x').onclick=closeScheme;
     $('sch-zoom').onclick=()=>$('sch-cv').classList.toggle('zoom');
-    $('sch-dl').onclick=()=>{schCv.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);
-      a.download='taina-scheme-'+(($('txt').value||'taina').trim().slice(0,24).replace(/[^\p{L}\p{N}]+/gu,'_')||'taina')+'.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500);});};
+    $('sch-dl').onclick=()=>{schCv.toBlob(b=>{
+      dlBlob(b,'taina-scheme-'+(($('txt').value||'taina').trim().slice(0,24).replace(/[^\p{L}\p{N}]+/gu,'_')||'taina')+'.png');});};
     $('sch-print').onclick=()=>{const url=schCv.toDataURL('image/png');const f=document.createElement('iframe');f.style.cssText='position:fixed;width:0;height:0;border:0;right:0;bottom:0';document.body.appendChild(f);
       const d=f.contentWindow.document;d.open();d.write('<!doctype html><title>TAINA</title><style>@page{margin:10mm}html,body{margin:0}img{width:100%;height:auto}</style><img src="'+url+'">');d.close();
       f.contentWindow.onload=()=>{f.contentWindow.focus();f.contentWindow.print();setTimeout(()=>f.remove(),2000);};};
@@ -1513,7 +1513,10 @@ function defaultName(){const t=D.single||'taina';return t.slice(0,26).trim().rep
    під друк, через що файли виходили то 1496, то 2130 px. Тепер холст і
    так близько 1200 px — для друку досить, а кому треба більше, той
    збільшить сам і обере свій спосіб. */
-function savePNG(name){OFF.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name+'.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);tone(660,.09,.07)});}
+/* Посилання для завантаження ОБОВ'ЯЗКОВО кладемо на сторінку перед кліком:
+   Firefox і частина браузерів ігнорують клік по посиланню «в повітрі». */
+function dlBlob(b,name){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.style.display='none';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);}
+function savePNG(name){OFF.toBlob(b=>{dlBlob(b,name+'.png');tone(660,.09,.07)});}
 
 const SUPA_URL='https://iieahzklwngqugkovhrs.supabase.co';const SUPA_KEY='sb_publishable_FHtRNaLBvDgDTSLa_8eQnQ_oPMWCIxF';
 function detectLang(t){if(/[\u0400-\u04FF]/.test(t))return 'uk';if(/[\u4E00-\u9FFF]/.test(t))return 'zh';if(/[a-zA-Z]/.test(t))return 'en';return '';}
@@ -2162,8 +2165,21 @@ applyLang();
 'use strict';
 var $=function(id){return document.getElementById(id);};
 var PW=1000, SITE='taina-ten.vercel.app', RED=[214,22,27];
-/* Сірий аркуш: на ньому видно і світлі, і темні клітинки розшифровки. */
+/* ФОН АРКУША = ПОЛЕ ДОВКОЛА КОДУ, а не окремий колір.
+   Сканер шукає код по контрасту рамки з її власним полем; якщо поле
+   замінити (скажімо, сірим), темне поле зникає — і читається сміття.
+   Тож аркуш — це продовження того самого поля, з тією ж тканиною,
+   а під нього підлаштовуються букви й адреса. */
 var SHEET=[218,218,218], TEXT=[20,20,20], ADDR=[52,52,52];
+function lumA3(a){return .299*a[0]+.587*a[1]+.114*a[2];}
+function zoneCol(){
+  var p=px(OFF,1,1);
+  try{ if(BG_COLS.length){var flip=(rgbMask()===7),best=null,bd=1e9;
+    BG_COLS.forEach(function(h){var a=hexRGB(h);if(flip)a=a.map(function(v){return 255-v;});
+      var d=dist(a,p);if(d<bd){bd=d;best=a;}});
+    if(best&&bd<120)return best.slice(0,3);} }catch(e){}
+  return p;
+}
 
 /* ── налаштування (пам'ятаються в цьому браузері) ──
    Діапазони навмисно широкі, щоб кожен повзунок помітно щось міняв. */
@@ -2179,8 +2195,28 @@ function hex2(h){h=String(h).replace('#','');return [0,2,4].map(function(i){retu
 
 /* Кольори розшифровки — ТІ САМІ, що в орнаменті: одиниця = колір нитки,
    нуль = колір поля. Тож маленький знак — точна копія клітинок великого. */
+function anyRGB(v){
+  if(Array.isArray(v))return v.slice(0,3);
+  v=String(v);var m=v.match(/\d+(\.\d+)?/g);
+  if(v.indexOf('rgb')===0&&m)return [+m[0],+m[1],+m[2]];
+  return hex2(v);
+}
+/* Колір одиниці й нуля беремо З САМОГО ОРНАМЕНТУ — з карти клітинок, за якою
+   будується й схема для вишивки. Так знак завжди збігається з орнаментом:
+   і в негативі, і в хрестику, де сайт розфарбовує по-своєму.
+   Мотив фарбує лише частину клітинок, тож беремо найчастіший колір. */
 function cellCols(){
   if(layers===3) return {one:hex2(rgbInk(1,1,1)), zero:hex2(rgbInk(0,0,0))};
+  try{
+    var n=CELLS.n,pd=CELLS.pad,t1={},t0={};
+    for(var y=0;y<H;y++)for(var x=0;x<W;x++){
+      var i=y*W+x, on=(grid.r&&grid.r[i])||(grid.g&&grid.g[i])||(grid.b&&grid.b[i]);
+      var col=String(CELLS.col[(y+pd)*n+(x+pd)]), T=on?t1:t0; T[col]=(T[col]||0)+1;
+    }
+    var top=function(T){var b=null,bc=-1;for(var k in T)if(T[k]>bc){bc=T[k];b=k;}return b;};
+    var o=top(t1),z=top(t0);
+    if(o&&z&&o!==z)return {one:anyRGB(o),zero:anyRGB(z)};
+  }catch(e){}
   var p=PAL(); return invert?{one:p.bg.slice(),zero:p.ink.slice()}:{one:p.ink.slice(),zero:p.bg.slice()};
 }
 /* Межа орнаменту: де закінчується світле поле довкола коду і починається рамка. */
@@ -2220,11 +2256,18 @@ function poster(){
   }
   var AS=34; h+=S.gap2+AS+BOT;
 
+  SHEET=zoneCol();
+  var dark=lumA3(SHEET)<128;
+  TEXT=dark?[238,238,238]:[20,20,20]; ADDR=mix(TEXT,SHEET,.22);
   var c=document.createElement('canvas');c.width=PW;c.height=Math.round(h);
   var g=c.getContext('2d');g.fillStyle=css(SHEET);g.fillRect(0,0,c.width,c.height);
-  /* орнамент — без світлого поля, рамка одразу на сірому */
-  var B=ornBox();g.imageSmoothingEnabled=false;
-  g.drawImage(OFF,B.x,B.y,B.w,B.w,ox,TOP,OW,OW);c.orn={x:ox,y:TOP,w:OW};
+  /* та сама тканина, що й на полі коду */
+  try{applyFabric(g,c.width,c.height,rgbMask()===7);}catch(e){}
+  /* орнамент ЦІЛИМ, разом зі своїм полем: рамка завширшки OW, поле довкола
+     зливається з аркушем */
+  var B=ornBox(), k2=OW/B.w;g.imageSmoothingEnabled=false;
+  g.drawImage(OFF,Math.round(ox-B.x*k2),Math.round(TOP-B.y*k2),Math.round(OFF.width*k2),Math.round(OFF.height*k2));
+  c.orn={x:ox,y:TOP,w:OW};
   var y=TOP+OW;
   g.fillStyle=css(TEXT);g.textBaseline='top';
   if(useRow){
