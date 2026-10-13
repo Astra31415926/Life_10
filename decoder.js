@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   decoder.js — TAINA Decoder v1.0
+   decoder.js — TAINA Decoder v2.8 (з лабораторією: адреса сайту + #lab)
    Новый декодер, написанный с нуля под камеру мобильного телефона.
 
    НОТАЦИЯ РАЗМЕРА (стандарт проекта):
@@ -54,6 +54,25 @@ const CFG = {
   IMAGE:  { maxQuads: 14, timeBudgetMs: 2500 },
   CAMERA: { maxQuads:  6, timeBudgetMs:  500 }
 };
+
+/* ── ЛАБОРАТОРІЯ (з 2.8) ───────────────────────────────────────
+   Вмикається адресою сайту з «#lab», вимикається «#nolab». Вибір
+   пам'ятається в цьому браузері. Коли вимкнено — сканер працює рівно
+   як раніше, нічого не записує й не малює. Коли ввімкнено — кожен розбір
+   кадру (камера чи файл) лишає запис: копію кадру, знайдену рамку, сітку,
+   центри модулів і повний журнал. Показ — кнопка «🔬» на сторінці.
+   Сама логіка розпізнавання від лабораторії НЕ залежить. */
+const LAB = { on: false, recs: [], idx: -1, MAX: 8 };
+function labReadFlag() {
+  let h = '';
+  try { h = location.hash || ''; } catch (e) {}
+  try {
+    if (/nolab/.test(h)) localStorage.removeItem('taina_lab');
+    else if (/lab/.test(h)) localStorage.setItem('taina_lab', '1');
+    LAB.on = localStorage.getItem('taina_lab') === '1';
+  } catch (e) { LAB.on = /lab/.test(h) && !/nolab/.test(h); }
+}
+labReadFlag();
 
 /* ── АВТОЗАГРУЗКА OpenCV.js ───────────────────────────────────────────────
    OpenCV нужен для поиска контуров. Декодер подтягивает его сам, чтобы
@@ -1194,6 +1213,7 @@ function decode(source, opts) {
     const d = neg ? { stages: [], candidates: [], rejected: [] } : diag;
     const res = decodePixels(buf, W, H, quads, opts, d, mark, neg ? performance.now() : t0);
     if (res.ok && neg) res.negative = true;
+    if (LAB.on) { res._diag = d; res._neg = neg; }
     return res;
   };
   /* СЛАБКИЙ РЕЗУЛЬТАТ. Код із полем 11×11 і менше несе 1–2 байти — це
@@ -1218,6 +1238,11 @@ function decode(source, opts) {
     const sec = runPass(order[1]);
     const bl = payloadBytes;
     if (sec.ok && (!best.ok || bl(sec) > bl(best) || (bl(sec) === bl(best) && sec.T > best.T))) best = sec;
+    if (LAB.on && !best.ok) best._diag2 = sec._diag;
+  }
+  if (LAB.on) {
+    try { labRecord(full, best, quads, opts, cvUsed); } catch (e) { console.warn('lab', e); }
+    delete best._diag; delete best._diag2; delete best._neg;
   }
   return best;
 }
@@ -1306,6 +1331,8 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
       const probe = warpGrayNN(px, W, H, pts, probeS, SC);
       if (!probe) continue;
       const z = verifyZebra(probe, probeS);
+      if (LAB.on) (diag.zlog || (diag.zlog = [])).push({ q: qi, k: h.label, deep, sc: SC,
+                     votes: z ? z.votes : null });
       if (!z) continue;
       /* КІЛЬКА КАНДИДАТІВ РОЗМІРУ.
          Підрахунок смужок зебри іноді дає нічию між справжнім Tz і вдвічі
@@ -1323,6 +1350,10 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
       /* ПРОВЕРКА 1: структура внешней рамки — снимается прямо из оригинала */
       const frame = outerFrameScore(px, W, H, pts, Tz, SC);
       evaluated++;
+      /* лабораторія: найкраща спроба за рамкою — її сітку покажемо, якщо
+         код так і не прочитався */
+      if (LAB.on && (!diag.bestTry || frame.score > diag.bestTry.frame))
+        diag.bestTry = { pts: pts.map(p => p.slice()), Tz, frame: frame.score, k: h.label, q: qi };
       if (frame.score < CFG.FRAME_MIN) {
         diag.rejected.push({ q: qi, k: h.label, T, why: 'структура рамки',
                              frame: +frame.score.toFixed(2),
@@ -1533,6 +1564,284 @@ function scanVideo(video, onFrame, opts) {
   return { stop() { stopped = true; if (timer) clearTimeout(timer); } };
 }
 
+/* ═════════════════════ ЧАСТЬ 8. ЛАБОРАТОРІЯ ═════════════════════
+   Показує, ЩО САМЕ побачив сканер: рамку, зебру, центри модулів.
+   Кнопка «ЛОГИ» копіює повний звіт, який можна вставити в чат. */
+
+function labRecord(full, res, quads, opts, cvUsed) {
+  const d = res._diag || {}, d2 = res._diag2 || null;
+  const K = Math.min(1, 900 / Math.max(full.width, full.height));
+  const img = document.createElement('canvas');
+  img.width = Math.max(1, Math.round(full.width * K));
+  img.height = Math.max(1, Math.round(full.height * K));
+  img.getContext('2d').drawImage(full, 0, 0, img.width, img.height);
+  /* яку сітку показувати: прочитану, а якщо не прочиталось — найкращу спробу */
+  let geo = null;
+  if (res.ok && res.corners) geo = { pts: res.corners, Tz: res.T - 2, kind: 'прочитана сітка' };
+  else {
+    const bt = [d.bestTry, d2 && d2.bestTry].filter(Boolean).sort((a, b) => b.frame - a.frame)[0];
+    if (bt) geo = { pts: bt.pts, Tz: bt.Tz, kind: 'найкраща спроба (код не прочитано)',
+                    frame: bt.frame, inset: bt.k };
+  }
+  const rec = {
+    time: new Date(), mode: opts.mode || 'image', W: full.width, H: full.height, K, img,
+    quads: (quads || []).map(q => q.pts), cv: cvUsed, geo,
+    ok: !!res.ok, text: res.text, reason: res.reason, T: res.T, n: res.n, kind: res.kind,
+    pmode: res.mode, conf: res.confidence, negative: !!res.negative, ms: res.ms,
+    diag: d, diag2: d2
+  };
+  LAB.recs.push(rec);
+  if (LAB.recs.length > LAB.MAX) LAB.recs.shift();
+  LAB.idx = LAB.recs.length - 1;
+  labBadge(rec);
+  if (labUI.open) labShow();
+}
+
+/* ── геометрія сітки: модульні координати → точки кадру ── */
+function labGrid(rec) {
+  const g = rec.geo; if (!g) return null;
+  const Tz = g.Tz, Hm = computeH([[0, 0], [Tz, 0], [Tz, Tz], [0, Tz]], g.pts);
+  if (!Hm) return null;
+  const P = (u, v) => { const p = applyH(Hm, u, v); return [p[0] * rec.K, p[1] * rec.K]; };
+  const data = rec.img.getContext('2d').getImageData(0, 0, rec.img.width, rec.img.height).data;
+  const sample = (x, y) => {
+    let r = 0, gg = 0, b = 0, c = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const X = Math.round(x) + dx, Y = Math.round(y) + dy;
+      if (X < 0 || Y < 0 || X >= rec.img.width || Y >= rec.img.height) continue;
+      const o = (Y * rec.img.width + X) * 4; r += data[o]; gg += data[o + 1]; b += data[o + 2]; c++;
+    }
+    return c ? [r / c, gg / c, b / c] : [127, 127, 127];
+  };
+  const cells = [];
+  for (let r = 0; r < Tz; r++) for (let c = 0; c < Tz; c++) {
+    const p = P(c + 0.5, r + 0.5), q = P(c + 1.5, r + 0.5);
+    const col = sample(p[0], p[1]);
+    cells.push({ r, c, x: p[0], y: p[1], rad: Math.hypot(q[0] - p[0], q[1] - p[1]) * 0.28,
+                 col, L: 0.299 * col[0] + 0.587 * col[1] + 0.114 * col[2],
+                 ring: r === 0 || c === 0 || r === Tz - 1 || c === Tz - 1 });
+  }
+  /* ЗЕБРА: кільце мусить чергуватися темне/світле, кути темні.
+     Порівнюємо побачене з очікуваним (в обох полярностях — негатив теж буває). */
+  const ring = cells.filter(x => x.ring);
+  const Ls = ring.map(x => x.L), thr = (Math.min(...Ls) + Math.max(...Ls)) / 2;
+  let okN = 0, okI = 0;
+  ring.forEach(x => { x.dark = x.L < thr; x.want = (x.r + x.c) % 2 === 0;
+                      if (x.dark === x.want) okN++; else okI++; });
+  const inv = okI > okN;
+  ring.forEach(x => { x.match = inv ? x.dark !== x.want : x.dark === x.want; });
+  /* біти даних — приблизно, за яскравістю (справжній декодер рахує тонше) */
+  const dataCells = cells.filter(x => !x.ring), dL = dataCells.map(x => x.L).sort((a, b) => a - b);
+  const dthr = dL.length ? (dL[0] + dL[dL.length - 1]) / 2 : 128;
+  return { Tz, cells, ring, zebraOk: Math.max(okN, okI), zebraAll: ring.length, inv, dthr,
+           outer: [P(-1, -1), P(Tz + 1, -1), P(Tz + 1, Tz + 1), P(-1, Tz + 1)],
+           zq: [P(0, 0), P(Tz, 0), P(Tz, Tz), P(0, Tz)],
+           dq: [P(1, 1), P(Tz - 1, 1), P(Tz - 1, Tz - 1), P(1, Tz - 1)] };
+}
+
+function labDraw(rec, cv) {
+  const G = labGrid(rec);
+  cv.width = rec.img.width; cv.height = rec.img.height;
+  const g = cv.getContext('2d');
+  g.drawImage(rec.img, 0, 0);
+  g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(0, 0, cv.width, cv.height);
+  g.drawImage(rec.img, 0, 0);
+  const poly = (pts, col, w, dash) => { g.save(); g.strokeStyle = col; g.lineWidth = w; g.setLineDash(dash || []);
+    g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.stroke(); g.restore(); };
+  /* усі знайдені контури — тонко, блакитним пунктиром */
+  rec.quads.forEach(q => poly(q.map(p => [p[0] * rec.K, p[1] * rec.K]), '#2ad4ff', 1.2, [4, 3]));
+  if (!G) return null;
+  poly(G.outer, '#ff3df2', 2);           /* зовнішня рамка */
+  poly(G.zq, '#ffd400', 2);              /* кільце зебри */
+  poly(G.dq, '#ffffff', 1, [3, 3]);      /* межа поля даних */
+  G.cells.forEach(x => {
+    const r = Math.max(1.2, x.rad);
+    g.beginPath(); g.arc(x.x, x.y, r, 0, 6.2832);
+    g.fillStyle = 'rgb(' + x.col.map(Math.round).join(',') + ')'; g.fill();
+    if (x.ring) { g.lineWidth = Math.max(1.5, r * 0.45); g.strokeStyle = x.match ? '#22e06b' : '#ff2a2a'; g.stroke(); }
+    else { g.lineWidth = 1; g.strokeStyle = 'rgba(255,255,255,.85)'; g.stroke();
+           g.beginPath(); g.arc(x.x, x.y, r + 1, 0, 6.2832); g.strokeStyle = 'rgba(0,0,0,.7)'; g.stroke(); }
+  });
+  return G;
+}
+
+/* ── текст звіту для кнопки «ЛОГИ» ── */
+function labText(rec) {
+  const L = [], f = v => (typeof v === 'number' ? +v.toFixed(3) : v);
+  const pt = p => '(' + Math.round(p[0]) + ',' + Math.round(p[1]) + ')';
+  L.push('TAINA LAB · decoder ' + (window.TainaDecoder ? window.TainaDecoder.version : '?') + ' · ' + rec.time.toLocaleString());
+  try { L.push('пристрій: ' + navigator.userAgent); L.push('екран: ' + screen.width + '×' + screen.height + ' dpr=' + (window.devicePixelRatio || 1)); } catch (e) {}
+  L.push('режим: ' + rec.mode + ' · кадр ' + rec.W + '×' + rec.H + ' · OpenCV: ' + (rec.cv ? 'так' : 'НІ (весь кадр)') + ' · ' + rec.ms + ' мс');
+  L.push(rec.ok
+    ? 'РЕЗУЛЬТАТ: ✓ «' + rec.text + '»  T=' + rec.T + ' n=' + rec.n + ' ' + rec.kind + '/' + rec.pmode + (rec.negative ? ' НЕГАТИВ' : '')
+    : 'РЕЗУЛЬТАТ: ✗ ' + (rec.reason || 'не прочитано'));
+  if (rec.conf) L.push('впевненість: ' + JSON.stringify(rec.conf));
+  L.push('КОНТУРИ: ' + rec.quads.length);
+  rec.quads.forEach((q, i) => L.push('  q' + i + ' ' + q.map(pt).join(' ')));
+  const G = rec.geo ? labGrid(rec) : null;
+  if (rec.geo) {
+    L.push('ПОКАЗАНА СІТКА: ' + rec.geo.kind + ' · Tz=' + rec.geo.Tz + ' (T=' + (rec.geo.Tz + 2) + ', n=' + (rec.geo.Tz - 2) + ')' +
+           (rec.geo.frame != null ? ' · рамка ' + f(rec.geo.frame) : '') + (rec.geo.inset ? ' · стиск ' + rec.geo.inset : ''));
+    L.push('  кути зебри: ' + rec.geo.pts.map(pt).join(' '));
+    if (G) {
+      L.push('  зебра на сітці: збіг ' + G.zebraOk + '/' + G.zebraAll + (G.inv ? ' (полярність перевернута)' : ''));
+      const bad = G.ring.filter(x => !x.match).map(x => x.r + ':' + x.c);
+      if (bad.length) L.push('  помилки зебри (рядок:стовпець): ' + bad.slice(0, 40).join(' ') + (bad.length > 40 ? ' …' : ''));
+      if (G.Tz <= 75) {
+        L.push('  біти поля (приблизно, 1=темний):');
+        for (let r = 1; r < G.Tz - 1; r++) {
+          let row = '';
+          for (let c = 1; c < G.Tz - 1; c++) row += G.cells[r * G.Tz + c].L < G.dthr ? '1' : '·';
+          L.push('   ' + row);
+        }
+      }
+    }
+  } else L.push('ПОКАЗАНА СІТКА: немає — жодна гіпотеза не дійшла до перевірки рамки');
+  const dump = (d, title) => {
+    if (!d) return;
+    L.push('── ' + title + ' ──');
+    if (d.structureChannels) L.push('канали структури: ' + JSON.stringify(d.structureChannels));
+    if (d.zlog) {
+      L.push('ЗЕБРА по гіпотезах (Tz:голоси):');
+      d.zlog.slice(0, 80).forEach(z => L.push('  q' + z.q + ' стиск ' + z.k + (z.deep ? ' глиб' : '') +
+        (z.sc != null ? ' к' + z.sc : '') + ': ' + (z.votes ? z.votes.map(v => v[0] + ':' + v[1]).join(' ') : 'зебру не знайдено')));
+      if (d.zlog.length > 80) L.push('  … ще ' + (d.zlog.length - 80));
+    }
+    if (d.rejected && d.rejected.length) {
+      L.push('ВІДКИНУТО (' + d.rejected.length + '):');
+      d.rejected.slice(0, 120).forEach(r => L.push('  ' + JSON.stringify(r)));
+      if (d.rejected.length > 120) L.push('  … ще ' + (d.rejected.length - 120));
+    }
+    if (d.candidates && d.candidates.length) {
+      L.push('ПРИЙНЯТО-КАНДИДАТИ (' + d.candidates.length + '):');
+      d.candidates.forEach(c => L.push('  ' + JSON.stringify(c)));
+    }
+    if (d.consensus) L.push('КОНСЕНСУС: ' + JSON.stringify(d.consensus));
+    if (d.stages) L.push('ЕТАПИ: ' + d.stages.map(s => s.stage + '@' + s.ms + 'мс' + (s.found != null ? '(' + s.found + ')' : '')).join(' → '));
+    if (d.timeout) L.push('!! вичерпано час на кадр');
+  };
+  dump(rec.diag, 'ПРОХІД 1');
+  dump(rec.diag2, 'ПРОХІД 2 (інша полярність)');
+  return L.join('\n');
+}
+
+/* ── інтерфейс ── */
+const labUI = { open: false, root: null, btn: null };
+function labCss() {
+  if (document.getElementById('taina-lab-css')) return;
+  const st = document.createElement('style'); st.id = 'taina-lab-css';
+  st.textContent =
+    '#tlab-btn{position:fixed;left:10px;bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:9800;' +
+    'height:44px;min-width:44px;padding:0 12px;border-radius:22px;border:2px solid #ffd400;background:#111;color:#ffd400;' +
+    'font:700 13px/1 ui-monospace,Menlo,monospace;display:flex;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(0,0,0,.5);cursor:pointer}' +
+    '#tlab-btn b{font-size:15px}#tlab-btn.ok{border-color:#22e06b;color:#22e06b}#tlab-btn.no{border-color:#ff4d4d;color:#ff4d4d}' +
+    '#tlab{position:fixed;inset:0;z-index:9900;background:#0b0b0d;color:#e9e9e9;display:flex;flex-direction:column;' +
+    'font:12.5px/1.45 ui-monospace,Menlo,Consolas,monospace}#tlab[hidden]{display:none}' +
+    '#tlab .hd{display:flex;align-items:center;gap:8px;padding:10px 12px calc(10px);padding-top:calc(10px + env(safe-area-inset-top,0px));border-bottom:1px solid #2a2a2a}' +
+    '#tlab .hd .t{flex:1;font-weight:700;color:#ffd400;letter-spacing:.08em}' +
+    '#tlab button{font:700 13px ui-monospace,Menlo,monospace;border-radius:10px;border:1px solid #444;background:#1b1b1f;color:#eee;' +
+    'height:40px;padding:0 12px;cursor:pointer}#tlab button.pri{background:#ffd400;color:#111;border-color:#ffd400}' +
+    '#tlab .sc{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}' +
+    '#tlab .cvw{overflow:auto;background:#000;border-bottom:1px solid #2a2a2a}#tlab canvas{display:block;width:100%;height:auto}' +
+    '#tlab.zoom canvas{width:260%}' +
+    '#tlab .sum{padding:10px 12px;border-bottom:1px solid #2a2a2a}#tlab .sum .r{font-size:14px;font-weight:700;margin-bottom:4px}' +
+    '#tlab .ok{color:#22e06b}#tlab .no{color:#ff5a5a}#tlab .lg{display:flex;flex-wrap:wrap;gap:6px 14px;padding:8px 12px;border-bottom:1px solid #2a2a2a;color:#bbb}' +
+    '#tlab .lg i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:5px}' +
+    '#tlab pre{margin:0;padding:10px 12px 90px;white-space:pre-wrap;word-break:break-all;color:#cfcfcf;font-size:11.5px}' +
+    '#tlab .ft{display:flex;gap:6px;padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));border-top:1px solid #2a2a2a;background:#0b0b0d;flex-wrap:wrap}' +
+    '#tlab .ft .sp{flex:1}';
+  document.head.appendChild(st);
+}
+function labMount() {
+  if (!LAB.on || labUI.btn || !document.body) return;
+  labCss();
+  const b = document.createElement('button'); b.id = 'tlab-btn'; b.type = 'button';
+  b.innerHTML = '<b>🔬</b><span>лаб</span>'; b.onclick = () => { labUI.open = true; labShow(); };
+  document.body.appendChild(b); labUI.btn = b;
+  const r = document.createElement('div'); r.id = 'tlab'; r.hidden = true;
+  r.innerHTML =
+    '<div class="hd"><span class="t">TAINA · ЛАБОРАТОРІЯ</span>' +
+      '<button type="button" data-a="prev">‹</button><span class="pos"></span><button type="button" data-a="next">›</button>' +
+      '<button type="button" data-a="close">✕</button></div>' +
+    '<div class="sc"><div class="cvw"><canvas></canvas></div>' +
+      '<div class="sum"></div>' +
+      '<div class="lg"><span><i style="background:#ff3df2"></i>зовнішня рамка</span>' +
+        '<span><i style="background:#ffd400"></i>кільце зебри</span>' +
+        '<span><i style="background:#22e06b"></i>зебра збіглась</span>' +
+        '<span><i style="background:#ff2a2a"></i>зебра НЕ збіглась</span>' +
+        '<span><i style="background:#2ad4ff"></i>знайдені контури</span>' +
+        '<span>кружечок = центр модуля, залитий кольором, який там побачено</span></div>' +
+      '<pre></pre></div>' +
+    '<div class="ft"><button type="button" class="pri" data-a="copy">ЛОГИ</button>' +
+      '<button type="button" data-a="zoom">Збільшити</button>' +
+      '<button type="button" data-a="save">Кадр ⤓</button><span class="sp"></span>' +
+      '<button type="button" data-a="off">Вимкнути лаб</button></div>';
+  document.body.appendChild(r); labUI.root = r;
+  r.addEventListener('click', e => {
+    const a = e.target.closest('[data-a]'); if (!a) return;
+    const k = a.getAttribute('data-a');
+    if (k === 'close') { labUI.open = false; r.hidden = true; }
+    if (k === 'prev' && LAB.idx > 0) { LAB.idx--; labShow(); }
+    if (k === 'next' && LAB.idx < LAB.recs.length - 1) { LAB.idx++; labShow(); }
+    if (k === 'zoom') { r.classList.toggle('zoom'); a.textContent = r.classList.contains('zoom') ? 'Зменшити' : 'Збільшити'; }
+    if (k === 'copy') labCopy(a);
+    if (k === 'save') labSave();
+    if (k === 'off') { try { localStorage.removeItem('taina_lab'); } catch (x) {} LAB.on = false;
+      r.remove(); labUI.btn.remove(); labUI.root = labUI.btn = null; labUI.open = false; }
+  });
+}
+function labBadge(rec) {
+  if (!labUI.btn) labMount();
+  if (!labUI.btn) return;
+  labUI.btn.classList.toggle('ok', rec.ok); labUI.btn.classList.toggle('no', !rec.ok);
+  labUI.btn.querySelector('span').textContent = rec.ok ? 'T=' + rec.T : (rec.geo ? 'Tz≈' + rec.geo.Tz : '—');
+}
+function labShow() {
+  if (!labUI.root) labMount();
+  const r = labUI.root; if (!r) return;
+  r.hidden = false;
+  const rec = LAB.recs[LAB.idx];
+  r.querySelector('.pos').textContent = LAB.recs.length ? (LAB.idx + 1) + '/' + LAB.recs.length : '0/0';
+  if (!rec) { r.querySelector('.sum').innerHTML = 'Ще не було жодного сканування. Відскануй камерою або файлом — і повернись сюди.';
+              r.querySelector('pre').textContent = ''; return; }
+  const G = labDraw(rec, r.querySelector('canvas'));
+  const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+  r.querySelector('.sum').innerHTML =
+    '<div class="r ' + (rec.ok ? 'ok' : 'no') + '">' + (rec.ok ? '✓ «' + esc(rec.text) + '»' : '✗ ' + esc(rec.reason || 'не прочитано')) + '</div>' +
+    (rec.ok ? 'T=' + rec.T + ' (поле ' + rec.n + '×' + rec.n + ') · ' : '') +
+    (G ? 'зебра: ' + G.zebraOk + '/' + G.zebraAll + ' збігів · Tz=' + G.Tz + ' · ' : 'сітки немає · ') +
+    rec.mode + ' · ' + rec.W + '×' + rec.H + ' · ' + rec.ms + ' мс · ' + rec.time.toLocaleTimeString();
+  r.querySelector('pre').textContent = labText(rec);
+}
+function labCopy(btn) {
+  const rec = LAB.recs[LAB.idx]; if (!rec) return;
+  const txt = labText(rec);
+  const done = ok => { btn.textContent = ok ? 'Скопійовано ✓' : 'Виділено — скопіюй вручну'; setTimeout(() => btn.textContent = 'ЛОГИ', 2200); };
+  const fallback = () => {
+    const ta = document.createElement('textarea'); ta.value = txt; ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0';
+    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, txt.length);
+    let ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+    ta.remove();
+    if (!ok) { const sel = window.getSelection(), rg = document.createRange();
+      rg.selectNodeContents(labUI.root.querySelector('pre')); sel.removeAllRanges(); sel.addRange(rg); }
+    done(ok);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(() => done(true), fallback);
+  else fallback();
+}
+function labSave() {
+  const cv = labUI.root.querySelector('canvas');
+  const a = document.createElement('a'); a.href = cv.toDataURL('image/png');
+  a.download = 'taina-lab-' + Date.now() + '.png'; a.style.display = 'none';
+  document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 500);
+}
+try {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', labMount);
+  else labMount();
+  window.addEventListener('hashchange', () => { labReadFlag(); labMount(); });
+} catch (e) {}
+
 /* ═════════════════════ ЧАСТЬ 7. ПУБЛИЧНОЕ API ═════════════════════ */
 
 window.TainaDecoder = {
@@ -1545,8 +1854,10 @@ window.TainaDecoder = {
   last: null,               // результат останнього розбору, разом із діагностикою
   cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
-  version: '2.7',
+  version: '2.8',
   /* внутренности — для decoder-lab.html и автотестов */
+  /* лабораторія: TainaDecoder.lab.show() — відкрити, .on — чи ввімкнена */
+  lab: { get on() { return LAB.on; }, show() { labUI.open = true; labShow(); }, records: LAB.recs, text: () => LAB.recs.length ? labText(LAB.recs[LAB.idx]) : '' },
   _internal: { decodePixels, warpGrayNN, warpRGB, insetCorners, insetCornersFrac, verifyZebra, zebraRing,
                outerFrameScore, sampleCells, decodeCells, findQuadsCV,
                orderCorners, squareness, meanSide, computeH, applyH }
