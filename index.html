@@ -2143,42 +2143,53 @@ applyLang();
 .sig-sl .h{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;color:var(--parchment)}
 .sig-sl .h b{color:var(--acc-hot);font-variant-numeric:tabular-nums}
 .sig-sl input{width:100%;height:34px;margin:0;accent-color:var(--acc);cursor:pointer}
-.sig-pv{display:block;margin:4px auto 0;height:240px;width:auto;max-width:100%;border-radius:8px;
-  border:1px solid var(--line);cursor:zoom-in;background:#fff}
+.sig-pv{display:block;margin:4px auto 0;height:260px;width:auto;max-width:100%;border-radius:6px;
+  border:1px solid var(--line);cursor:zoom-in;background:#dadada}
+.sig-dl{height:46px;border-radius:11px;border:0;background:var(--acc);color:var(--on-acc);cursor:pointer;
+  font-family:var(--mono);font-size:14px;font-weight:700;margin-top:4px}
+.sig-reset{height:30px;border:0;background:transparent;color:var(--muted);cursor:pointer;
+  font-family:var(--mono);font-size:11.5px;text-decoration:underline;text-underline-offset:3px}
 .sig-big{position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.82);display:flex;align-items:center;
   justify-content:center;padding:16px;cursor:zoom-out}
 .sig-big[hidden]{display:none}
 .sig-big img{max-width:100%;max-height:100%;border-radius:6px}
 .action .menu .sig{min-width:260px}
+.action .menu{overflow-y:auto}
+.action .menu .sig-pv{height:170px}
 </style>
 <script>
 (function(){
 'use strict';
 var $=function(id){return document.getElementById(id);};
-var PW=1000, PH=1500, SITE='taina-ten.vercel.app', RED=[212,22,27];
+var PW=1000, SITE='taina-ten.vercel.app', RED=[214,22,27];
+/* Сірий аркуш: на ньому видно і світлі, і темні клітинки розшифровки. */
+var SHEET=[218,218,218], TEXT=[20,20,20], ADDR=[52,52,52];
 
-/* ── налаштування (пам'ятаються в цьому браузері) ── */
-var S={on:false,v:'A',size:100,sp:45,off:45};
-try{var sv=JSON.parse(localStorage.getItem('taina_sig')||'null');if(sv)for(var k in S)if(k in sv)S[k]=sv[k];}catch(e){}
-function keep(){try{localStorage.setItem('taina_sig',JSON.stringify(S));}catch(e){}}
+/* ── налаштування (пам'ятаються в цьому браузері) ──
+   Діапазони навмисно широкі, щоб кожен повзунок помітно щось міняв. */
+var S={on:false,v:'A',orn:80,size:66,sp:26,gap1:100,gap2:34};
+try{var sv=JSON.parse(localStorage.getItem('taina_sig2')||'null');if(sv)for(var k in S)if(k in sv)S[k]=sv[k];}catch(e){}
+function keep(){try{localStorage.setItem('taina_sig2',JSON.stringify(S));}catch(e){}}
 
-/* ── кольори беремо з самого орнаменту ──
-   Фон — світла (чи темна) зона навколо коду. Колір підпису — перша
-   клітинка рамки: вона завжди контрастна до фону, бо так влаштований код. */
 function px(c,x,y){return Array.prototype.slice.call(c.getContext('2d').getImageData(x,y,1,1).data,0,3);}
 function dist(a,b){return Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])+Math.abs(a[2]-b[2]);}
 function mix(a,b,t){return [0,1,2].map(function(i){return Math.round(a[i]+(b[i]-a[i])*t);});}
 function css(a){return 'rgb('+a.join(',')+')';}
-function lum(a){return .299*a[0]+.587*a[1]+.114*a[2];}
-function colors(){
-  var bg=px(OFF,1,1), y=Math.floor(OFF.height/2), ink=null;
-  for(var x=0;x<OFF.width/3;x++){var p=px(OFF,x,y);if(dist(p,bg)>120){ink=p;break;}}
-  if(!ink||Math.abs(lum(ink)-lum(bg))<70) ink=lum(bg)>128?[17,17,17]:[245,245,245];
-  var red=(dist(RED,bg)>200&&dist(RED,ink)>120)?RED:ink;
-  return {bg:bg,ink:ink,red:red};
+function hex2(h){h=String(h).replace('#','');return [0,2,4].map(function(i){return parseInt(h.substr(i,2),16);});}
+
+/* Кольори розшифровки — ТІ САМІ, що в орнаменті: одиниця = колір нитки,
+   нуль = колір поля. Тож маленький знак — точна копія клітинок великого. */
+function cellCols(){
+  if(layers===3) return {one:hex2(rgbInk(1,1,1)), zero:hex2(rgbInk(0,0,0))};
+  var p=PAL(); return invert?{one:p.bg.slice(),zero:p.ink.slice()}:{one:p.ink.slice(),zero:p.bg.slice()};
+}
+/* Межа орнаменту: де закінчується світле поле довкола коду і починається рамка. */
+function ornBox(){
+  var bg=px(OFF,1,1), y=Math.floor(OFF.height/2), x0=0;
+  for(var x=0;x<OFF.width/3;x++){if(dist(px(OFF,x,y),bg)>90){x0=x;break;}}
+  return {x:x0,y:x0,w:OFF.width-2*x0};
 }
 
-/* ── сітка однієї літери чи всього тексту (той самий код, що й сайт) ── */
 function octGrid(t){
   var tb=textBits(t), n=pickN2('oct',tb.bits.length), bc=baseCells('oct',n), on={}, own={};
   for(var i=0;i<bc.length;i++){
@@ -2188,95 +2199,101 @@ function octGrid(t){
   return {n:n,on:on,own:own};
 }
 
-/* ── сам постер ── */
+/* ── постер: ширина 1000, висота — скільки треба вмісту, без порожнечі ── */
 function poster(){
-  var C=colors(), c=document.createElement('canvas');c.width=PW;c.height=PH;
-  var g=c.getContext('2d');g.fillStyle=css(C.bg);g.fillRect(0,0,PW,PH);
-  var text=(D.single||'').replace(/\s+$/,''), chars=Array.from(text);
-  var useRow=(S.v!=='none')&&chars.length>0&&chars.length<=12;
-  var FAM='Inter, "Segoe UI", system-ui, sans-serif';
-  var OW=760;
-  for(var pass=0;pass<4;pass++){
-    var gapW=20+S.off*1.0;
-    var k=chars.length, gap=0, m=0, fs, lines=[], blockH=OW;
-    if(useRow){
-      gap=Math.min(OW*0.05,OW*(0.02+S.sp/100*0.16)/Math.max(k-1,1));
-      m=(OW-gap*Math.max(k-1,0))/k;
-      fs=Math.max(18,Math.min(m*0.6,86)*S.size/100);
-      blockH+=gapW+fs*1.25+fs*0.35+m;
-    }else if(chars.length){
-      fs=Math.round(64*S.size/100);
-      var ls=fs*(0.05+S.sp/100*0.7);
-      g.font='700 '+fs+'px '+FAM;
-      lines=wrap(g,text.toUpperCase(),OW,ls,fs);
-      fs=lines.fs;ls=lines.ls;
-      blockH+=gapW+lines.length*fs*1.3;
-    }
-    var addrGap=36, addrH=26;
-    blockH+=addrGap+addrH;
-    if(blockH<=PH-120)break;
-    OW*=0.88;
-  }
-  var ox=(PW-OW)/2, y=(PH-blockH)/2;
-  /* орнамент — як є, піксель у піксель збільшений */
-  g.imageSmoothingEnabled=false;g.drawImage(OFF,ox,y,OW,OW);y+=OW;
+  var text=(D.single||'').replace(/\s+$/,''), chars=Array.from(text), k=chars.length;
+  var useRow=(S.v!=='none')&&k>0&&k<=12;
+  var FAM='Inter, "Helvetica Neue", Arial, sans-serif';
+  var OW=Math.round(PW*S.orn/100), ox=Math.round((PW-OW)/2), TOP=90, BOT=80;
+  var tmp=document.createElement('canvas').getContext('2d');
+  /* розкладка */
+  var gap=0,m=0,fs=S.size,lines=[],ls=0,h=TOP+OW;
   if(useRow){
-    y+=gapW;
-    g.fillStyle=css(C.ink);g.font='700 '+fs+'px '+FAM;g.textAlign='center';g.textBaseline='top';
-    chars.forEach(function(ch,i){g.fillText(ch.toUpperCase(),ox+i*(m+gap)+m/2,y);});
-    y+=fs*1.25+fs*0.35;
-    if(S.v==='A') rowA(g,chars,ox,y,m,gap,C); else rowB(g,text,chars,ox,y,m,gap,C);
-    y+=m;
-  }else if(lines.length){
-    y+=gapW;
-    g.fillStyle=css(C.ink);g.font='700 '+fs+'px '+FAM;g.textBaseline='top';
-    lines.forEach(function(L){drawSpaced(g,L,PW/2,y,ls);y+=fs*1.3;});
+    gap=Math.min(S.sp,(OW/k)*0.45);
+    m=(OW-gap*(k-1))/k;
+    fs=Math.min(S.size,m*0.95);
+    h+=S.gap1+fs+fs*0.6+m;
+  }else if(k){
+    ls=fs*0.35;tmp.font='700 '+fs+'px '+FAM;
+    lines=wrap(tmp,text.toUpperCase(),OW,ls,fs,FAM);fs=lines.fs;ls=lines.ls;
+    h+=S.gap1+lines.length*fs*1.3-fs*0.3;
   }
-  y+=addrGap;
-  g.fillStyle=css(mix(C.ink,C.bg,.5));g.font='500 '+addrH+'px '+FAM;g.textAlign='center';g.textBaseline='top';
-  if('letterSpacing' in g)g.letterSpacing='1px';
+  var AS=34; h+=S.gap2+AS+BOT;
+
+  var c=document.createElement('canvas');c.width=PW;c.height=Math.round(h);
+  var g=c.getContext('2d');g.fillStyle=css(SHEET);g.fillRect(0,0,c.width,c.height);
+  /* орнамент — без світлого поля, рамка одразу на сірому */
+  var B=ornBox();g.imageSmoothingEnabled=false;
+  g.drawImage(OFF,B.x,B.y,B.w,B.w,ox,TOP,OW,OW);c.orn={x:ox,y:TOP,w:OW};
+  var y=TOP+OW;
+  g.fillStyle=css(TEXT);g.textBaseline='top';
+  if(useRow){
+    y+=S.gap1;g.font='700 '+fs+'px '+FAM;g.textAlign='center';
+    chars.forEach(function(ch,i){g.fillText(ch.toUpperCase(),ox+i*(m+gap)+m/2,y);});
+    y+=fs+fs*0.6;
+    if(S.v==='A')rowA(g,chars,ox,y,m,gap);else rowB(g,text,chars,ox,y,m,gap);
+    y+=m;
+  }else if(k){
+    y+=S.gap1;g.font='700 '+fs+'px '+FAM;
+    lines.forEach(function(L,i){drawSpaced(g,L,PW/2,y,ls);y+=fs*1.3;});y-=fs*0.3;
+  }
+  y+=S.gap2;
+  g.fillStyle=css(ADDR);g.font='500 '+AS+'px '+FAM;g.textAlign='center';g.textBaseline='top';
   g.fillText(SITE,PW/2,y);
   return c;
 }
-function rowA(g,chars,ox,y,m,gap,C){
-  g.fillStyle=css(C.ink);
+function cellRect(g,x0,y0,cs,p){
+  var x=Math.round(x0+p[0]*cs),yy=Math.round(y0+p[1]*cs);
+  g.fillRect(x,yy,Math.round(x0+(+p[0]+1)*cs)-x,Math.round(y0+(+p[1]+1)*cs)-yy);
+}
+/* «Знаки»: кожна літера окремо, повний квадрат — і одиниці, і нулі */
+function rowA(g,chars,ox,y,m,gap){
+  var C=cellCols();
   chars.forEach(function(ch,i){
     if(/\s/.test(ch))return;
     var G=octGrid(ch), cs=m/G.n, x0=ox+i*(m+gap);
-    for(var key in G.on){var p=key.split(',');g.fillRect(x0+p[0]*cs,y+p[1]*cs,Math.ceil(cs),Math.ceil(cs));}
+    for(var key in G.own){g.fillStyle=css(G.on[key]?C.one:C.zero);cellRect(g,x0,y,cs,key.split(','));}
   });
 }
-function rowB(g,text,chars,ox,y,m,gap,C){
-  var G=octGrid(text), cs=m/G.n, start=0;
-  var pale=css(mix(C.ink,C.bg,.82)), band=css(mix(C.ink,C.bg,.94)), hot=css(C.red);
+/* «Місце»: увесь код, приглушений, а клітинки цієї літери — на повну силу,
+   її одиниці червоні */
+function rowB(g,text,chars,ox,y,m,gap){
+  var C=cellCols(), G=octGrid(text), cs=m/G.n, start=0;
+  var red=(dist(RED,C.zero)>200)?RED:C.one;
   chars.forEach(function(ch,i){
-    var lo=start, hi=start+new TextEncoder().encode(ch).length*8; start=hi;
+    var lo=start,hi=start+new TextEncoder().encode(ch).length*8;start=hi;
     var x0=ox+i*(m+gap);
     for(var key in G.own){
-      var idx=G.own[key], mine=idx>=lo&&idx<hi, set=G.on[key];
-      if(!set&&!mine)continue;
-      g.fillStyle=set?(mine?hot:pale):band;
-      var p=key.split(',');g.fillRect(x0+p[0]*cs,y+p[1]*cs,Math.ceil(cs),Math.ceil(cs));
+      var idx=G.own[key],mine=idx>=lo&&idx<hi,one=!!G.on[key];
+      var col=mine?(one?red:C.zero):mix(one?C.one:C.zero,SHEET,.62);
+      g.fillStyle=css(col);cellRect(g,x0,y,cs,key.split(','));
     }
   });
 }
-/* довгий текст: розрядка, перенос до 3 рядків, а не влазить — менший шрифт */
 function spacedW(g,s,ls){return g.measureText(s).width+ls*Math.max(Array.from(s).length-1,0);}
 function drawSpaced(g,s,cx,y,ls){
-  var a=Array.from(s), w=spacedW(g,s,ls), x=cx-w/2;g.textAlign='left';
-  a.forEach(function(ch){g.fillText(ch,x,y);x+=g.measureText(ch).width+ls;});
+  var w=spacedW(g,s,ls),x=cx-w/2;g.textAlign='left';
+  Array.from(s).forEach(function(ch){g.fillText(ch,x,y);x+=g.measureText(ch).width+ls;});
 }
-function wrap(g,s,W,ls,fs){
-  for(var tries=0;tries<20;tries++){
-    g.font=g.font.replace(/\d+px/,fs+'px');
-    var words=s.split(/\s+/), lines=[], cur='';
-    words.forEach(function(w){var t=cur?cur+' '+w:w;if(spacedW(g,t,ls)<=W||!cur)cur=t;else{lines.push(cur);cur=w;}});
+function wrap(g,s,W,ls,fs,FAM){
+  var lines;
+  for(var t=0;t<25;t++){
+    g.font='700 '+fs+'px '+FAM;
+    var words=s.split(/\s+/),cur='';lines=[];
+    words.forEach(function(w){var q=cur?cur+' '+w:w;if(spacedW(g,q,ls)<=W||!cur)cur=q;else{lines.push(cur);cur=w;}});
     if(cur)lines.push(cur);
-    var fits=lines.length<=3&&lines.every(function(L){return spacedW(g,L,ls)<=W;});
-    if(fits){lines.fs=fs;lines.ls=ls;return lines;}
-    fs=Math.round(fs*0.9);ls*=0.9;
+    if(lines.length<=3&&lines.every(function(L){return spacedW(g,L,ls)<=W;}))break;
+    fs=Math.round(fs*0.92);ls*=0.92;
   }
   lines.fs=fs;lines.ls=ls;return lines;
+}
+/* Збереження ОДРАЗУ в момент натискання, без відкладених кроків:
+   інакше браузер вважає завантаження «не від людини» і мовчки його блокує. */
+function download(name){
+  var url=poster().toDataURL('image/png'), a=document.createElement('a');
+  a.href=url;a.download=(name||'taina')+'.png';a.style.display='none';
+  document.body.appendChild(a);a.click();setTimeout(function(){a.remove();},500);
+  if(typeof tone==='function')tone(660,.09,.07);
 }
 
 /* ── панель керування ── */
@@ -2289,9 +2306,14 @@ P.innerHTML=
       '<button type="button" data-v="none">Без</button>'+
       '<button type="button" data-v="A">Знаки</button>'+
       '<button type="button" data-v="B">Місце</button></div>'+
-    sl('size','Розмір підпису',60,140)+sl('sp','Розрядка',0,100)+sl('off','Відступ від орнаменту',0,100)+
+    sl('orn','Розмір орнаменту',55,94)+sl('size','Розмір букв',30,120)+sl('sp','Розрядка',0,80)+
+    sl('gap1','Від орнаменту до букв',10,300)+sl('gap2','Від знаків до адреси',6,240)+
     '<img class="sig-pv" id="sig-pv" alt="Попередній перегляд">'+
+    '<button type="button" class="sig-dl" id="sig-dl">⤓ Зберегти з підписом</button>'+
+    '<button type="button" class="sig-reset" id="sig-reset">повернути як було</button>'+
   '</div>';
+var UNIT={orn:'%'};
+var DEF={orn:80,size:66,sp:26,gap1:100,gap2:34};
 function sl(k,t,a,b){return '<label class="sig-sl"><span class="h"><span>'+t+'</span><b id="sig-'+k+'-v"></b></span>'+
   '<input type="range" id="sig-'+k+'" min="'+a+'" max="'+b+'"></label>';}
 var big=document.createElement('div');big.className='sig-big';big.hidden=true;big.innerHTML='<img alt="">';
@@ -2301,7 +2323,7 @@ function sync(){
   $('sig-sw').classList.toggle('on',S.on);
   $('sig-body').hidden=!S.on;
   Array.prototype.forEach.call($('sig-v').children,function(b){b.classList.toggle('on',b.dataset.v===S.v);});
-  ['size','sp','off'].forEach(function(k){$('sig-'+k).value=S[k];$('sig-'+k+'-v').textContent=S[k]+(k==='size'?'%':'');});
+  Object.keys(DEF).forEach(function(k){$('sig-'+k).value=S[k];$('sig-'+k+'-v').textContent=S[k]+(UNIT[k]||'');});
   refresh();
 }
 var tmr=0;
@@ -2315,28 +2337,31 @@ P.addEventListener('click',function(e){
   if(e.target.id==='sig-sw'){S.on=!S.on;keep();sync();return;}
   var b=e.target.closest('#sig-v button');if(b){S.v=b.dataset.v;keep();sync();return;}
   if(e.target.id==='sig-pv'){big.querySelector('img').src=e.target.src;big.hidden=false;}
+  if(e.target.id==='sig-dl'){if(!hasImage||isDemo){toast('Спершу напиши щось');return;}download(defaultName());}
+  if(e.target.id==='sig-reset'){for(var d in DEF)S[d]=DEF[d];keep();sync();}
 });
 P.addEventListener('input',function(e){
-  var k=e.target.id&&e.target.id.replace('sig-','');if(!(k in S))return;
-  S[k]=+e.target.value;keep();$('sig-'+k+'-v').textContent=S[k]+(k==='size'?'%':'');refresh();
+  var k=e.target.id&&e.target.id.replace('sig-','');if(!(k in DEF))return;
+  S[k]=+e.target.value;keep();$('sig-'+k+'-v').textContent=S[k]+(UNIT[k]||'');refresh();
 });
 document.body.appendChild(P);P.hidden=true;   /* поки не вставлено на місце */
 
 /* ── збереження: увімкнено — віддаємо постер ── */
 var _save=window.savePNG;
-window.savePNG=function(name){
-  if(!S.on) return _save(name);
-  poster().toBlob(function(b){var a=document.createElement('a');a.href=URL.createObjectURL(b);
-    a.download=name+'.png';a.click();setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
-    if(typeof tone==='function')tone(660,.09,.07);});
-};
+window.savePNG=function(name){ if(!S.on) return _save(name); download(name); };
 /* орнамент змінився — оновлюємо попередній перегляд */
 var _render=window.render;
 window.render=function(){var r=_render.apply(this,arguments);refresh();return r;};
 /* ПК: панель у меню збереження */
 var _open=window.openMenu;
 window.openMenu=function(){_open.apply(this,arguments);
-  if(hasImage&&!matchMedia('(max-width:820px)').matches){$('menu').appendChild(P);P.hidden=false;refresh();}};
+  if(hasImage&&!matchMedia('(max-width:820px)').matches){$('menu').appendChild(P);P.hidden=false;refresh();fitMenu();}};
+/* меню росте вгору — не даємо йому залізти під шапку сайту */
+function fitMenu(){var m=$('menu');if(!m||m.classList.contains('hide')||!m.contains(P))return;
+  m.style.maxHeight='none';
+  var hdr=document.querySelector('header'), top=hdr?hdr.getBoundingClientRect().bottom+10:10;
+  m.style.maxHeight=Math.max(220,m.getBoundingClientRect().bottom-top)+'px';}
+P.addEventListener('click',function(){setTimeout(fitMenu,0);});
 
 window.TainaSig={panel:P,poster:poster,settings:S,refresh:refresh};
 sync();
