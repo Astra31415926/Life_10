@@ -611,7 +611,7 @@ body.light-mode .menu .hint{color:#8a4e00}
 <div class="flash" id="flash"></div>
 
 <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
-<script src="decoder.js?v=30"></script>
+<script src="decoder.js?v=31"></script>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -2258,7 +2258,10 @@ function poster(){
 
   SHEET=zoneCol();
   var dark=lumA3(SHEET)<128;
-  TEXT=dark?[238,238,238]:[20,20,20]; ADDR=mix(TEXT,SHEET,.22);
+  /* ІМ'Я Й АДРЕСА — найконтрастніший до тла колір (з кольорів орнаменту,
+     чорного й білого). РОЗШИФРОВКА — спокійний відтінок, що вже є в
+     орнаменті (скажімо, жовтий мотив): видно, але з ім'ям не сперечається. */
+  var TONES=sigTones(); TEXT=TONES.text; ADDR=TONES.text; ACC=TONES.acc;
   var c=document.createElement('canvas');c.width=PW;c.height=Math.round(h);
   var g=c.getContext('2d');g.fillStyle=css(SHEET);g.fillRect(0,0,c.width,c.height);
   /* та сама тканина, що й на полі коду */
@@ -2289,28 +2292,64 @@ function cellRect(g,x0,y0,cs,p){
   var x=Math.round(x0+p[0]*cs),yy=Math.round(y0+p[1]*cs);
   g.fillRect(x,yy,Math.round(x0+(+p[0]+1)*cs)-x,Math.round(y0+(+p[1]+1)*cs)-yy);
 }
-/* «Знаки»: кожна літера окремо, повний квадрат — і одиниці, і нулі */
+/* ── тони підпису ─────────────────────────────────────────────────
+   Контраст рахуємо за правилом WCAG (відношення яскравостей). */
+var ACC=[120,120,120];
+function relL(a){return [0,1,2].map(function(i){var v=a[i]/255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4);})
+  .reduce(function(s,v,i){return s+v*[.2126,.7152,.0722][i];},0);}
+function contrast(a,b){var x=relL(a),y=relL(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);}
+function ornColors(){
+  var out=[],seen={};
+  try{CELLS.col.forEach(function(v){var k=String(v);if(seen[k])return;seen[k]=1;out.push(anyRGB(v));});}catch(e){}
+  return out;
+}
+function sigTones(){
+  var cols=ornColors();
+  /* ім'я: найбільший контраст до тла серед кольорів орнаменту, чорного й білого */
+  var cand=cols.concat([[0,0,0],[255,255,255]]), text=cand[0], best=-1;
+  cand.forEach(function(c){var k=contrast(c,SHEET);if(k>best){best=k;text=c;}});
+  /* розшифровка: колір з орнаменту, помітний на тлі, але найспокійніший —
+     не тло і не колір імені */
+  var acc=null, ak=1e9;
+  cols.forEach(function(c){
+    var k=contrast(c,SHEET);
+    if(dist(c,SHEET)<60||dist(c,text)<90||k<1.35)return;
+    if(k<ak){ak=k;acc=c;}
+  });
+  if(!acc)acc=mix(text,SHEET,.55);
+  return {text:text,acc:acc};
+}
+
+/* ── МІНІ-ОРНАМЕНТ З РАМКОЮ Й ЗЕБРОЮ ─────────────────────────────────
+   Та сама будова, що в генераторі: темне кільце, світле кільце, кільце
+   зебри, далі поле даних. «Темне» — колір розшифровки, «світле» — тло
+   аркуша, тож знак лягає на аркуш спокійно, без своєї плашки. */
+function miniFrame(g,x0,y0,size,n,ink,cellFn){
+  var CW=n+6, cs=size/CW;
+  var put=function(cx,cy,col){if(!col)return;g.fillStyle=css(col);cellRect(g,x0,y0,cs,[cx,cy]);};
+  for(var x=0;x<CW;x++){put(x,0,ink);put(x,CW-1,ink);}
+  for(var yy=1;yy<CW-1;yy++){put(0,yy,ink);put(CW-1,yy,ink);}
+  for(x=2;x<CW-2;x++){if(x%2===0)put(x,2,ink);if((x+CW-3)%2===0)put(x,CW-3,ink);}
+  for(yy=3;yy<CW-3;yy++){if(yy%2===0)put(2,yy,ink);if((CW-3+yy)%2===0)put(CW-3,yy,ink);}
+  for(var key in cellFn.own){var p=key.split(',');put(+p[0]+3,+p[1]+3,cellFn.col(key));}
+}
+/* «Знаки»: кожна літера — свій повний код */
 function rowA(g,chars,ox,y,m,gap){
-  var C=cellCols();
   chars.forEach(function(ch,i){
     if(/\s/.test(ch))return;
-    var G=octGrid(ch), cs=m/G.n, x0=ox+i*(m+gap);
-    for(var key in G.own){g.fillStyle=css(G.on[key]?C.one:C.zero);cellRect(g,x0,y,cs,key.split(','));}
+    var G=octGrid(ch);
+    miniFrame(g,ox+i*(m+gap),y,m,G.n,ACC,{own:G.own,col:function(k){return G.on[k]?ACC:null;}});
   });
 }
-/* «Місце»: увесь код, приглушений, а клітинки цієї літери — на повну силу,
-   її одиниці червоні */
+/* «Місце»: увесь код у кожному знаку; одиниці цієї літери — яскраві,
+   решта — приглушені */
 function rowB(g,text,chars,ox,y,m,gap){
-  var C=cellCols(), G=octGrid(text), cs=m/G.n, start=0;
-  var red=(dist(RED,C.zero)>200)?RED:C.one;
+  var G=octGrid(text), start=0;
+  var hot=(contrast(RED,SHEET)>=2.2&&dist(RED,ACC)>120)?RED:TEXT, dim=mix(ACC,SHEET,.55);
   chars.forEach(function(ch,i){
     var lo=start,hi=start+new TextEncoder().encode(ch).length*8;start=hi;
-    var x0=ox+i*(m+gap);
-    for(var key in G.own){
-      var idx=G.own[key],mine=idx>=lo&&idx<hi,one=!!G.on[key];
-      var col=mine?(one?red:C.zero):mix(one?C.one:C.zero,SHEET,.62);
-      g.fillStyle=css(col);cellRect(g,x0,y,cs,key.split(','));
-    }
+    miniFrame(g,ox+i*(m+gap),y,m,G.n,ACC,{own:G.own,col:function(k){
+      if(!G.on[k])return null; var idx=G.own[k]; return (idx>=lo&&idx<hi)?hot:dim;}});
   });
 }
 function spacedW(g,s,ls){return g.measureText(s).width+ls*Math.max(Array.from(s).length-1,0);}
