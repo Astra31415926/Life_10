@@ -274,6 +274,9 @@ body.light-mode .motb.on{background:var(--acc);color:var(--on-acc)}
 #sch .cvwrap{overflow:auto;border:1px solid #e3dccd;border-radius:8px;background:#fff}
 #sch canvas{display:block;max-width:100%;height:auto}
 #sch .cvwrap.zoom canvas{max-width:none}
+#sch .cvwrap canvas+canvas{border-top:10px solid #e3dccd}
+#sch .trl{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-family:var(--mono);font-size:13px;color:#3a332a}
+#sch .trl input{flex:1 1 260px;font:15px var(--mono);padding:9px 11px;border:1px solid #c9bda6;border-radius:8px;background:#fff;color:#1d1a16}
 #sch .note{font-size:12.5px;color:#5a5246;font-family:var(--mono)}
 body.light-mode .mot.on{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
 
@@ -1271,84 +1274,325 @@ function schemeData(){
   const idx=new Map(cols.map((c,i)=>[c.k,i]));
   return {n,grid:grid.map(k=>k===fk?-1:idx.get(k)),cols,fab,fabDmc:nearestDMC(fab)};
 }
-function drawScheme(D){
-  const EN=LANG==='en',n=D.n,cs=n>60?18:22,M=46,G=cs*n;
-  const legRows=D.cols.length+1, legH=40+legRows*34+130;
-  const W2=Math.max(G+M*2,760),H2=M+G+M+legH;
+/* Тексти схеми двома мовами. Мова схеми перемикається окремо від сайту:
+   для продажу на Etsy потрібна англійська, для себе — українська. */
+const SCH_T={
+  uk:{h:'Схема для вишивки хрестиком',sub:'Схема для вишивки хрестиком',enc:'Зашифровано',size:'Розмір',st:'хрестиків',cm:'см',
+      cols:'Кольорів нитки',total:'Хрестиків усього',col:'Кольорова схема',bw:'Схема символами (для ч/б друку)',key:'Ключ кольорів',
+      thread:'НИТКА (DMC, найближчий)',stc:'ХРЕСТИКІВ',sk:'МОТКІВ',sym:'ЗНАК',fab:'Тканина (не вишивається) · близько до DMC ',
+      fabric:'Канва',stitched:'Розмір вишивки',piece:'Відріз тканини',page:'Сторінка',part:(i,n)=>'Частина '+i+' з '+n,
+      how:'Як вишивати',
+      steps:['Вишивайте у 2 нитки муліне, одна клітинка схеми — один хрестик.',
+             'Починайте з центру: складіть тканину вчетверо — центр там, де перетинаються згини. На схемі центр позначено стрілками.',
+             'Усі верхні стібки кладіть в один бік — так вишивка рівна.',
+             'Залиште навколо рамки щонайменше 2 порожні клітинки тканини.'],
+      bonusH:'Читання прихованого тексту (бонус)',
+      bonus:'Схема — завершений візерунок сама по собі. Прихований текст — додаток: його створено для читання сканером TAINA, але прочитання вишитої роботи залежить від вишивки, тканини й освітлення, тому гарантувати його неможливо.',
+      bonusL:'Щоб шанс прочитати був найкращим:',
+      tips:['Оберіть сильний контраст нитки й тканини (темне на світлому або світле на темному).',
+            'Беріть Аїду 11 або 14 — більші хрестики читаються краще.',
+            'Вишивайте у 2–3 нитки, щоб кожен хрестик повністю вкривав свою клітинку.',
+            'Кожен стібок — повний хрестик, без пропусків і без зайвих стібків.',
+            'Зовнішню рамку й смугасту облямівку вишийте точно за схемою — сканер знаходить код саме по них.',
+            'Залиште навколо рамки щонайменше 2 порожні клітинки тканини.',
+            'Перед скануванням випрасуйте роботу й зніміть її з п’яльця.',
+            'Скануйте при рівному денному світлі, без відблисків і тіней, тримаючи телефон рівно над роботою.'],
+      scan:'Сканер: taina-ten.vercel.app',
+      copy:'© Михайло Кашкаров. Тільки для особистого використання. Не перепродавайте й не поширюйте цей файл.',
+      skNote:'Кількість мотків — орієнтовно для Аїди 14 у 2 нитки, із запасом 20 %.',
+      notes:['Номери ниток — найближчі відтінки DMC; звірте їх зі справжньою карткою кольорів.',
+             'Відріз тканини — з запасом 5 см з кожного боку на оформлення в рамку.'],
+      tr:'Переклад англійською (необов’язково):',
+      zoom:'Збільшити',print:'Друк',png:'PNG',pdf:'Завантажити PDF',lang:'Мова: УКР',
+      note:(c,s,p)=>'Одна клітинка — один хрестик. Кольорів нитки: '+c+', хрестиків: '+s+'. Сторінок у PDF: '+p+'.'},
+  en:{h:'Cross-stitch pattern',sub:'Cross-stitch pattern',enc:'Encoded text',size:'Size',st:'stitches',cm:'cm',
+      cols:'Thread colours',total:'Total stitches',col:'Colour chart',bw:'Symbol chart (for black & white printing)',key:'Colour key',
+      thread:'THREAD (DMC, nearest)',stc:'STITCHES',sk:'SKEINS',sym:'SYMBOL',fab:'Fabric (not stitched) · close to DMC ',
+      fabric:'Fabric',stitched:'Design size',piece:'Fabric piece',page:'Page',part:(i,n)=>'Part '+i+' of '+n,
+      how:'How to stitch',
+      steps:['Use 2 strands of embroidery floss. One square of the chart = one full cross.',
+             'Start from the centre: fold the fabric in four — the centre is where the folds cross. Arrows mark the centre on the chart.',
+             'Make all top stitches lie in the same direction for an even look.',
+             'Leave at least 2 empty squares of fabric around the frame.'],
+      bonusH:'Reading the hidden text (bonus feature)',
+      bonus:'The pattern is a complete design on its own. The hidden text is an extra: it is built to be read by the TAINA scanner, but reading a stitched piece depends on your stitching, fabric and lighting, so it cannot be guaranteed.',
+      bonusL:'For the best chance of reading:',
+      tips:['Choose strong contrast between thread and fabric (dark on light or light on dark).',
+            'Use Aida 11 or 14 — bigger stitches read better.',
+            'Use 2–3 strands so each cross fully covers its square.',
+            'Make every stitch a full cross, with no gaps and no extra stitches.',
+            'Keep the outer frame and the striped border exactly as charted — the scanner finds the code by them.',
+            'Leave at least 2 empty squares of fabric around the frame.',
+            'Iron the finished piece flat and take it out of the hoop before scanning.',
+            'Scan in even daylight, without glare or shadows, holding the phone straight above the piece.'],
+      scan:'Scanner: taina-ten.vercel.app',
+      copy:'© Mykhailo Kashkarov. For personal use only. Do not resell or share this file.',
+      skNote:'Skein count is an estimate for Aida 14 with 2 strands, including a 20% reserve.',
+      notes:['Thread numbers are the nearest DMC shades; check them against a real colour card.',
+             'Fabric piece includes 2 in (5 cm) extra on each side for framing.'],
+      tr:'Переклад англійською (необов’язково):',
+      zoom:'Zoom',print:'Print',png:'PNG',pdf:'Download PDF',lang:'Language: EN',
+      note:(c,s,p)=>'One cell = one cross. '+c+' thread colours, '+s+' stitches. PDF pages: '+p+'.'}
+};
+const SCH_FONT='ui-monospace,Menlo,Consolas,monospace';
+/* мотки DMC для Аїди 14 у 2 нитки: ~1600 хрестиків на моток, +20 % запасу */
+const skeins=c=>Math.max(1,Math.ceil(c*1.2/1600));
+/* розмір вишивки на канві: сантиметри і дюйми */
+function schSize(n,ct,extra){const inch=n/ct+(extra||0)*2/2.54, cm=n/ct*2.54+(extra||0)*2;
+  return {cm:cm.toFixed(1),in:inch.toFixed(1)};}
+/* СІТКА СХЕМИ: клітинки, лінії (жирні кожні 10), номери, стрілки центру.
+   bw=true — тільки знаки чорним по білому, для ч/б принтера.
+   win={x0,y0,w,h} — шматок великої схеми (номери й лінії лишаються справжніми). */
+function drawSchGrid(g,D,ox,oy,cs,bw,win){
+  const n=D.n, X0=win?win.x0:0, Y0=win?win.y0:0, w=win?win.w:n, h=win?win.h:n, GW=cs*w, GH=cs*h;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=D.grid[(y+Y0)*n+x+X0],px=ox+x*cs,py=oy+y*cs;
+    g.fillStyle='#ffffff';g.fillRect(px,py,cs,cs);if(i<0)continue;
+    const c=D.cols[i].rgb;
+    if(bw){drawSym(g,D.cols[i].sym,px+cs*.14,py+cs*.14,cs*.72,'#000');continue;}
+    g.fillStyle='rgb('+c+')';g.fillRect(px,py,cs,cs);
+    const l=c[0]*.299+c[1]*.587+c[2]*.114;drawSym(g,D.cols[i].sym,px+cs*.12,py+cs*.12,cs*.76,l>140?'#111':'#fff');}
+  const thin=Math.max(1,Math.round(cs/22)), thick=Math.max(2,Math.round(cs/9));
+  const bold=a=>a%10===0||a===n;
+  for(let i=0;i<=w;i++){const t=bold(i+X0)||i===0||i===w;g.strokeStyle=t?'#111':(bw?'rgba(0,0,0,.45)':'rgba(0,0,0,.28)');g.lineWidth=t?thick:thin;
+    g.beginPath();g.moveTo(ox+i*cs,oy);g.lineTo(ox+i*cs,oy+GH);g.stroke();}
+  for(let i=0;i<=h;i++){const t=bold(i+Y0)||i===0||i===h;g.strokeStyle=t?'#111':(bw?'rgba(0,0,0,.45)':'rgba(0,0,0,.28)');g.lineWidth=t?thick:thin;
+    g.beginPath();g.moveTo(ox,oy+i*cs);g.lineTo(ox+GW,oy+i*cs);g.stroke();}
+  const fs=Math.max(12,Math.round(cs*.55));
+  g.fillStyle='#333';g.font='600 '+fs+'px '+SCH_FONT;g.textAlign='center';g.textBaseline='middle';
+  for(let a=Math.ceil((X0+1)/10)*10;a<=X0+w;a+=10){const i=a-X0;g.fillText(a,ox+i*cs,oy-fs);g.fillText(a,ox+i*cs,oy+GH+fs);}
+  for(let a=Math.ceil((Y0+1)/10)*10;a<=Y0+h;a+=10){const i=a-Y0;g.save();g.textAlign='right';g.fillText(a,ox-fs*.5,oy+i*cs);g.restore();g.save();g.textAlign='left';g.fillText(a,ox+GW+fs*.5,oy+i*cs);g.restore();}
+  const a=Math.max(7,cs*.45),off=fs*1.9;g.fillStyle=bw?'#000':'#c0392b';
+  const tri=(x,y,dx,dy)=>{g.beginPath();g.moveTo(x,y);g.lineTo(x-dy*a*.6-dx*a,y-dx*a*.6-dy*a);g.lineTo(x+dy*a*.6-dx*a,y+dx*a*.6-dy*a);g.closePath();g.fill();};
+  const cxA=n/2-X0, cyA=n/2-Y0;
+  if(cxA>=0&&cxA<=w){const cc=ox+cxA*cs;tri(cc,oy-off+a,0,1);tri(cc,oy+GH+off-a,0,-1);}
+  if(cyA>=0&&cyA<=h){const cy=oy+cyA*cs;tri(ox-off-a*.2+a,cy,1,0);tri(ox+GW+off+a*.2-a,cy,-1,0);}
+}
+function schWrap(g,text,x,y,maxW,lh){const words=String(text).split(/\s+/);let line='';
+  for(const w of words){const t=line?line+' '+w:w;if(g.measureText(t).width>maxW&&line){g.fillText(line,x,y);y+=lh;line=w;}else line=t;}
+  if(line){g.fillText(line,x,y);y+=lh;}return y;}
+function schSizeLine(n,T){return [14,16,18].map(ct=>{const s=schSize(n,ct);return T.fabric+' '+ct+': '+s.cm+'×'+s.cm+' '+T.cm+' ('+s.in+'×'+s.in+' in)';});}
+
+/* PNG — одна картинка: кольорова сітка + ключ (для соцмереж і швидкого перегляду) */
+function drawScheme(D,lang){
+  const T=SCH_T[lang],n=D.n,cs=n>60?18:22,M=46,G=cs*n;
+  const legRows=D.cols.length+1, legH=40+legRows*34+210;
+  const W2=Math.max(G+M*2,820),H2=M+G+M+legH;
   const cv=document.createElement('canvas');cv.width=W2;cv.height=H2;const g=cv.getContext('2d');
   g.fillStyle='#ffffff';g.fillRect(0,0,W2,H2);
   const ox=Math.round((W2-G)/2),oy=M;
-  const fabCss='rgb('+D.fab+')';
-  /* клітинки */
-  for(let y=0;y<n;y++)for(let x=0;x<n;x++){const i=D.grid[y*n+x],px=ox+x*cs,py=oy+y*cs;
-    if(i<0){g.fillStyle='#ffffff';g.fillRect(px,py,cs,cs);continue;}
-    const c=D.cols[i].rgb;g.fillStyle='rgb('+c+')';g.fillRect(px,py,cs,cs);
-    const l=c[0]*.299+c[1]*.587+c[2]*.114;drawSym(g,D.cols[i].sym,px+cs*.12,py+cs*.12,cs*.76,l>140?'#111':'#fff');}
-  /* сітка: тонка кожна клітинка, жирна кожні 10 */
-  for(let i=0;i<=n;i++){const t=(i%10===0||i===n);g.strokeStyle=t?'#222':'rgba(0,0,0,.28)';g.lineWidth=t?2:1;
-    g.beginPath();g.moveTo(ox+i*cs+.5,oy);g.lineTo(ox+i*cs+.5,oy+G);g.stroke();
-    g.beginPath();g.moveTo(ox,oy+i*cs+.5);g.lineTo(ox+G,oy+i*cs+.5);g.stroke();}
-  /* номери рядків і стовпців */
-  g.fillStyle='#333';g.font='600 12px ui-monospace,Menlo,Consolas,monospace';g.textAlign='center';g.textBaseline='middle';
-  for(let i=10;i<=n;i+=10){g.fillText(i,ox+i*cs,oy-12);g.fillText(i,ox+i*cs,oy+G+12);g.save();g.textAlign='right';g.fillText(i,ox-6,oy+i*cs);g.restore();g.save();g.textAlign='left';g.fillText(i,ox+G+6,oy+i*cs);g.restore();}
-  /* стрілки центру */
-  const cc=ox+G/2,cy=oy+G/2;g.fillStyle='#c0392b';
-  const tri=(x,y,dx,dy)=>{g.beginPath();g.moveTo(x,y);g.lineTo(x-dy*7-dx*12,y-dx*7-dy*12);g.lineTo(x+dy*7-dx*12,y+dx*7-dy*12);g.closePath();g.fill();};
-  tri(cc,oy-2,0,1);tri(cc,oy+G+2,0,-1);tri(ox-2,cy,1,0);tri(ox+G+2,cy,-1,0);
-  /* легенда */
+  drawSchGrid(g,D,ox,oy,cs,false);
   let y=oy+G+M;const lx=Math.max(24,ox);
-  g.textAlign='left';g.textBaseline='middle';g.fillStyle='#111';g.font='700 15px ui-monospace,Menlo,Consolas,monospace';
+  g.textAlign='left';g.textBaseline='middle';g.fillStyle='#111';g.font='700 15px '+SCH_FONT;
   const title=(D.text||'').length>60?D.text.slice(0,57)+'…':(D.text||'');
-  g.fillText((EN?'TAINA · ':'TAINA · ')+'«'+title+'»',lx,y);y+=26;
-  g.font='12.5px ui-monospace,Menlo,Consolas,monospace';g.fillStyle='#333';
-  const sz=ct=>(n/ct*2.54).toFixed(1);
-  g.fillText((EN?'Size: ':'Розмір: ')+n+'×'+n+(EN?' stitches · Aida 14: ':' хрестиків · Аїда 14: ')+sz(14)+'×'+sz(14)+(EN?' cm · 16: ':' см · 16: ')+sz(16)+(EN?' cm · 18: ':' см · 18: ')+sz(18)+(EN?' cm':' см'),lx,y);y+=30;
+  g.fillText('TAINA · «'+title+'»',lx,y);y+=26;
+  g.font='12.5px '+SCH_FONT;g.fillStyle='#333';
+  g.fillText(T.size+': '+n+'×'+n+' '+T.st,lx,y);y+=20;
+  for(const s of schSizeLine(n,T)){g.fillText(s,lx,y);y+=20;}y+=10;
+  const right=lx+Math.min(W2-lx*2,700);
   const row=(sym,rgb,txt,cnt)=>{const s=26;
     g.fillStyle='rgb('+rgb+')';g.fillRect(lx,y-s/2,s,s);g.strokeStyle='#888';g.lineWidth=1;g.strokeRect(lx+.5,y-s/2+.5,s-1,s-1);
     if(sym!=null){const l=rgb[0]*.299+rgb[1]*.587+rgb[2]*.114;drawSym(g,sym,lx+3,y-s/2+3,s-6,l>140?'#111':'#fff');}
-    g.fillStyle='#111';g.font='600 13px ui-monospace,Menlo,Consolas,monospace';g.fillText(txt,lx+s+12,y);
-    if(cnt!=null){g.textAlign='right';g.fillText(cnt,lx+Math.min(W2-lx*2,700),y);g.textAlign='left';}
+    g.fillStyle='#111';g.font='600 13px '+SCH_FONT;g.fillText(txt,lx+s+12,y);
+    if(cnt!=null){g.textAlign='right';g.fillText(cnt,right,y);g.textAlign='left';}
     y+=34;};
-  g.font='700 12px ui-monospace,Menlo,Consolas,monospace';g.fillStyle='#7a4f12';
-  g.fillText(EN?'THREAD (DMC, nearest)':'НИТКА (DMC, найближчий)',lx+38,y);g.textAlign='right';g.fillText(EN?'STITCHES':'ХРЕСТИКІВ',lx+Math.min(W2-lx*2,700),y);g.textAlign='left';y+=24;
+  g.font='700 12px '+SCH_FONT;g.fillStyle='#7a4f12';
+  g.fillText(T.thread,lx+38,y);g.textAlign='right';g.fillText(T.stc,right,y);g.textAlign='left';y+=24;
   for(const c of D.cols)row(c.sym,c.rgb,'DMC '+c.dmc.num+' · '+c.dmc.name,c.count);
-  row(null,D.fab,(EN?'Fabric (not stitched) · close to DMC ':'Тканина (не вишивається) · близько до DMC ')+D.fabDmc.num,null);
-  y+=6;g.font='12px ui-monospace,Menlo,Consolas,monospace';g.fillStyle='#555';
-  const notes=EN?['Leave at least 2 empty cells of fabric around the frame — the scanner needs this margin.',
-                  'Thread numbers are the nearest DMC shades; check them against a real colour card.']
-                :['Залиште навколо рамки щонайменше 2 порожні клітинки тканини — цей відступ потрібен сканеру.',
-                  'Номери ниток — найближчі відтінки DMC; звірте їх зі справжньою карткою кольорів.'];
-  for(const t of notes){g.fillText(t,lx,y);y+=20;}
+  row(null,D.fab,T.fab+D.fabDmc.num,null);
+  y+=6;g.font='12px '+SCH_FONT;g.fillStyle='#555';
+  for(const t of [T.steps[3]].concat(T.notes.slice(0,1))){g.fillText(t,lx,y);y+=20;}
   return cv;
 }
-let schCv=null;
+
+/* СТОРІНКИ PDF — аркуш A4, 200 точок на дюйм (1 мм ≈ 7,87 точки) */
+const A4W=1654,A4H=2339,PX_MM=A4W/210;
+function schPage(){const cv=document.createElement('canvas');cv.width=A4W;cv.height=A4H;const g=cv.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,A4W,A4H);g.textBaseline='middle';cv._over=[];return [cv,g];}
+function schFoot(g,T,i,N){g.font='22px '+SCH_FONT;g.fillStyle='#777';g.textAlign='left';g.fillText('TAINA · Mykhailo Kashkarov',120,A4H-80);
+  g.textAlign='right';g.fillText(T.page+' '+i+' / '+N,A4W-120,A4H-80);g.textAlign='left';}
+/* блок «Читання прихованого тексту»; draw=false — лише виміряти висоту */
+function schBonus(g,T,L,R,y){
+  g.fillStyle='#111';g.font='700 32px '+SCH_FONT;y=schWrap(g,T.bonusH,L,y,R-L,44)+6;
+  g.font='26px '+SCH_FONT;g.fillStyle='#222';y=schWrap(g,T.bonus,L,y,R-L,36)+18;
+  g.font='700 26px '+SCH_FONT;g.fillText(T.bonusL,L,y);y+=44;
+  g.font='26px '+SCH_FONT;
+  T.tips.forEach((s,i)=>{g.fillText((i+1)+'.',L,y);y=schWrap(g,s,L+44,y,R-L-44,36)+8;});
+  y+=20;g.font='700 28px '+SCH_FONT;g.fillStyle='#7a4f12';g.fillText(T.scan,L,y);y+=40;
+  return y;
+}
+function schCover(D,T,orn){
+  const [cv,g]=schPage(),L=140,R=A4W-140;
+  g.fillStyle='#111';g.font='800 92px '+SCH_FONT;g.fillText('TAINA',L,170);
+  g.font='600 40px '+SCH_FONT;g.fillStyle='#7a4f12';g.fillText(T.sub,L,238);
+  /* текст під картинкою: спершу міряємо його висоту, щоб картинка не налізла на підпис внизу */
+  const COPY_Y=A4H-150;
+  const body=(g,y)=>{
+    g.fillStyle='#111';g.font='700 32px '+SCH_FONT;g.fillText(T.enc+':',L,y);y+=50;
+    g.font='600 40px '+SCH_FONT;y=schWrap(g,'«'+(D.text||'')+'»',L,y,R-L,52);
+    if(D.tr){g.font='italic 34px Georgia,"Times New Roman",serif';g.fillStyle='#333';y=schWrap(g,'('+D.tr+')',L,y,R-L,46);}
+    y+=14;
+    const tot=D.cols.reduce((a,c)=>a+c.count,0);
+    g.font='26px '+SCH_FONT;g.fillStyle='#333';
+    y=schWrap(g,T.size+': '+D.n+'×'+D.n+' '+T.st+' · '+T.cols+': '+D.cols.length+' · '+T.total+': '+tot,L,y,R-L,36);
+    const s14=schSize(D.n,14);g.fillText(T.fabric+' Aida 14: '+s14.cm+'×'+s14.cm+' '+T.cm+' ('+s14.in+'×'+s14.in+' in)',L,y);y+=56;
+    g.fillStyle='#111';g.font='700 32px '+SCH_FONT;g.fillText(T.how,L,y);y+=46;
+    g.font='26px '+SCH_FONT;g.fillStyle='#222';
+    T.steps.forEach((s,i)=>{g.fillText((i+1)+'.',L,y);y=schWrap(g,s,L+44,y,R-L-44,36)+8;});
+    return y;};
+  const probe=document.createElement('canvas').getContext('2d');probe.canvas.width=A4W;probe.canvas.height=A4H*2;probe.textBaseline='middle';
+  const textH=body(probe,0);
+  /* картинка готового орнаменту — на всю ширину між полями (менше, лише якщо текст не вміщається);
+     у PDF іде окремим знімком у високій якості */
+  const iy=290, ratio=orn?orn.height/orn.width:1;
+  const S=Math.min(R-L, Math.floor((COPY_Y-50-iy-60-textH)/ratio)), IH=orn?Math.round(S*ratio):0, ix=Math.round((A4W-S)/2);
+  if(orn){g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';g.drawImage(orn,ix,iy,S,IH);cv._over.push({cv:orn,x:ix,y:iy,w:S,h:IH});}
+  let y=body(g,iy+IH+70);
+  y+=30;
+  /* бонус-блок: якщо вміщається — тут, інакше окрема сторінка */
+  const need=schBonus(probe,T,L,R,0);
+  let bonusPage=null;
+  if(y+need<COPY_Y-30)schBonus(g,T,L,R,y);
+  else{const [bc,bg]=schPage();schBonus(bg,T,L,R,170);bonusPage=bc;}
+  g.font='22px '+SCH_FONT;g.fillStyle='#888';g.textAlign='center';g.fillText(T.copy,A4W/2,COPY_Y);g.textAlign='left';
+  return [cv,bonusPage];
+}
+/* Сітка на всю сторінку; якщо клітинка менша за 2,5 мм — ділимо на частини
+   з перекриттям 2 ряди. */
+function schCharts(D,T,bw){
+  const n=D.n, TOP=250, BOT=A4H-150, MX=70;
+  const AW=A4W-2*MX, AH=BOT-TOP;
+  const MIN=Math.ceil(2.5*PX_MM);           /* 2,5 мм ≈ 20 точок */
+  let cs=Math.floor(Math.min(AW,AH)/(n+3.4));
+  let tiles=[{x0:0,y0:0,w:n,h:n}];
+  if(cs<MIN){
+    /* скільки частин потрібно по ширині й висоті — і ділимо порівну, з перекриттям 2 ряди */
+    const mx=Math.floor(AW/MIN)-4, my=Math.floor(AH/MIN)-4;
+    const nx=Math.max(1,Math.ceil((n-2)/(mx-2))), ny=Math.max(1,Math.ceil((n-2)/(my-2)));
+    const cut=k=>{if(k===1)return [[0,n]];const st=Math.ceil((n-2)/k),out=[];for(let i=0;i<k;i++){const a=i*st,w=Math.min(st+2,n-a);out.push([a,w]);}return out;};
+    const xs=cut(nx), ys=cut(ny);tiles=[];
+    for(const [y0,h] of ys)for(const [x0,w] of xs)tiles.push({x0,y0,w,h});
+    const tw=Math.max(...xs.map(q=>q[1])), th=Math.max(...ys.map(q=>q[1]));
+    cs=Math.max(MIN,Math.floor(Math.min(AW/(tw+3.4),AH/(th+3.4))));
+  }
+  return tiles.map((t,k)=>{
+    const [cv,g]=schPage();
+    g.fillStyle='#111';g.font='700 38px '+SCH_FONT;g.textAlign='left';g.fillText(bw?T.bw:T.col,120,130);
+    g.font='26px '+SCH_FONT;g.fillStyle='#444';
+    const title=(D.text||'').length>40?D.text.slice(0,37)+'…':(D.text||'');
+    let sub='«'+title+'» · '+n+'×'+n+' '+T.st;
+    if(tiles.length>1)sub+=' · '+T.part(k+1,tiles.length)+' ('+(t.x0+1)+'–'+(t.x0+t.w)+' × '+(t.y0+1)+'–'+(t.y0+t.h)+')';
+    g.fillText(sub,120,180);
+    const ox=Math.round((A4W-cs*t.w)/2), oy=TOP+Math.round((AH-cs*t.h)/2);
+    drawSchGrid(g,D,ox,oy,cs,bw,tiles.length>1?t:null);
+    return cv;});
+}
+function schKey(D,T){
+  const [cv,g]=schPage(),L=120,R=A4W-120,RS=R-230;let y=150;
+  g.fillStyle='#111';g.font='700 38px '+SCH_FONT;g.fillText(T.key,L,y);y+=80;
+  g.font='700 24px '+SCH_FONT;g.fillStyle='#7a4f12';
+  g.fillText(T.sym,L,y);g.fillText(T.thread,L+230,y);g.textAlign='right';g.fillText(T.stc,RS,y);g.fillText(T.sk,R,y);g.textAlign='left';y+=26;
+  g.strokeStyle='#bbb';g.lineWidth=2;g.beginPath();g.moveTo(L,y);g.lineTo(R,y);g.stroke();y+=50;
+  const s=64;
+  const row=(sym,rgb,txt,cnt)=>{
+    g.fillStyle='rgb('+rgb+')';g.fillRect(L,y-s/2,s,s);g.strokeStyle='#888';g.lineWidth=2;g.strokeRect(L+1,y-s/2+1,s-2,s-2);
+    if(sym!=null){const l=rgb[0]*.299+rgb[1]*.587+rgb[2]*.114;drawSym(g,sym,L+8,y-s/2+8,s-16,l>140?'#111':'#fff');
+      g.fillStyle='#fff';g.fillRect(L+s+30,y-s/2,s,s);g.strokeRect(L+s+31,y-s/2+1,s-2,s-2);drawSym(g,sym,L+s+38,y-s/2+8,s-16,'#000');}
+    g.fillStyle='#111';g.font='600 30px '+SCH_FONT;const y0=y;y=schWrap(g,txt,L+230,y,RS-L-230-180,38)-38;
+    if(cnt!=null){g.textAlign='right';g.fillText(cnt,RS,y0);g.fillText(skeins(cnt),R,y0);g.textAlign='left';}
+    y+=s+30;};
+  for(const c of D.cols)row(c.sym,c.rgb,'DMC '+c.dmc.num+' · '+c.dmc.name,c.count);
+  row(null,D.fab,T.fab+D.fabDmc.num,null);
+  g.font='22px '+SCH_FONT;g.fillStyle='#666';y=schWrap(g,T.skNote,L,y-10,R-L,30)+30;
+  g.fillStyle='#111';g.font='700 30px '+SCH_FONT;g.fillText(T.size,L,y);y+=50;
+  g.font='26px '+SCH_FONT;g.fillStyle='#333';
+  g.fillText(T.stitched+' · '+T.piece,L,y);y+=44;
+  for(const ct of [14,16,18]){const a=schSize(D.n,ct),b=schSize(D.n,ct,5);
+    g.fillText('Aida '+ct+':  '+a.cm+'×'+a.cm+' '+T.cm+' ('+a.in+'×'+a.in+' in)  ·  '+b.cm+'×'+b.cm+' '+T.cm+' ('+b.in+'×'+b.in+' in)',L,y);y+=40;}
+  y+=30;g.font='24px '+SCH_FONT;g.fillStyle='#555';
+  for(const t of T.notes)y=schWrap(g,'• '+t,L,y,R-L,34)+6;
+  return cv;
+}
+function schemePages(D,lang,orn){
+  const T=SCH_T[lang];
+  const [cover,bonus]=schCover(D,T,orn);
+  const P=[cover].concat(bonus?[bonus]:[],schCharts(D,T,false),schCharts(D,T,true),[schKey(D,T)]);
+  P.forEach((cv,i)=>schFoot(cv.getContext('2d'),T,i+1,P.length));
+  return P;
+}
+/* ПРОСТИЙ PDF без бібліотек: кожна сторінка — картинка JPEG на аркуші A4.
+   Орнамент на обкладинці кладеться зверху окремим знімком у повній якості. */
+function pagesToPDF(pages){
+  const enc=new TextEncoder(),parts=[],offs=[];let len=0,id=2;
+  const add=x=>{const b=typeof x==='string'?enc.encode(x):x;parts.push(b);len+=b.length;};
+  const obj=(i,body)=>{offs[i]=len;add(i+' 0 obj\n');body();add('\nendobj\n');};
+  const jpeg=(cv,q)=>{const bin=atob(cv.toDataURL('image/jpeg',q).split(',')[1]),u=new Uint8Array(bin.length);for(let j=0;j<bin.length;j++)u[j]=bin.charCodeAt(j);return u;};
+  const img=(i,cv,q)=>{const j=jpeg(cv,q);obj(i,()=>{add('<< /Type /XObject /Subtype /Image /Width '+cv.width+' /Height '+cv.height+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+j.length+' >>\nstream\n');add(j);add('\nendstream');});};
+  const PW=595.28,PH=841.89,K=PW/A4W;
+  /* номери об'єктів наперед */
+  const plan=pages.map(cv=>{const p=++id,im=++id,ct=++id,ov=(cv._over||[]).map(()=>++id);return {cv,p,im,ct,ov};});
+  add('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+  obj(1,()=>add('<< /Type /Catalog /Pages 2 0 R >>'));
+  obj(2,()=>add('<< /Type /Pages /Kids ['+plan.map(q=>q.p+' 0 R').join(' ')+'] /Count '+plan.length+' >>'));
+  const f=v=>(+v).toFixed(2);
+  plan.forEach((q,i)=>{
+    const over=q.cv._over||[];
+    let xo='/P'+i+' '+q.im+' 0 R';over.forEach((o,j)=>xo+=' /O'+i+'_'+j+' '+q.ov[j]+' 0 R');
+    obj(q.p,()=>add('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+PW+' '+PH+'] /Resources << /XObject << '+xo+' >> >> /Contents '+q.ct+' 0 R >>'));
+    img(q.im,q.cv,0.92);
+    over.forEach((o,j)=>img(q.ov[j],o.cv,0.95));
+    let s='q '+PW+' 0 0 '+PH+' 0 0 cm /P'+i+' Do Q';
+    over.forEach((o,j)=>{s+='\nq '+f(o.w*K)+' 0 0 '+f(o.h*K)+' '+f(o.x*K)+' '+f(PH-(o.y+o.h)*K)+' cm /O'+i+'_'+j+' Do Q';});
+    obj(q.ct,()=>add('<< /Length '+s.length+' >>\nstream\n'+s+'\nendstream'));
+  });
+  const n=id+1, xref=len;
+  let x='xref\n0 '+n+'\n0000000000 65535 f \n';for(let i=1;i<n;i++)x+=String(offs[i]).padStart(10,'0')+' 00000 n \n';
+  add(x+'trailer\n<< /Size '+n+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF');
+  return new Blob(parts,{type:'application/pdf'});
+}
+let schCv=null, schPages=null, schD=null, schLang=null, schOrn=null;
+function schName(){return 'taina-scheme-'+(($('txt').value||'taina').trim().slice(0,24).replace(/[^\p{L}\p{N}]+/gu,'_')||'taina');}
+function schBuild(){
+  const T=SCH_T[schLang];
+  schD.tr=($('sch-tr').value||'').trim();
+  schCv=drawScheme(schD,schLang);
+  schPages=schemePages(schD,schLang,schOrn);
+  $('sch-h').textContent=T.h;
+  $('sch-lang').textContent=T.lang;
+  $('sch-zoom').textContent=T.zoom;
+  $('sch-print').textContent=T.print;
+  $('sch-png').textContent=T.png;
+  $('sch-dl').textContent=T.pdf;
+  $('sch-trl').textContent=T.tr;
+  $('sch-note').textContent=T.note(schD.cols.length,schD.cols.reduce((a,c)=>a+c.count,0),schPages.length);
+  const w=$('sch-cv');w.innerHTML='';schPages.forEach(p=>w.appendChild(p));
+}
 function openScheme(){
   render();
   const D=schemeData(); if(!D)return;
   D.text=($('txt').value||'').trim();
-  const EN=LANG==='en';
-  schCv=drawScheme(D);
+  schD=D; schLang=(LANG==='en')?'en':'uk';
+  /* знімок для обкладинки — той самий, що «Для друку»: ціле збільшення, без згладжування */
+  schOrn=null;
+  try{if(window.TainaSig&&TainaSig.printOrn)schOrn=TainaSig.printOrn().canvas;}catch(e){}
+  if(!schOrn){render();schOrn=document.createElement('canvas');schOrn.width=OFF.width;schOrn.height=OFF.height;schOrn.getContext('2d').drawImage(OFF,0,0);}
   let m=$('sch');
   if(!m){m=document.createElement('div');m.id='sch';m.className='hide';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');
-    m.innerHTML='<div class="box"><div class="bar"><h2 id="sch-h"></h2><div class="btns"><button type="button" id="sch-zoom"></button><button type="button" id="sch-print"></button><button type="button" class="pri" id="sch-dl"></button><button type="button" id="sch-x">✕</button></div></div><div class="cvwrap" id="sch-cv"></div><div class="note" id="sch-note"></div></div>';
+    m.innerHTML='<div class="box"><div class="bar"><h2 id="sch-h"></h2><div class="btns"><button type="button" id="sch-lang"></button><button type="button" id="sch-zoom"></button><button type="button" id="sch-print"></button><button type="button" id="sch-png"></button><button type="button" class="pri" id="sch-dl"></button><button type="button" id="sch-x">✕</button></div></div><label class="trl"><span id="sch-trl"></span><input id="sch-tr" type="text" maxlength="160" placeholder="The Secret of the Ornament" autocomplete="off"></label><div class="cvwrap" id="sch-cv"></div><div class="note" id="sch-note"></div></div>';
     document.body.appendChild(m);
     m.addEventListener('click',e=>{if(e.target===m)closeScheme();});
     $('sch-x').onclick=closeScheme;
+    $('sch-lang').onclick=()=>{schLang=schLang==='en'?'uk':'en';schBuild();};
     $('sch-zoom').onclick=()=>$('sch-cv').classList.toggle('zoom');
-    $('sch-dl').onclick=()=>{schCv.toBlob(b=>{
-      dlBlob(b,'taina-scheme-'+(($('txt').value||'taina').trim().slice(0,24).replace(/[^\p{L}\p{N}]+/gu,'_')||'taina')+'.png');});};
-    $('sch-print').onclick=()=>{const url=schCv.toDataURL('image/png');const f=document.createElement('iframe');f.style.cssText='position:fixed;width:0;height:0;border:0;right:0;bottom:0';document.body.appendChild(f);
-      const d=f.contentWindow.document;d.open();d.write('<!doctype html><title>TAINA</title><style>@page{margin:10mm}html,body{margin:0}img{width:100%;height:auto}</style><img src="'+url+'">');d.close();
+    let trT=0;$('sch-tr').addEventListener('input',()=>{clearTimeout(trT);trT=setTimeout(schBuild,400);});
+    $('sch-dl').onclick=()=>{clearTimeout(trT);schBuild();dlBlob(pagesToPDF(schPages),schName()+(schLang==='en'?'_EN':'')+'.pdf');};
+    $('sch-png').onclick=()=>schCv.toBlob(b=>dlBlob(b,schName()+(schLang==='en'?'_EN':'')+'.png'));
+    $('sch-print').onclick=()=>{const imgs=schPages.map(p=>'<img src="'+p.toDataURL('image/jpeg',0.92)+'">').join('');const f=document.createElement('iframe');f.style.cssText='position:fixed;width:0;height:0;border:0;right:0;bottom:0';document.body.appendChild(f);
+      const d=f.contentWindow.document;d.open();d.write('<!doctype html><title>TAINA</title><style>@page{size:A4;margin:0}html,body{margin:0}img{display:block;width:210mm;height:297mm;page-break-after:always}img:last-child{page-break-after:auto}</style>'+imgs);d.close();
       f.contentWindow.onload=()=>{f.contentWindow.focus();f.contentWindow.print();setTimeout(()=>f.remove(),2000);};};
     addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('sch').classList.contains('hide'))closeScheme();});
   }
-  $('sch-h').textContent=EN?'Cross-stitch chart':'Схема для вишивки хрестиком';
-  $('sch-zoom').textContent=EN?'Zoom':'Збільшити';
-  $('sch-print').textContent=EN?'Print':'Друк';
-  $('sch-dl').textContent=EN?'Download PNG':'Завантажити PNG';
-  $('sch-note').textContent=EN?('One cell = one cross. '+D.cols.length+' thread colours, '+D.cols.reduce((a,c)=>a+c.count,0)+' stitches. White cells are bare fabric.')
-                              :('Одна клітинка — один хрестик. Кольорів нитки: '+D.cols.length+', хрестиків: '+D.cols.reduce((a,c)=>a+c.count,0)+'. Білі клітинки — тканина без вишивки.');
-  const w=$('sch-cv');w.innerHTML='';w.appendChild(schCv);
+  /* поле перекладу — для кожного нового тексту порожнє */
+  if(m._txt!==D.text){$('sch-tr').value='';m._txt=D.text;}
+  schBuild();
   m.classList.remove('hide');tone(620,.08,.05);
 }
 function closeScheme(){const m=$('sch');if(m)m.classList.add('hide');}
