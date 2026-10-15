@@ -950,48 +950,12 @@ function stitchTones(ink,bg,ref){
 }
 /* frame=1 — клітинка рамки. У кружечків рамка лишається суцільною
    (плитки, а не намистинки): по рівному контуру декодер знаходить код. */
-/* ДРУК: гладкі діагоналі стібка.
-   Шаблон стібка — піксель-арт 51×51. На екрані клітинка ≈ 51 px, тож
-   ступенів не видно. У друці клітинка ≈ 120 px, і кожен піксель шаблону
-   розтягувався б у 2–3 px — на діагоналях виходили «сходинки».
-   Тому для друку шаблон збільшуємо Scale2x (алгоритм для піксель-арту:
-   сходинки на діагоналях стають рівними лініями), малюємо вдвічі більше
-   і зменшуємо з усередненням — край діагоналі гладкий, а прямі межі
-   клітинок лишаються ідеально різкими. Екранний малюнок не змінюється. */
-let PRINT_HQ=false;
-const _tplUp=new Map();
-function scale2x(rows){
-  const n=rows.length,out=[],at=(y,x)=>rows[Math.max(0,Math.min(n-1,y))][Math.max(0,Math.min(n-1,x))];
-  for(let y=0;y<n;y++){let r1='',r2='';
-    for(let x=0;x<n;x++){const P=at(y,x),A=at(y-1,x),B=at(y,x+1),C=at(y,x-1),D=at(y+1,x);
-      r1+=(C===A&&C!==D&&A!==B?A:P)+(A===B&&A!==C&&B!==D?B:P);
-      r2+=(D===C&&D!==B&&C!==A?C:P)+(B===D&&B!==A&&D!==C?D:P);}
-    out.push(r1,r2);}
-  return out;
-}
-function tplAtLeast(TPL,size){
-  let k=TPL; const id=TPL===TILE_TPL?'t':TPL===BEAD_TPL?'b':'s';
-  for(let lv=1;k.length<size;lv++){const key=id+lv;let u=_tplUp.get(key);if(!u){u=scale2x(k);_tplUp.set(key,u);}k=u;}
-  return k;
-}
 function stitchTile(ink,bg,cell,frame,ref){
   const TPL=(frame&&shape==='circle')?TILE_TPL:shapeTpl();
-  const HQ=PRINT_HQ&&cell>STITCH_N;
-  const key=ink+bg+(ref||'')+cell+'|'+volT+'|'+layers+'|'+shape+'|'+(TPL===TILE_TPL?'t':'')+(HQ?'|hq':'');
+  const key=ink+bg+(ref||'')+cell+'|'+volT+'|'+layers+'|'+shape+'|'+(TPL===TILE_TPL?'t':'');
   let c=_stCache.get(key); if(c)return c;
   if(_stCache.size>64)_stCache.clear();
   const P=stitchTones(ink,bg,ref);
-  if(HQ){
-    const U=tplAtLeast(TPL,cell*2), M=U.length, S2=cell*2;
-    c=document.createElement('canvas');c.width=c.height=cell;
-    const g=c.getContext('2d'),img=g.createImageData(cell,cell),a=img.data;
-    for(let py=0;py<cell;py++)for(let px=0;px<cell;px++){
-      let r=0,gg=0,b=0;
-      for(let sy=0;sy<2;sy++){const row=U[Math.floor((py*2+sy)*M/S2)];
-        for(let sx=0;sx<2;sx++){const col=P[row[Math.floor((px*2+sx)*M/S2)]];r+=col[0];gg+=col[1];b+=col[2];}}
-      const o=(py*cell+px)*4;a[o]=r/4;a[o+1]=gg/4;a[o+2]=b/4;a[o+3]=255;}
-    g.putImageData(img,0,0);_stCache.set(key,c);return c;
-  }
   c=document.createElement('canvas');c.width=c.height=cell;
   const g=c.getContext('2d'),img=g.createImageData(cell,cell),a=img.data;
   for(let py=0;py<cell;py++){const row=TPL[Math.floor(py*STITCH_N/cell)];
@@ -2285,11 +2249,12 @@ function poster(opts){
   var text=(D.single||'').replace(/\s+$/,''), chars=Array.from(text), k=chars.length;
   var useRow=(S.v!=='none')&&k>0&&k<=12;
   var FAM='Inter, "Helvetica Neue", Arial, sans-serif';
-  var OW=Math.round(PW*S.orn/100), TOP=90, BOT=80, PO=null;
+  var OW=Math.round(PW*S.orn/100), TOP=90, BOT=80, PO=null, OW0=OW, KP=0;
   if(PRINT){
-    /* рамка орнаменту має займати рівно ціле число клітинок × ціле число пікселів */
-    PO=printOrn({framePx:OW*X});
-    OW=PO.framePx/X;
+    /* орнамент друку: клітинка 51·k; масштаб усього аркуша X підганяється
+       так, щоб рамка орнаменту зайняла рівно ту частку ширини, що й на екрані */
+    var G0=geomNow(); KP=printK(2400,G0.side);
+    PO=printOrn({cell:STITCH_N*KP}); X=PO.framePx/OW0;
   }
   var ox=(PW-OW)/2;
   var tmp=document.createElement('canvas').getContext('2d');
@@ -2306,8 +2271,8 @@ function poster(opts){
     h+=S.gap1+lines.length*fs*1.3-fs*0.3;
   }
   var AS=34; h+=PRINT?BOT:(S.gap2+AS+BOT);   /* у друку адреси немає */
-  /* телефонний Safari не тягне сторону понад 4096 — тоді трохи менший масштаб */
-  if(PRINT&&h*X>4096){X=Math.floor(4096/h*100)/100;PO=printOrn({framePx:Math.round(PW*S.orn/100)*X});OW=PO.framePx/X;ox=(PW-OW)/2;}
+  /* телефонний Safari: увесь аркуш ≤ 16 млн пікселів — інакше k менше */
+  while(PRINT&&KP>1&&(PW*X)*(h*X)>MAX_PX){KP--;PO=printOrn({cell:STITCH_N*KP});X=PO.framePx/OW0;}
 
   SHEET=zoneCol();
   var dark=lumA3(SHEET)<128;
@@ -2323,8 +2288,8 @@ function poster(opts){
   /* орнамент ЦІЛИМ, разом зі своїм полем: рамка завширшки OW, поле довкола
      зливається з аркушем */
   if(PRINT){
-    /* піксель у піксель, без масштабу: рамка стає на цілу координату */
-    var px0=Math.round(ox*X), py0=Math.round(TOP*X);
+    /* піксель у піксель, без масштабу; позиція — ціла й кратна k */
+    var kk=Math.max(1,KP), px0=Math.round(ox*X/kk)*kk, py0=Math.round(TOP*X/kk)*kk;
     g.drawImage(PO.canvas,px0-PO.qzPx,py0-PO.qzPx);
     c.orn={x:px0,y:py0,w:PO.framePx};
   }else{
@@ -2455,15 +2420,35 @@ function withFabricScale(r,fn){
   if(r!==1&&typeof orig==='function')window.fabricMap=function(a,b,p){return orig(a,b,Math.max(2,Math.round(p*r)));};
   try{return fn();}finally{window.fabricMap=orig;}
 }
+/* ДРУК = ЦІЛИЙ МНОЖНИК ШАБЛОНУ.
+   Шаблон стібка — піксель-арт STITCH_N×STITCH_N (51×51). Клітинка друку
+   строго кратна йому: cell = 51·k, k — ціле (не менше 2). Тоді кожна точка
+   шаблону стає рівним квадратом k×k «найближчим сусідом»: усі сходинки
+   однакові (рівно k px), жодних проміжних кольорів.
+     квадрат:  k = round(3400 / (T·51))      (T — повна сторона в клітинках)
+     постер:   k = round(2400 / (T·51))
+   Телефонний Safari не тягне понад ~16 млн пікселів — тоді k зменшуємо
+   мовчки. Якщо не влазить навіть k=1 (дуже великий код), клітинка
+   стає меншою за 51 — це рідкісний випадок довгих текстів. */
+/* межа полотна в телефонному Safari: 4096×4096 = 16 777 216 пікселів */
+var MAX_PX=16777216;
+function printK(target,side,extraArea){
+  var k=Math.max(2,Math.round(target/(side*STITCH_N)));
+  var area=function(k){return extraArea?extraArea(k):Math.pow(side*STITCH_N*k,2);};
+  while(k>1&&area(k)>MAX_PX)k--;
+  return k;
+}
 function printOrn(o){
   var G=geomNow(), cell;
-  if(o&&o.framePx) cell=Math.max(1,Math.floor(o.framePx/G.tw));      /* для постера: рамка ≈ задана ширина */
-  else cell=Math.max(1,Math.floor(3600/G.side));                     /* чистий квадрат ≈ 3600 */
-  while(cell>1&&cell*G.side>4096)cell--;
+  if(o&&o.cell) cell=o.cell;
+  else{
+    var k=printK(3400,G.side);
+    cell=STITCH_N*k;
+    if(Math.pow(G.side*cell,2)>MAX_PX)cell=Math.max(1,Math.floor(4000/G.side));
+  }
   var cv=document.createElement('canvas');
   cv.width=(G.tw+G.QZ*2)*cell; cv.height=(G.th+G.QZ*2)*cell;
   var ctx=cv.getContext('2d',{willReadFrequently:true}); ctx.imageSmoothingEnabled=false;
-  PRINT_HQ=true;
   try{
     paint(ctx,cell,G.pad,G.QZ);
     if(rgbMask()===7){var d=ctx.getImageData(0,0,cv.width,cv.height),a=d.data;
@@ -2471,7 +2456,6 @@ function printOrn(o){
     if(STITCH_LIST.length)drawStitches(ctx,cell,rgbMask()===7);
     withFabricScale(cell/G.screenCell,function(){applyFabric(ctx,cv.width,cv.height,rgbMask()===7);});
   }finally{
-    PRINT_HQ=false;
     /* paint() переписує службові списки (стібки, кольори тканини) під свою
        клітинку — повертаємо екранні, щоб нічого на сторінці не змінилось */
     render();
