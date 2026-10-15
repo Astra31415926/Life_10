@@ -3295,5 +3295,251 @@ buildDeck();
 
 })();
 </script>
+<!-- ═══════════════════════════════════════════════════════════════════
+     РОЛИК ДЛЯ TIKTOK — index.html?reel=1
+     Окремий режим поверх сайту. Звичайний показ можливостей не чіпає,
+     лише бере його ж функції: build() малює орнамент, PALS — палітри.
+     Без ?reel=1 цей блок нічого не робить.
+
+     Порядок: екран налаштувань → «Старт» → великий відлік → ролик
+     (ім'я друкується по літері, орнамент росте; пауза; швидке стирання;
+     наступне ім'я) → фінальний екран.
+     Під час ролику нічого не зберігається, sessionStorage не чіпаємо,
+     дотики не зупиняють ролик. Вихід — лише перезавантаження сторінки.
+     ═══════════════════════════════════════════════════════════════════ -->
+<style>
+html.reel-on,html.reel-on body{overflow:hidden!important;overscroll-behavior:none}
+#reel{position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3vh;
+  background:#0a0806;color:#fff;font-family:Inter,"Helvetica Neue",Arial,sans-serif;
+  touch-action:none;-webkit-user-select:none;user-select:none;overflow:hidden;
+  padding:calc(env(safe-area-inset-top,0px) + 5vh) 12px calc(env(safe-area-inset-bottom,0px) + 4vh)}
+#reel-name{flex:0 0 auto;height:1.35em;width:100%;display:flex;align-items:center;justify-content:center;
+  font-weight:700;line-height:1;white-space:nowrap;letter-spacing:.02em}
+#reel-name .car{display:inline-block;width:.07em;height:.85em;margin-left:.06em;background:currentColor;
+  vertical-align:-.06em;animation:reelcar 1s steps(1) infinite}
+@keyframes reelcar{50%{opacity:0}}
+#reel-stage{flex:0 0 auto;width:100%;display:flex;align-items:center;justify-content:center}
+#reel-cv{display:block}
+#reel-end{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;
+  padding:0 8vw;font-weight:700;line-height:1.25;white-space:pre-line}
+#reel-cnt{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+  font-weight:800;font-size:42vmin;line-height:1}
+/* ── екран налаштувань: темний, контрастний ── */
+#reel-set{position:absolute;inset:0;z-index:2;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  background:#16130f;color:#f2ece2;-webkit-user-select:text;user-select:text;
+  padding:calc(env(safe-area-inset-top,0px) + 18px) 18px calc(env(safe-area-inset-bottom,0px) + 28px)}
+#reel-set .in{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+#reel-set h1{font:800 22px/1.2 "JetBrains Mono",monospace;letter-spacing:.04em;color:#f0d9a8;margin:4px 0 0}
+#reel-set .sub{font-size:13.5px;color:#cbbfae;line-height:1.5}
+#reel-set label{display:flex;flex-direction:column;gap:7px;font-size:14px;font-weight:600;color:#e8dcc8}
+#reel-set .h{display:flex;justify-content:space-between;gap:10px}
+#reel-set .h b{color:#f0d9a8;font-variant-numeric:tabular-nums}
+#reel-set textarea,#reel-set select,#reel-set input[type=text]{width:100%;background:#241f19;color:#f7f1e6;
+  border:1px solid #5a4e40;border-radius:11px;padding:12px;font:16px Inter,Arial,sans-serif;outline:none}
+#reel-set textarea{resize:vertical;min-height:70px}
+#reel-set textarea:focus,#reel-set select:focus,#reel-set input[type=text]:focus{border-color:#c9a876}
+#reel-set input[type=range]{width:100%;height:34px;accent-color:#c9a876}
+#reel-set .seg{display:flex;border:1px solid #5a4e40;border-radius:11px;overflow:hidden}
+#reel-set .seg button{flex:1;border:0;border-right:1px solid #5a4e40;background:#241f19;color:#e8dcc8;
+  font:700 14px Inter,Arial,sans-serif;padding:13px 4px;cursor:pointer}
+#reel-set .seg button:last-child{border-right:0}
+#reel-set .seg button.on{background:#c9a876;color:#16130f}
+#reel-set .chk{flex-direction:row;align-items:center;gap:10px}
+#reel-set .chk input{width:22px;height:22px;accent-color:#c9a876}
+#reel-set .dur{font-size:14px;color:#e8dcc8}
+#reel-set .dur b{color:#f0d9a8}
+#reel-go{height:60px;border:0;border-radius:14px;background:#c9a876;color:#16130f;cursor:pointer;
+  font:800 19px "JetBrains Mono",monospace;letter-spacing:.08em;text-transform:uppercase}
+#reel-set .tip{font-size:12.5px;color:#b9ad9b;line-height:1.55}
+</style>
+<script>
+(function(){
+'use strict';
+if(!/[?&]reel(=|&|$)/.test(location.search))return;
+var $=function(id){return document.getElementById(id);};
+
+/* ── 1. ВИМИКАЄМО ЗАЙВЕ ─────────────────────────────────────────
+   Показ можливостей — назавжди; підпис — щоб не рахував плакат на
+   кожній літері (налаштування підпису при цьому НЕ перезаписуються);
+   isDemo=true — щоб build() нічого не зберігав. */
+try{tourDead=true;tourRun++;spotOff();}catch(e){}
+document.body.classList.remove('ghost');
+if(window.TainaSig)TainaSig.settings.on=false;
+isDemo=true;
+document.documentElement.classList.add('reel-on');
+
+/* ── 2. НАЛАШТУВАННЯ (пам'ятаються лише в цьому браузері) ─────── */
+var DEF={names:'Олена, Марія, Іван, Оксана, Андрій, Анна',speed:80,pause:0.8,pal:'0,1',motif:'rhomb',
+  neg:false,shape:'cross',end:'Напиши своє ім\'я в коментарях 👇',endDur:2.5,cnt:3,snd:true};
+var R={};for(var k in DEF)R[k]=DEF[k];
+try{var sv=JSON.parse(localStorage.getItem('taina_reel')||'null');if(sv)for(k in DEF)if(k in sv)R[k]=sv[k];}catch(e){}
+
+/* ── 3. РОЗМІТКА ──────────────────────────────────────────────── */
+var root=document.createElement('div');root.id='reel';
+var palOpts='';
+PALS.forEach(function(g,gi){palOpts+='<optgroup label="'+g.uk+'">';
+  g.items.forEach(function(p,ii){palOpts+='<option value="'+gi+','+ii+'">'+p.uk+'</option>';});
+  palOpts+='</optgroup>';});
+var motOpts=MOTIFS.map(function(m){return '<option value="'+m.k+'">'+m.uk+'</option>';}).join('');
+function sl(id,t,min,max,step){return '<label><span class="h"><span>'+t+'</span><b id="'+id+'-v"></b></span>'+
+  '<input type="range" id="'+id+'" min="'+min+'" max="'+max+'" step="'+step+'"></label>';}
+root.innerHTML=
+  '<div id="reel-name"></div>'+
+  '<div id="reel-stage"><canvas id="reel-cv"></canvas></div>'+
+  '<div id="reel-end"></div>'+
+  '<div id="reel-cnt"></div>'+
+  '<div id="reel-set"><div class="in">'+
+    '<h1>TAINA · Ролик</h1>'+
+    '<div class="sub">Імена друкуються по літері, орнамент росте наживо. Вертикально, на весь екран.</div>'+
+    '<label>Імена (через кому)<textarea id="rs-names" rows="2" spellcheck="false"></textarea></label>'+
+    sl('rs-speed','Швидкість друку, мс на літеру',40,200,5)+
+    sl('rs-pause','Пауза на готовому орнаменті, с',0.3,3,0.1)+
+    '<label>Палітра<select id="rs-pal">'+palOpts+'</select></label>'+
+    '<label>Мотив<select id="rs-motif">'+motOpts+'</select></label>'+
+    '<label class="chk"><input type="checkbox" id="rs-neg">Негатив</label>'+
+    '<label>Форма<div class="seg" id="rs-shape">'+
+      '<button type="button" data-s="cross">Хрестики</button>'+
+      '<button type="button" data-s="square">Квадрати</button>'+
+      '<button type="button" data-s="circle">Кружечки</button></div></label>'+
+    '<label>Текст фінального екрана<textarea id="rs-end" rows="2"></textarea></label>'+
+    sl('rs-endDur','Тривалість фінального екрана, с',1,5,0.5)+
+    sl('rs-cnt','Відлік перед стартом, с',3,10,1)+
+    '<label class="chk"><input type="checkbox" id="rs-snd">Звук клавіш</label>'+
+    '<div class="dur" id="rs-dur"></div>'+
+    '<button type="button" id="reel-go">▶ Старт</button>'+
+    '<div class="tip">Порада: спершу ввімкни запис екрана, тоді натисни «Старт» — зайвий початок обріжеш у TikTok. '+
+    'Дотики під час ролику нічого не зупиняють. Вийти — оновити сторінку.</div>'+
+  '</div></div>';
+document.body.appendChild(root);
+
+var nameEl=$('reel-name'), stage=$('reel-stage'), cv=$('reel-cv'), endEl=$('reel-end'), cntEl=$('reel-cnt'), setEl=$('reel-set');
+
+/* заповнюємо поля */
+$('rs-names').value=R.names; $('rs-end').value=R.end;
+$('rs-speed').value=R.speed; $('rs-pause').value=R.pause; $('rs-endDur').value=R.endDur; $('rs-cnt').value=R.cnt;
+$('rs-pal').value=R.pal; if(!$('rs-pal').value)$('rs-pal').value=DEF.pal;
+$('rs-motif').value=R.motif; $('rs-neg').checked=!!R.neg; $('rs-snd').checked=!!R.snd;
+function syncShape(){Array.prototype.forEach.call($('rs-shape').children,function(b){b.classList.toggle('on',b.dataset.s===R.shape);});}
+$('rs-shape').onclick=function(e){var b=e.target.closest('button');if(!b)return;R.shape=b.dataset.s;syncShape();};
+syncShape();
+
+/* імена: через кому, не довші за ліміт сайту (100 байт) */
+function parseNames(){
+  return $('rs-names').value.split(',').map(function(s){return s.trim();}).filter(Boolean).map(function(s){
+    var out='';Array.from(s).some(function(ch){if(bytesOf(out+ch)>BYTE_MAX)return true;out+=ch;return false;});return out;});
+}
+function readForm(){
+  R.names=$('rs-names').value; R.end=$('rs-end').value;
+  R.speed=+$('rs-speed').value; R.pause=+$('rs-pause').value; R.endDur=+$('rs-endDur').value; R.cnt=+$('rs-cnt').value;
+  R.pal=$('rs-pal').value; R.motif=$('rs-motif').value; R.neg=$('rs-neg').checked; R.snd=$('rs-snd').checked;
+}
+function showVals(){
+  readForm();
+  $('rs-speed-v').textContent=R.speed+' мс'; $('rs-pause-v').textContent=R.pause.toFixed(1)+' с';
+  $('rs-endDur-v').textContent=R.endDur.toFixed(1)+' с'; $('rs-cnt-v').textContent=R.cnt+' с';
+  /* орієнтовна тривалість ролику (без відліку) */
+  var ns=parseNames(), t=0;
+  ns.forEach(function(n,i){var L=Array.from(n).length;t+=L*R.speed+R.pause*1000+(i<ns.length-1?L*R.speed/2+150:0);});
+  t+=R.endDur*1000;
+  $('rs-dur').innerHTML='Тривалість ролика ≈ <b>'+(t/1000).toFixed(1)+' с</b> · імен: <b>'+ns.length+'</b>';
+}
+setEl.addEventListener('input',showVals); setEl.addEventListener('change',showVals);
+$('rs-shape').addEventListener('click',showVals);
+showVals();
+
+/* ── 4. МАЛЮВАННЯ ─────────────────────────────────────────────────
+   Тло екрана = поле довкола коду (його ж колір), тому орнамент
+   зливається з екраном. Ім'я — чорне або біле, що контрастніше. */
+var bg=[10,8,6], fg='#fff';
+function relL(a){return a.map(function(v){v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4);})
+  .reduce(function(s,v,i){return s+v*[.2126,.7152,.0722][i];},0);}
+function setBg(){
+  if(!OFF.width)return;
+  var d=OCTX.getImageData(1,1,1,1).data; bg=[d[0],d[1],d[2]];
+  var L=relL(bg), cW=1.05/(L+.05), cB=(L+.05)/.05;
+  fg=cB>=cW?'#111':'#fff';
+  root.style.background='rgb('+bg.join(',')+')'; root.style.color=fg;
+}
+function draw(){
+  /* орнамент — найбільший квадрат, що лишається під іменем */
+  var cs=getComputedStyle(root),w=root.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),
+      h=root.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-nameEl.offsetHeight-parseFloat(cs.rowGap||0),
+      s=Math.max(10,Math.floor(Math.min(w,h)));
+  var dpr=Math.min(3,window.devicePixelRatio||1),px=Math.round(s*dpr);
+  if(cv.width!==px){cv.width=cv.height=px;cv.style.width=cv.style.height=s+'px';}
+  var g=cv.getContext('2d');
+  g.fillStyle='rgb('+bg.join(',')+')';g.fillRect(0,0,px,px);
+  if(!OFF.width)return;
+  g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';
+  g.drawImage(OFF,0,0,px,px);
+}
+function esc(t){return t.replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+function setText(t,caret){
+  D.single=t; build(); setBg(); draw();
+  nameEl.innerHTML=esc(t)+(caret?'<span class="car"></span>':'');
+}
+/* розмір імені: найдовше ім'я влазить у 92% ширини */
+var mctx=document.createElement('canvas').getContext('2d');
+function fitName(names){
+  var maxW=root.clientWidth*0.92, fs=Math.min(innerWidth*0.17,140), FAM='700 '+'{s}px Inter,"Helvetica Neue",Arial,sans-serif';
+  mctx.font=FAM.replace('{s}',fs);
+  var mw=0;names.forEach(function(n){mw=Math.max(mw,mctx.measureText(n).width+fs*0.15);});
+  if(mw>maxW)fs*=maxW/mw;
+  nameEl.style.fontSize=Math.floor(fs)+'px';
+  endEl.style.fontSize=Math.floor(Math.min(innerWidth*0.09,64))+'px';
+  draw();
+}
+addEventListener('resize',function(){if(!setEl.parentNode||setEl.style.display==='none')draw();});
+
+/* ── 5. ЗАСТОСУВАТИ ВИГЛЯД ────────────────────────────────────── */
+function applyLook(){
+  var pg=R.pal.split(',').map(Number);
+  if(PALS[pg[0]]&&PALS[pg[0]].items[pg[1]]){palG=pg[0];palI=pg[1];}
+  motif=PAL().mono?'none':R.motif; motifK=4; invert=!!R.neg;
+  shape=R.shape; setLayers(1);
+}
+
+var wait=function(ms){return new Promise(function(r){setTimeout(r,ms);});};
+var wake=null;
+async function run(){
+  readForm();
+  var names=parseNames(); if(!names.length)names=DEF.names.split(',').map(function(s){return s.trim();});
+  try{localStorage.setItem('taina_reel',JSON.stringify(R));}catch(e){}
+  try{if(navigator.wakeLock)wake=await navigator.wakeLock.request('screen');}catch(e){}
+  if(R.snd)ac();                       /* звук дозволено лише після дотику — він щойно був */
+  applyLook();
+  /* колір тла заздалегідь — з першого імені */
+  D.single=names[0]; build(); setBg(); D.single=''; build();
+  setEl.style.display='none';
+  nameEl.innerHTML=''; draw();
+  fitName(names);
+  if(document.fonts&&document.fonts.ready){try{await document.fonts.ready;fitName(names);}catch(e){}}
+
+  /* відлік */
+  cntEl.style.display='flex';
+  for(var c=R.cnt;c>0;c--){cntEl.textContent=c;if(R.snd)tone(c===1?880:660,.08,.05);await wait(1000);}
+  cntEl.style.display='none';
+
+  for(var i=0;i<names.length;i++){
+    var ch=Array.from(names[i]);
+    for(var j=1;j<=ch.length;j++){setText(ch.slice(0,j).join(''),true);if(R.snd)typeClick();await wait(R.speed);}
+    setText(names[i],false);
+    await wait(R.pause*1000);
+    if(i<names.length-1){
+      for(j=ch.length-1;j>=0;j--){setText(ch.slice(0,j).join(''),true);await wait(R.speed/2);}
+      await wait(150);
+    }
+  }
+  /* фінальний екран */
+  nameEl.style.visibility='hidden'; stage.style.visibility='hidden';
+  endEl.textContent=R.end; endEl.style.display='flex';
+  await wait(R.endDur*1000);
+  /* далі екран лишається як є — запис зупиняєш сам */
+  try{if(wake)wake.release();}catch(e){}
+}
+$('reel-go').onclick=function(){this.disabled=true;run();};
+})();
+</script>
+
 </body>
 </html>
