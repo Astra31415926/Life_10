@@ -1502,7 +1502,9 @@ function closeMenu(){menuOpen=false;$('menu').classList.add('hide');$('menu').in
 function openMenu(){
   const m=$('menu');menuOpen=true;m.classList.remove('hide');
   if(hasImage){
-    const sug=defaultName();m.innerHTML=`<div class="menu-t">Ім'я файлу</div><input id="fname" value="${sug}" autocomplete="off" spellcheck="false"><div class="row"><button class="b gold" id="do-save">⤓ Зберегти PNG</button></div><div class="row"><button class="b" id="do-publish">✦ Опублікувати в галерею</button></div><div class="row"><button class="b" id="do-scan">⌖ Сканувати інше</button></div>`;$('do-save').onclick=()=>{const n=($('fname').value||sug).trim().replace(/[\\/:*?"<>|]/g,'_')||'taina';savePNG(n);closeMenu()};$('do-publish').onclick=e=>{e.stopPropagation();openPublish()};$('do-scan').onclick=()=>{closeMenu();$('file').click()};setTimeout(()=>{const f=$('fname');if(f){f.focus();f.select()}},40);
+    const sug=defaultName();m.innerHTML=`<div class="menu-t">Ім'я файлу</div><input id="fname" value="${sug}" autocomplete="off" spellcheck="false"><div class="row"><button class="b gold" id="do-save">⤓ Для соцмереж</button></div><div class="row"><button class="b" id="do-save-print">⤓ Для друку</button></div><div class="row"><button class="b" id="do-publish">✦ Опублікувати в галерею</button></div><div class="row"><button class="b" id="do-scan">⌖ Сканувати інше</button></div>`;const fnm=()=>($('fname').value||sug).trim().replace(/[\\/:*?"<>|]/g,'_')||'taina';
+      $('do-save').onclick=()=>{window.saveImage?saveImage(fnm(),'web'):savePNG(fnm());closeMenu()};
+      $('do-save-print').onclick=()=>{if(window.saveImage)saveImage(fnm(),'print');closeMenu()};$('do-publish').onclick=e=>{e.stopPropagation();openPublish()};$('do-scan').onclick=()=>{closeMenu();$('file').click()};setTimeout(()=>{const f=$('fname');if(f){f.focus();f.select()}},40);
   }else{m.innerHTML=`<div class="menu-t">Джерело</div><div class="row"><button class="b gold" id="src-gal">🖼 Обрати файл</button></div>`;$('src-gal').onclick=()=>{closeMenu();$('file').click()};}}
 $('mainbtn').onclick=e=>{e.stopPropagation();if(busy)return;menuOpen?closeMenu():openMenu()};
 document.addEventListener('click',e=>{if(menuOpen&&!e.target.closest('.action'))closeMenu();});
@@ -2150,6 +2152,8 @@ applyLang();
   border:1px solid var(--line);cursor:zoom-in;background:#dadada}
 .sig-dl{height:46px;border-radius:11px;border:0;background:var(--acc);color:var(--on-acc);cursor:pointer;
   font-family:var(--mono);font-size:14px;font-weight:700;margin-top:4px}
+.sig-two{display:flex;gap:6px}.sig-two .sig-dl{flex:1}
+.sig-dl.alt{background:transparent;color:var(--parchment);border:1px solid var(--acc)}
 .sig-reset{height:30px;border:0;background:transparent;color:var(--muted);cursor:pointer;
   font-family:var(--mono);font-size:11.5px;text-decoration:underline;text-underline-offset:3px}
 .sig-big{position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.82);display:flex;align-items:center;
@@ -2236,11 +2240,22 @@ function octGrid(t){
 }
 
 /* ── постер: ширина 1000, висота — скільки треба вмісту, без порожнечі ── */
-function poster(){
+/* ДРУК: той самий постер у X разів більший (X=3 → 3000 по ширині).
+   Розкладка рахується в «екранних» одиницях, а малюється в пікселях ×X.
+   Орнамент не розтягується, а перемальовується з цілою клітинкою. */
+var SCALE=1;
+function poster(opts){
+  opts=opts||{}; var PRINT=!!opts.print, X=PRINT?3:1;
   var text=(D.single||'').replace(/\s+$/,''), chars=Array.from(text), k=chars.length;
   var useRow=(S.v!=='none')&&k>0&&k<=12;
   var FAM='Inter, "Helvetica Neue", Arial, sans-serif';
-  var OW=Math.round(PW*S.orn/100), ox=Math.round((PW-OW)/2), TOP=90, BOT=80;
+  var OW=Math.round(PW*S.orn/100), TOP=90, BOT=80, PO=null;
+  if(PRINT){
+    /* рамка орнаменту має займати рівно ціле число клітинок × ціле число пікселів */
+    PO=printOrn({framePx:OW*X});
+    OW=PO.framePx/X;
+  }
+  var ox=(PW-OW)/2;
   var tmp=document.createElement('canvas').getContext('2d');
   /* розкладка */
   var gap=0,m=0,fs=S.size,lines=[],ls=0,h=TOP+OW;
@@ -2254,7 +2269,9 @@ function poster(){
     lines=wrap(tmp,text.toUpperCase(),OW,ls,fs,FAM);fs=lines.fs;ls=lines.ls;
     h+=S.gap1+lines.length*fs*1.3-fs*0.3;
   }
-  var AS=34; h+=S.gap2+AS+BOT;
+  var AS=34; h+=PRINT?BOT:(S.gap2+AS+BOT);   /* у друку адреси немає */
+  /* телефонний Safari не тягне сторону понад 4096 — тоді трохи менший масштаб */
+  if(PRINT&&h*X>4096){X=Math.floor(4096/h*100)/100;PO=printOrn({framePx:Math.round(PW*S.orn/100)*X});OW=PO.framePx/X;ox=(PW-OW)/2;}
 
   SHEET=zoneCol();
   var dark=lumA3(SHEET)<128;
@@ -2262,15 +2279,25 @@ function poster(){
      чорного й білого). РОЗШИФРОВКА — спокійний відтінок, що вже є в
      орнаменті (скажімо, жовтий мотив): видно, але з ім'ям не сперечається. */
   var TONES=sigTones(); TEXT=TONES.text; ADDR=TONES.text; ACC=TONES.acc;
-  var c=document.createElement('canvas');c.width=PW;c.height=Math.round(h);
+  var c=document.createElement('canvas');c.width=Math.round(PW*X);c.height=Math.round(h*X);
   var g=c.getContext('2d');g.fillStyle=css(SHEET);g.fillRect(0,0,c.width,c.height);
-  /* та сама тканина, що й на полі коду */
-  try{applyFabric(g,c.width,c.height,rgbMask()===7);}catch(e){}
+  g.imageSmoothingEnabled=false;
+  /* та сама тканина, що й на полі коду (у друку — з тим самим кроком відносно клітинки) */
+  try{withFabricScale(X,function(){applyFabric(g,c.width,c.height,rgbMask()===7);});}catch(e){}
   /* орнамент ЦІЛИМ, разом зі своїм полем: рамка завширшки OW, поле довкола
      зливається з аркушем */
-  var B=ornBox(), k2=OW/B.w;g.imageSmoothingEnabled=false;
-  g.drawImage(OFF,Math.round(ox-B.x*k2),Math.round(TOP-B.y*k2),Math.round(OFF.width*k2),Math.round(OFF.height*k2));
-  c.orn={x:ox,y:TOP,w:OW};
+  if(PRINT){
+    /* піксель у піксель, без масштабу: рамка стає на цілу координату */
+    var px0=Math.round(ox*X), py0=Math.round(TOP*X);
+    g.drawImage(PO.canvas,px0-PO.qzPx,py0-PO.qzPx);
+    c.orn={x:px0,y:py0,w:PO.framePx};
+  }else{
+    var B=ornBox(), k2=OW/B.w;
+    g.drawImage(OFF,Math.round(ox-B.x*k2),Math.round(TOP-B.y*k2),Math.round(OFF.width*k2),Math.round(OFF.height*k2));
+    c.orn={x:ox,y:TOP,w:OW};
+  }
+  /* решта — у «екранних» одиницях; клітинки знаків пригвинчуються до пікселів */
+  g.setTransform(X,0,0,X,0,0); SCALE=X;
   var y=TOP+OW;
   g.fillStyle=css(TEXT);g.textBaseline='top';
   if(useRow){
@@ -2283,14 +2310,20 @@ function poster(){
     y+=S.gap1;g.font='700 '+fs+'px '+FAM;
     lines.forEach(function(L,i){drawSpaced(g,L,PW/2,y,ls);y+=fs*1.3;});y-=fs*0.3;
   }
-  y+=S.gap2;
-  g.fillStyle=css(ADDR);g.font='500 '+AS+'px '+FAM;g.textAlign='center';g.textBaseline='top';
-  g.fillText(SITE,PW/2,y);
+  if(!PRINT){
+    y+=S.gap2;
+    g.fillStyle=css(ADDR);g.font='500 '+AS+'px '+FAM;g.textAlign='center';g.textBaseline='top';
+    g.fillText(SITE,PW/2,y);
+  }
+  g.setTransform(1,0,0,1,0,0); SCALE=1;
   return c;
 }
 function cellRect(g,x0,y0,cs,p){
-  var x=Math.round(x0+p[0]*cs),yy=Math.round(y0+p[1]*cs);
-  g.fillRect(x,yy,Math.round(x0+(+p[0]+1)*cs)-x,Math.round(y0+(+p[1]+1)*cs)-yy);
+  var X=SCALE;
+  var x=Math.round((x0+p[0]*cs)*X),yy=Math.round((y0+p[1]*cs)*X);
+  var x2=Math.round((x0+(+p[0]+1)*cs)*X),y2=Math.round((y0+(+p[1]+1)*cs)*X);
+  if(X!==1){g.save();g.setTransform(1,0,0,1,0,0);g.fillRect(x,yy,x2-x,y2-yy);g.restore();}
+  else g.fillRect(x,yy,x2-x,y2-yy);
 }
 /* ── тони підпису ─────────────────────────────────────────────────
    Контраст рахуємо за правилом WCAG (відношення яскравостей). */
@@ -2369,6 +2402,55 @@ function wrap(g,s,W,ls,fs,FAM){
   }
   lines.fs=fs;lines.ls=ls;return lines;
 }
+/* ═══ ДРУК: орнамент заново, з великою ЦІЛОЮ клітинкою ═══
+   Не розтягуємо екранний холст (краї клітинок розмились би), а малюємо
+   тим самим кодом сайту, лише з більшою клітинкою. Усі товщини, стібки,
+   кружечки рахуються від клітинки самі. Крок тканини множимо на те саме
+   відношення, щоб плетення лишилось таким, як на екрані.
+   side — повна сторона в клітинках (поле + рамка + дані).
+   Безпечна межа для телефону: сторона ≤ 4096. */
+function geomNow(){
+  var QZ=2, pad=(frameW>=2?3:frameW), tw=W+pad*2, th=H+pad*2;
+  var side=Math.max(tw+QZ*2,th+QZ*2);
+  return {QZ:QZ,pad:pad,tw:tw,th:th,side:side,screenCell:Math.max(3,2*Math.floor(1161/side/2)+1)};
+}
+function withFabricScale(r,fn){
+  var orig=window.fabricMap;
+  if(r!==1&&typeof orig==='function')window.fabricMap=function(a,b,p){return orig(a,b,Math.max(2,Math.round(p*r)));};
+  try{return fn();}finally{window.fabricMap=orig;}
+}
+function printOrn(o){
+  var G=geomNow(), cell;
+  if(o&&o.framePx) cell=Math.max(1,Math.floor(o.framePx/G.tw));      /* для постера: рамка ≈ задана ширина */
+  else cell=Math.max(1,Math.floor(3600/G.side));                     /* чистий квадрат ≈ 3600 */
+  while(cell>1&&cell*G.side>4096)cell--;
+  var cv=document.createElement('canvas');
+  cv.width=(G.tw+G.QZ*2)*cell; cv.height=(G.th+G.QZ*2)*cell;
+  var ctx=cv.getContext('2d',{willReadFrequently:true}); ctx.imageSmoothingEnabled=false;
+  try{
+    paint(ctx,cell,G.pad,G.QZ);
+    if(rgbMask()===7){var d=ctx.getImageData(0,0,cv.width,cv.height),a=d.data;
+      for(var i=0;i<a.length;i+=4){a[i]=255-a[i];a[i+1]=255-a[i+1];a[i+2]=255-a[i+2];}ctx.putImageData(d,0,0);}
+    if(STITCH_LIST.length)drawStitches(ctx,cell,rgbMask()===7);
+    withFabricScale(cell/G.screenCell,function(){applyFabric(ctx,cv.width,cv.height,rgbMask()===7);});
+  }finally{
+    /* paint() переписує службові списки (стібки, кольори тканини) під свою
+       клітинку — повертаємо екранні, щоб нічого на сторінці не змінилось */
+    render();
+  }
+  return {canvas:cv,cell:cell,framePx:cell*G.tw,qzPx:cell*G.QZ};
+}
+/* Один вхід для всіх кнопок збереження.
+   kind: 'web' — як було; 'print' — висока роздільність, без адреси сайту. */
+function saveImage(base,kind){
+  var name=(base||'taina')+(kind==='print'?'_print':'_web');
+  var cv;
+  if(S.on) cv=poster({print:kind==='print'});
+  else if(kind==='print') cv=printOrn().canvas;
+  else cv=OFF;
+  cv.toBlob(function(b){dlBlob(b,name+'.png');if(typeof tone==='function')tone(660,.09,.07);},'image/png');
+}
+
 /* Збереження ОДРАЗУ в момент натискання, без відкладених кроків:
    інакше браузер вважає завантаження «не від людини» і мовчки його блокує. */
 function download(name){
@@ -2391,7 +2473,8 @@ P.innerHTML=
     sl('orn','Розмір орнаменту',55,94)+sl('size','Розмір букв',30,120)+sl('sp','Розрядка',0,80)+
     sl('gap1','Від орнаменту до букв',10,300)+sl('gap2','Від знаків до адреси',6,240)+
     '<img class="sig-pv" id="sig-pv" alt="Попередній перегляд">'+
-    '<button type="button" class="sig-dl" id="sig-dl">⤓ Зберегти з підписом</button>'+
+    '<div class="sig-two"><button type="button" class="sig-dl" id="sig-dl">⤓ Для соцмереж</button>'+
+    '<button type="button" class="sig-dl alt" id="sig-dl-print">⤓ Для друку</button></div>'+
     '<button type="button" class="sig-reset" id="sig-reset">повернути як було</button>'+
   '</div>';
 var UNIT={orn:'%'};
@@ -2419,7 +2502,8 @@ P.addEventListener('click',function(e){
   if(e.target.id==='sig-sw'){S.on=!S.on;keep();sync();return;}
   var b=e.target.closest('#sig-v button');if(b){S.v=b.dataset.v;keep();sync();return;}
   if(e.target.id==='sig-pv'){big.querySelector('img').src=e.target.src;big.hidden=false;}
-  if(e.target.id==='sig-dl'){if(!hasImage||isDemo){toast('Спершу напиши щось');return;}download(defaultName());}
+  if(e.target.id==='sig-dl'||e.target.id==='sig-dl-print'){if(!hasImage||isDemo){toast('Спершу напиши щось');return;}
+    saveImage(defaultName(),e.target.id==='sig-dl'?'web':'print');}
   if(e.target.id==='sig-reset'){for(var d in DEF)S[d]=DEF[d];keep();sync();}
 });
 P.addEventListener('input',function(e){
@@ -2431,6 +2515,7 @@ document.body.appendChild(P);P.hidden=true;   /* поки не вставлен�
 /* ── збереження: увімкнено — віддаємо постер ── */
 var _save=window.savePNG;
 window.savePNG=function(name){ if(!S.on) return _save(name); download(name); };
+window.saveImage=saveImage;
 /* орнамент змінився — оновлюємо попередній перегляд */
 var _render=window.render;
 window.render=function(){var r=_render.apply(this,arguments);refresh();return r;};
@@ -2445,7 +2530,7 @@ function fitMenu(){var m=$('menu');if(!m||m.classList.contains('hide')||!m.conta
   m.style.maxHeight=Math.max(220,m.getBoundingClientRect().bottom-top)+'px';}
 P.addEventListener('click',function(){setTimeout(fitMenu,0);});
 
-window.TainaSig={panel:P,poster:poster,settings:S,refresh:refresh};
+window.TainaSig={panel:P,poster:poster,settings:S,refresh:refresh,printOrn:printOrn,saveImage:saveImage};
 sync();
 })();
 </script>
@@ -2718,12 +2803,18 @@ var mkAct=function(cls,ic,t,s){
   var b=document.createElement('button');b.type='button';b.className='m-act'+(cls?' '+cls:'');
   b.innerHTML=ic+'<span>'+t+(s?'<small>'+s+'</small>':'')+'</span>';return b;};
 
-var bSave=mkAct('pri',I.dl,'Зберегти картинку','PNG, готовий до друку');
+function askName(){var n=prompt('Назва файлу:',defaultName());if(n===null)return null;
+  return n.trim().replace(/[\\/:*?"<>|]/g,'_')||'taina';}
+var bSave=mkAct('pri',I.dl,'Для соцмереж','звичайний розмір, з адресою сайту');
 bSave.onclick=function(){
   if(!hasImage||isDemo){toast('Спершу напиши щось');return;}
-  var n=prompt('Назва файлу:',defaultName());if(n===null)return;
-  n=n.trim().replace(/[\\/:*?"<>|]/g,'_')||'taina';savePNG(n);closeSheet();};
+  var n=askName();if(n===null)return;saveImage(n,'web');closeSheet();};
 pv.appendChild(bSave);
+var bPrint=mkAct('',I.dl,'Для друку','висока роздільність, без адреси');
+bPrint.onclick=function(){
+  if(!hasImage||isDemo){toast('Спершу напиши щось');return;}
+  var n=askName();if(n===null)return;saveImage(n,'print');closeSheet();};
+pv.appendChild(bPrint);
 pv.appendChild($('scheme-btn'));                       /* схема для вишивки */
 
 var bPub=mkAct('',I.up,'Опублікувати в галерею','побачать усі відвідувачі');
