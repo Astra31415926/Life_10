@@ -309,6 +309,10 @@ body.light-mode .mot.on{background:var(--acc);color:var(--on-acc);border-color:v
 .vf span:nth-child(2){top:0;right:0;border-left:0;border-bottom:0}
 .vf span:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}
 .vf span:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
+/* кнопка «з галереї» поверх живої камери */
+.cam-gal{position:absolute;right:12px;bottom:12px;z-index:13;width:54px;height:54px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.85);background:rgba(0,0,0,.6);color:#fff;font-size:24px;line-height:1;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
 
 /* ═══ ПРИМАРНЕ ДЕМО ═══ напівпрозорі текст і орнамент, плавне розчинення */
 #txt{transition:color .8s}
@@ -573,6 +577,7 @@ body.light-mode .menu .hint{color:#8a4e00}
           <div class="stage-cta" id="stage-cta"><button type="button" id="cta-scan"><span class="eye"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1.8 12s3.8-7 10.2-7 10.2 7 10.2 7-3.8 7-10.2 7S1.8 12 1.8 12z"/><circle cx="12" cy="12" r="3.3"/></svg></span><span>Сканувати орнамент</span></button><p id="cta-hint">або напиши слово вище</p></div>
           <video id="cam-video" playsinline muted class="cam-live hide"></video>
           <div class="vf hide" id="vf"><span></span><span></span><span></span><span></span></div>
+          <button type="button" class="cam-gal hide" id="cam-gal" title="Завантажити з галереї" aria-label="Завантажити з галереї">🖼</button>
           <div class="grid-ov"></div><div class="scanline"></div>
           <div class="veil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg><p id="veil-title">Код не прочитано</p><p class="tip" id="veil-tip"></p></div>
         </div>
@@ -1613,13 +1618,25 @@ async function startCam(){
   tourStop();
   const {v,vf,btn}=camEls();if(camStream){stopCam();}
   try{
-    if(window.TainaDecoder&&TainaDecoder.ready){$('rt').innerHTML='<span class="w">завантаження модуля…</span>';await TainaDecoder.ready;}
-    /* Якщо камера ще «тепла» після попереднього скану — беремо її ж,
-       без нового запиту дозволу. */
+    /* КАМЕРА ПЕРШОЮ, модуль — потім. Запит дозволу йде одразу, поки
+       браузер пам'ятає натискання. OpenCV довантажується вже при
+       ввімкненій камері. */
     if(camKeep&&camKeep.getVideoTracks().some(t=>t.readyState==='live')){camStream=camKeep;camKeep=null;clearTimeout(camKeepTO);}
-    else camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1920}}});v.srcObject=camStream; v.setAttribute('playsinline','');await v.play();CV.classList.add('hide'); v.classList.remove('hide'); vf.classList.remove('hide');$('stage').classList.add('scanning');btn.textContent='⏹ Зупинити'; $('rt').innerHTML='<span class="w">наведи на код…</span>';camLastText=null; camTimer=0; camBusy=false;startScanSound();camLoop();clearTimeout(window._camTO);clearInterval(window._camTick);window._camTick=setInterval(function(){tone(1200,.03,.03,'sine');},900);window._camTO=setTimeout(function(){if(camStream){stopCam();$('rt').innerHTML='';showNoCode();const st=$('stage');st.classList.add('failed');setTimeout(function(){st.classList.remove('failed');},5000);}},10000);}catch(e){ alert('Камера недоступна: '+e); }
+    else camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1920}}});
+    v.srcObject=camStream; v.setAttribute('playsinline','');await v.play();
+    CV.classList.add('hide'); v.classList.remove('hide'); vf.classList.remove('hide'); $('cam-gal').classList.remove('hide');
+    $('stage').classList.add('scanning');btn.textContent='⏹ Зупинити';
+    $('rt').innerHTML='<span class="w">наведи на код…</span>';
+    camLastText=null; camTimer=0; camBusy=false;startScanSound();
+    if(window.TainaDecoder&&TainaDecoder.ready){try{await TainaDecoder.ready;}catch(e){}}
+    if(!camStream)return;          /* встигли зупинити, поки вантажився модуль */
+    camLoop();
+    clearTimeout(window._camTO);clearInterval(window._camTick);
+    window._camTick=setInterval(function(){tone(1200,.03,.03,'sine');},900);
+    window._camTO=setTimeout(function(){if(camStream){stopCam();$('rt').innerHTML='';showNoCode();const st=$('stage');st.classList.add('failed');setTimeout(function(){st.classList.remove('failed');},5000);}},10000);
+  }catch(e){ alert('Камера недоступна: '+e); }
 }
-function stopCam(){const {v,vf,btn}=camEls();clearTimeout(window._camTO);clearInterval(window._camTick);if(camRAF)cancelAnimationFrame(camRAF); camRAF=null;if(camStream){camKeep=camStream;camStream=null;clearTimeout(camKeepTO);camKeepTO=setTimeout(releaseCam,CAM_KEEP_MS);}if(v.srcObject)v.srcObject=null;v.classList.add('hide'); vf.classList.add('hide'); CV.classList.remove('hide');$('stage').classList.remove('scanning');stopScanSound();btn.textContent='📷 Камера';}
+function stopCam(){const {v,vf,btn}=camEls();clearTimeout(window._camTO);clearInterval(window._camTick);if(camRAF)cancelAnimationFrame(camRAF); camRAF=null;if(camStream){camKeep=camStream;camStream=null;clearTimeout(camKeepTO);camKeepTO=setTimeout(releaseCam,CAM_KEEP_MS);}if(v.srcObject)v.srcObject=null;v.classList.add('hide'); vf.classList.add('hide'); $('cam-gal').classList.add('hide'); CV.classList.remove('hide');$('stage').classList.remove('scanning');stopScanSound();btn.textContent='📷 Камера';}
 function camLoop(){
   const {v}=camEls();
   if(!camStream){return;}
@@ -1655,10 +1672,15 @@ function camLoop(){
   camRAF=requestAnimationFrame(camLoop);
 }
 $('cam-btn').onclick = () => { camStream ? stopCam() : startCam(); };
+/* з камери — у галерею: зупиняємо камеру й одразу відкриваємо вибір файлу */
+$('cam-gal').onclick = e => { e.stopPropagation(); if(camStream)stopCam(); $('file').click(); };
 /* Дубль кнопки «Сканувати»: закриваємо клавіатуру й відкриваємо вибір
    «камера / з галереї», як нижня кнопка. */
+/* Натиснув «Сканувати» — камера вмикається одразу, без проміжного вибору.
+   Виклик саме тут, у обробнику натискання: відкладений запит Safari
+   вважає «не від людини» і може відхилити. */
 function scanFromAnywhere(){try{document.activeElement&&document.activeElement.blur();}catch(e){}
-  setTimeout(()=>{const b=$('mb-scan');if(b)b.click();else if(typeof startCam==='function')startCam();},60);}
+  startCam();}
 $('in-scan').addEventListener('mousedown',e=>e.preventDefault());
 $('in-scan').onclick=scanFromAnywhere;
 $('cta-scan').onclick=scanFromAnywhere;
