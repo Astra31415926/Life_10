@@ -1621,9 +1621,18 @@ async function startCam(){
     /* КАМЕРА ПЕРШОЮ, модуль — потім. Запит дозволу йде одразу, поки
        браузер пам'ятає натискання. OpenCV довантажується вже при
        ввімкненій камері. */
+    const fresh=()=>navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1920}}});
     if(camKeep&&camKeep.getVideoTracks().some(t=>t.readyState==='live')){camStream=camKeep;camKeep=null;clearTimeout(camKeepTO);}
-    else camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1920}}});
-    v.srcObject=camStream; v.setAttribute('playsinline','');await v.play();
+    else camStream=await fresh();
+    v.srcObject=camStream; v.setAttribute('playsinline','');
+    /* Запасний шлях: якщо «тепла» камера не запустилась (iPhone інколи
+       відпускає її у фоні), закриваємо її й відкриваємо нову, один раз. */
+    try{await v.play();}
+    catch(err){
+      try{camStream&&camStream.getTracks().forEach(t=>t.stop());}catch(_){}
+      releaseCam(); camStream=null; await sleep(250);
+      camStream=await fresh(); v.srcObject=camStream; await v.play();
+    }
     CV.classList.add('hide'); v.classList.remove('hide'); vf.classList.remove('hide'); $('cam-gal').classList.remove('hide');
     $('stage').classList.add('scanning');btn.textContent='⏹ Зупинити';
     $('rt').innerHTML='<span class="w">наведи на код…</span>';
@@ -1682,8 +1691,11 @@ $('cam-gal').onclick = e => { e.stopPropagation(); if(camStream)stopCam(); $('fi
 function scanFromAnywhere(){try{document.activeElement&&document.activeElement.blur();}catch(e){}
   startCam();}
 $('in-scan').addEventListener('mousedown',e=>e.preventDefault());
-$('in-scan').onclick=scanFromAnywhere;
-$('cta-scan').onclick=scanFromAnywhere;
+/* stopPropagation обов'язковий: кнопка лежить усередині поля орнамента,
+   а дотик до поля ВИМИКАЄ камеру. Без цього повторний скан (коли камера
+   ще «тепла» й вмикається миттєво) одразу ж її й вимикав → AbortError. */
+$('in-scan').onclick=e=>{e.stopPropagation();scanFromAnywhere();};
+$('cta-scan').onclick=e=>{e.stopPropagation();scanFromAnywhere();};
 /* велика кнопка видна, лише поки полотно порожнє */
 setInterval(()=>{const c=$('stage-cta');if(!c)return;
   const empty=!(D.single&&D.single.length)&&!isDemo&&!camStream&&!(typeof scannedImg!=='undefined'&&scannedImg);
