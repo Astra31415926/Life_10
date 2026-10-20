@@ -526,8 +526,8 @@ body.light-mode .menu .hint{color:#8a4e00}
   <section class="cell a-mode">
     <div class="sec-t">Режим</div>
     <div class="seg" id="layers">
-      <button data-p="stitch">Для вишивки</button>
-      <button data-p="screen" class="on">Для екрана</button>
+      <button data-p="stitch" class="on">Для вишивки</button>
+      <button data-p="screen">Для екрана</button>
     </div>
   </section>
 
@@ -731,7 +731,7 @@ const SPALS=[
   bg:[32,32,34],ink:[252,251,248],ai:[252,251,248],ab:[32,32,34],mono:true,neg:true,
   canvas:{uk:'Zweigart Aida, чорна',en:'Zweigart Aida, black',code:'720'}}
 ];
-let purpose='screen';    /* 'stitch' — для вишивки, 'screen' — для екрана */
+let purpose='stitch';    /* 'stitch' — для вишивки (сайт відкривається в ньому), 'screen' — для екрана */
 let spI=0;               /* палітра вишивки */
 let scrLook=null;        /* як було в «Для екрана» — повертаємо при поверненні */
 function STITCH(){return purpose==='stitch';}
@@ -2236,8 +2236,7 @@ async function tourPlay(){
       spot.classList.remove('fast');
       await tw(1300);
     },
-    async()=>{ if(!await look($('layers').children[0],'',run))return; setPurpose('stitch'); build(); await tw(1700); },  // 2. для вишивки
-    async()=>{ if(!await look($('layers').children[1],'',run))return; setPurpose('screen'); build(); await tw(800); },   //    для екрана
+    async()=>{ if(!await look($('layers').children[1],'',run))return; setPurpose('screen'); build(); await tw(1200); },  // 2. для екрана (у кінці показ повертає вишивку)
     async()=>{ if(!await look($('pal-btn'),'',run))return; tourPal(true); await tw(600); },                    // 3. палітра
     async()=>{ if(!await look($('pl-list').children[0],'',run))return; tourPick(0,0); await tw(900); },          //    традиційні: червоно-чорна
     async()=>{ if(!await look($('pl-list').children[1],'',run))return; tourPick(0,1); await tw(1000); },         //    синьо-біла
@@ -2293,7 +2292,7 @@ function saveState(){
 function restoreState(){
   let st=null;
   try{st=JSON.parse(sessionStorage.getItem(LAB_KEY)||'null');}catch(e){}
-  if(!st||!st.t){setLayers(1);build();(function wait(){ if(tourDead||D.single)return;
+  if(!st||!st.t){if(STITCH())stitchSync();setLayers(1);build();(function wait(){ if(tourDead||D.single)return;
       if(modalOpen())return setTimeout(wait,300);        /* спершу людина закриє «Проєкт» */
       setTimeout(()=>{if(!tourDead&&!D.single&&!modalOpen())tourPlay();else wait();},1200); })();return;}
   if(PALS[st.pg]&&PALS[st.pg].items[st.pi]){palG=+st.pg;palI=+st.pi;}
