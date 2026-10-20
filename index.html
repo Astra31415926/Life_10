@@ -209,6 +209,7 @@ body.light-mode .veil{background:rgba(255,253,248,.94)}
   border:1px solid var(--line);background:transparent;color:var(--parchment);cursor:pointer;text-align:left;transition:.12s}
 .plbtn:hover{border-color:var(--acc-dim)}
 .plbtn.on{border-color:var(--acc-hot);box-shadow:0 0 0 1px var(--acc-hot) inset}
+.plsub{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-top:2px}
 .plchips{display:flex;flex:0 0 auto;border-radius:6px;overflow:hidden;border:1px solid var(--line)}
 .plchips i{display:block;width:13px;height:24px}
 body.light-mode .pgtab{color:var(--parchment)}
@@ -525,8 +526,8 @@ body.light-mode .menu .hint{color:#8a4e00}
   <section class="cell a-mode">
     <div class="sec-t">Режим</div>
     <div class="seg" id="layers">
-      <button data-l="1" class="on">Монохром</button>
-      <button data-l="3">Кольоровий</button>
+      <button data-p="stitch">Для вишивки</button>
+      <button data-p="screen" class="on">Для екрана</button>
     </div>
   </section>
 
@@ -631,7 +632,7 @@ const $=id=>document.getElementById(id);
    українськими — там свій набір текстів.
    Словник один; якщо ключа немає в en, береться український. */
 const DICT={
- uk:{wBad:'кольори надто близькі — код не прочитається',wGood:'цей код читається',secMode:'Режим',secLook:'Вигляд',secSym:'Символи',mono:'Монохром',rgb:'Кольоровий',pal:'🎨 Палітра',one:'одиниця',zero:'нуль і фон',alt:'друга фарба',motifL:'мотив',cloth:'полотно',thick:'товщина хрестика',vol:'об\'єм',fab:'фактура тканини',fabg:'крупність плетіння',bri:'яскравість',thread:'ширина нитки',glint:'блиск',vysh:'🧵 Вишиванка',wInkSide:'друга фарба по інший бік від фону — код не прочитається',wInkNear:'друга фарба зливається з фоном — код не прочитається',wInkRisk:'фарби близькі за яскравістю — з камери може не прочитатися',
+ uk:{wBad:'кольори надто близькі — код не прочитається',wGood:'цей код читається',secMode:'Режим',secLook:'Вигляд',secSym:'Символи',mono:'Для вишивки',rgb:'Для екрана',pal:'🎨 Палітра',one:'одиниця',zero:'нуль і фон',alt:'друга фарба',motifL:'мотив',cloth:'полотно',thick:'товщина хрестика',vol:'об\'єм',fab:'фактура тканини',fabg:'крупність плетіння',bri:'яскравість',thread:'ширина нитки',glint:'блиск',vysh:'🧵 Вишиванка',wInkSide:'друга фарба по інший бік від фону — код не прочитається',wInkNear:'друга фарба зливається з фоном — код не прочитається',wInkRisk:'фарби близькі за яскравістю — з камери може не прочитатися',
      sq:'Квадрат',ci:'Кружечок',cr:'Хрестик',chars:'Символів',bytes:'Байтів',bits:'Біт даних',field:'Поле',
      warn:'Даних більше, ніж уміщає поле',ph:'зашифруй послання',demo:'напиши свій текст',
      merch:'Приміряти на мерч →',save:'Зберегти',load:'Завантажити · сканувати',
@@ -645,7 +646,7 @@ const DICT={
      tipColor:'Кольори спотворені. Знімай при рівному денному світлі — жовта лампа збиває кольорові канали.',
      tipSlow:'Знімок завеликий — не вистачило часу. Обріж його по коду або зменш.',
      tipAny:'Спробуй ще: більший і чіткіший знімок, рівне світло без відблисків, уся рамка коду в кадрі.'},
- en:{wBad:'colours too close — the code will not scan',wGood:'this code scans',secMode:'Mode',secLook:'Look',secSym:'Symbols',mono:'Monochrome',rgb:'Colour',pal:'🎨 Palette',one:'one',zero:'zero & background',alt:'second ink',motifL:'motif',cloth:'cloth',thick:'cross thickness',vol:'relief',fab:'fabric texture',fabg:'weave size',bri:'brightness',thread:'thread width',glint:'highlight',vysh:'🧵 Vyshyvanka',wInkSide:'second ink is on the wrong side of the background — unreadable',wInkNear:'second ink blends into the background — unreadable',wInkRisk:'inks are close in brightness — a camera may fail to read it',
+ en:{wBad:'colours too close — the code will not scan',wGood:'this code scans',secMode:'Mode',secLook:'Look',secSym:'Symbols',mono:'For embroidery',rgb:'For screen',pal:'🎨 Palette',one:'one',zero:'zero & background',alt:'second ink',motifL:'motif',cloth:'cloth',thick:'cross thickness',vol:'relief',fab:'fabric texture',fabg:'weave size',bri:'brightness',thread:'thread width',glint:'highlight',vysh:'🧵 Vyshyvanka',wInkSide:'second ink is on the wrong side of the background — unreadable',wInkNear:'second ink blends into the background — unreadable',wInkRisk:'inks are close in brightness — a camera may fail to read it',
      sq:'Square',ci:'Circle',cr:'Cross',chars:'Characters',bytes:'Bytes',bits:'Data bits',field:'Field',
      warn:'More data than the field can hold',ph:'encode a message',demo:'write your text',
      merch:'Try it on merch →',save:'Save',load:'Load · scan',
@@ -710,7 +711,31 @@ const PALS=[
   {uk:'Золота',en:'Gold',c:1,bg:[0,255,255],ink:[0,0,255],ai:[0,0,255],ab:[255,255,0],sv:[0,255,255]}]}
 ];
 let palG=0, palI=0;      /* старт: «Чорно-біла», позитив */
-function PAL(){return PALS[palG].items[palI];}
+/* ═══ РЕЖИМ «ДЛЯ ВИШИВКИ» ═══
+   Лише реальні матеріали: канва Zweigart Aida і нитки DMC (тут — їхні
+   екранні відповідники, точно з каталогу DMC нижче). Набір навмисно малий:
+   у кожного поєднання несучий канал розходиться ≥ 200 — великий запас на
+   нерівну вишивку, тканину й камеру. Розширювати — лише після вишитих
+   і прочитаних зразків.
+   canvas — що купувати (назва й номер кольору Zweigart);
+   ai — друга нитка (мотив), ab — мотив на полі = та сама канва;
+   neg — світла нитка на темній канві: код будується як негатив. */
+const SPALS=[
+ {uk:'Біла канва · чорна нитка',en:'White Aida · black thread',c:1,
+  bg:[244,243,238],ink:[0,0,0],ai:[0,0,0],ab:[244,243,238],mono:true,
+  canvas:{uk:'Zweigart Aida, біла',en:'Zweigart Aida, white',code:'100'}},
+ {uk:'Біла канва · чорна + червона',en:'White Aida · black + red',c:1,
+  bg:[244,243,238],ink:[0,0,0],ai:[199,43,59],ab:[244,243,238],
+  canvas:{uk:'Zweigart Aida, біла',en:'Zweigart Aida, white',code:'100'}},
+ {uk:'Чорна канва · біла нитка',en:'Black Aida · white thread',c:1,
+  bg:[32,32,34],ink:[252,251,248],ai:[252,251,248],ab:[32,32,34],mono:true,neg:true,
+  canvas:{uk:'Zweigart Aida, чорна',en:'Zweigart Aida, black',code:'720'}}
+];
+let purpose='screen';    /* 'stitch' — для вишивки, 'screen' — для екрана */
+let spI=0;               /* палітра вишивки */
+let scrLook=null;        /* як було в «Для екрана» — повертаємо при поверненні */
+function STITCH(){return purpose==='stitch';}
+function PAL(){return STITCH()?SPALS[spI]:PALS[palG].items[palI];}
 let motif='none';         /* який мотив розподіляє фарби */
 let motifK=4;             /* ширина смуги мотиву, у кільцях */
 let volT=100;             /* сила об'єму стібка: 0 — пласкі хрестики, 100 — повний об'єм */
@@ -984,8 +1009,8 @@ function shiftCol(h,v){if(!h||!v)return h;const a=hexRGB(h);return rgbHexA(mixA(
 function E1(){return rgbHexA(PAL().ink);}          /* нитка в позитиві */
 function E0(){return rgbHexA(PAL().bg);}           /* поле в позитиві */
 function lockC(a,b){const o=a.slice(),c=PAL().c;o[c]=b[c];return o;}
-function A1(){return rgbHexA(lockC(PAL().ai,PAL().ink));}   /* мотив на кольорі нитки */
-function A0(){return rgbHexA(lockC(PAL().ab,PAL().bg));}    /* мотив на кольорі поля */
+function A1(){return STITCH()?rgbHexA(PAL().ai):rgbHexA(lockC(PAL().ai,PAL().ink));}   /* мотив на кольорі нитки */
+function A0(){return STITCH()?rgbHexA(PAL().ab):rgbHexA(lockC(PAL().ab,PAL().bg));}    /* мотив на кольорі поля */
 function EA(){return motif!=='none'?A1():null;}
 /* значення несучого каналу — за ним рамка вирішує, яке кільце «темне» */
 function chv(h){return hexRGB(h)[PAL().c];}
@@ -1071,7 +1096,7 @@ async function applyScan(best){
     const ci=best.chanInv||[0,0,0], ng=best.negative?1:0;
     const m=(((ci[0]||0)^ng)<<2)|(((ci[1]||0)^ng)<<1)|((ci[2]||0)^ng);
     const k=INV_SEQ.indexOf(m); if(k>=0){rgbStep=k;rgbDeg=k*45;}
-  }else invert=!!best.negative;
+  }else if(!STITCH())invert=!!best.negative;
   setLayers(colored?3:1); syncInv();
   D.single=txt; okChime(); $('txt').value='';
   await typeOut($('txt'),txt,26);
@@ -1277,14 +1302,14 @@ function schemeData(){
   const cnt=new Map();const grid=CELLS.col.map(h=>{const a=fx(h),k=key(a);if(k!==fk)cnt.set(k,(cnt.get(k)||0)+1);return k;});
   const cols=[...cnt.entries()].sort((a,b)=>b[1]-a[1]).map(([k,c],i)=>{const rgb=k.split(',').map(Number);return {k,rgb,count:c,sym:i,dmc:nearestDMC(rgb)};});
   const idx=new Map(cols.map((c,i)=>[c.k,i]));
-  return {n,grid:grid.map(k=>k===fk?-1:idx.get(k)),cols,fab,fabDmc:nearestDMC(fab)};
+  return {n,grid:grid.map(k=>k===fk?-1:idx.get(k)),cols,fab,fabDmc:nearestDMC(fab),canvas:STITCH()?PAL().canvas:null};
 }
 /* Тексти схеми двома мовами. Мова схеми перемикається окремо від сайту:
    для продажу на Etsy потрібна англійська, для себе — українська. */
 const SCH_T={
   uk:{h:'Схема для вишивки хрестиком',sub:'Схема для вишивки хрестиком',enc:'Зашифровано',size:'Розмір',st:'хрестиків',cm:'см',
       cols:'Кольорів нитки',total:'Хрестиків усього',col:'Кольорова схема',bw:'Схема символами (для ч/б друку)',key:'Ключ кольорів',
-      thread:'НИТКА (DMC, найближчий)',stc:'ХРЕСТИКІВ',sk:'МОТКІВ',sym:'ЗНАК',fab:'Тканина (не вишивається) · близько до DMC ',
+      thread:'НИТКА (DMC, найближчий)',threadX:'НИТКА (DMC)',canv:'Канва (не вишивається)',stc:'ХРЕСТИКІВ',sk:'МОТКІВ',sym:'ЗНАК',fab:'Тканина (не вишивається) · близько до DMC ',
       fabric:'Канва',stitched:'Розмір вишивки',piece:'Відріз тканини',page:'Сторінка',part:(i,n)=>'Частина '+i+' з '+n,
       how:'Як вишивати',
       steps:['Вишивайте у 2 нитки муліне, одна клітинка схеми — один хрестик.',
@@ -1312,7 +1337,7 @@ const SCH_T={
       note:(c,s,p)=>'Одна клітинка — один хрестик. Кольорів нитки: '+c+', хрестиків: '+s+'. Сторінок у PDF: '+p+'.'},
   en:{h:'Cross-stitch pattern',sub:'Cross-stitch pattern',enc:'Encoded text',size:'Size',st:'stitches',cm:'cm',
       cols:'Thread colours',total:'Total stitches',col:'Colour chart',bw:'Symbol chart (for black & white printing)',key:'Colour key',
-      thread:'THREAD (DMC, nearest)',stc:'STITCHES',sk:'SKEINS',sym:'SYMBOL',fab:'Fabric (not stitched) · close to DMC ',
+      thread:'THREAD (DMC, nearest)',threadX:'THREAD (DMC)',canv:'Fabric (not stitched)',stc:'STITCHES',sk:'SKEINS',sym:'SYMBOL',fab:'Fabric (not stitched) · close to DMC ',
       fabric:'Fabric',stitched:'Design size',piece:'Fabric piece',page:'Page',part:(i,n)=>'Part '+i+' of '+n,
       how:'How to stitch',
       steps:['Use 2 strands of embroidery floss. One square of the chart = one full cross.',
@@ -1339,6 +1364,9 @@ const SCH_T={
       zoom:'Zoom',print:'Print',png:'PNG',pdf:'Download PDF',lang:'Language: EN',
       note:(c,s,p)=>'One cell = one cross. '+c+' thread colours, '+s+' stitches. PDF pages: '+p+'.'}
 };
+/* рядок про тканину в ключі: у режимі вишивки — канва з каталогу */
+function schFabTxt(D,T){if(D.canvas)return T.canv+' · '+(T===SCH_T.en?D.canvas.en:D.canvas.uk)+' ('+D.canvas.code+')';
+  return T.fab+D.fabDmc.num;}
 const SCH_FONT='ui-monospace,Menlo,Consolas,monospace';
 /* мотки DMC для Аїди 14 у 2 нитки: ~1600 хрестиків на моток, +20 % запасу */
 const skeins=c=>Math.max(1,Math.ceil(c*1.2/1600));
@@ -1401,9 +1429,9 @@ function drawScheme(D,lang){
     if(cnt!=null){g.textAlign='right';g.fillText(cnt,right,y);g.textAlign='left';}
     y+=34;};
   g.font='700 12px '+SCH_FONT;g.fillStyle='#7a4f12';
-  g.fillText(T.thread,lx+38,y);g.textAlign='right';g.fillText(T.stc,right,y);g.textAlign='left';y+=24;
+  g.fillText(D.canvas?T.threadX:T.thread,lx+38,y);g.textAlign='right';g.fillText(T.stc,right,y);g.textAlign='left';y+=24;
   for(const c of D.cols)row(c.sym,c.rgb,'DMC '+c.dmc.num+' · '+c.dmc.name,c.count);
-  row(null,D.fab,T.fab+D.fabDmc.num,null);
+  row(null,D.fab,schFabTxt(D,T),null);
   y+=6;g.font='12px '+SCH_FONT;g.fillStyle='#555';
   for(const t of [T.steps[3]].concat(T.notes.slice(0,1))){g.fillText(t,lx,y);y+=20;}
   return cv;
@@ -1494,7 +1522,7 @@ function schKey(D,T){
   const [cv,g]=schPage(),L=120,R=A4W-120,RS=R-230;let y=150;
   g.fillStyle='#111';g.font='700 38px '+SCH_FONT;g.fillText(T.key,L,y);y+=80;
   g.font='700 24px '+SCH_FONT;g.fillStyle='#7a4f12';
-  g.fillText(T.sym,L,y);g.fillText(T.thread,L+230,y);g.textAlign='right';g.fillText(T.stc,RS,y);g.fillText(T.sk,R,y);g.textAlign='left';y+=26;
+  g.fillText(T.sym,L,y);g.fillText(D.canvas?T.threadX:T.thread,L+230,y);g.textAlign='right';g.fillText(T.stc,RS,y);g.fillText(T.sk,R,y);g.textAlign='left';y+=26;
   g.strokeStyle='#bbb';g.lineWidth=2;g.beginPath();g.moveTo(L,y);g.lineTo(R,y);g.stroke();y+=50;
   const s=64;
   const row=(sym,rgb,txt,cnt)=>{
@@ -1505,7 +1533,7 @@ function schKey(D,T){
     if(cnt!=null){g.textAlign='right';g.fillText(cnt,RS,y0);g.fillText(skeins(cnt),R,y0);g.textAlign='left';}
     y+=s+30;};
   for(const c of D.cols)row(c.sym,c.rgb,'DMC '+c.dmc.num+' · '+c.dmc.name,c.count);
-  row(null,D.fab,T.fab+D.fabDmc.num,null);
+  row(null,D.fab,schFabTxt(D,T),null);
   g.font='22px '+SCH_FONT;g.fillStyle='#666';y=schWrap(g,T.skNote,L,y-10,R-L,30)+30;
   g.fillStyle='#111';g.font='700 30px '+SCH_FONT;g.fillText(T.size,L,y);y+=50;
   g.font='26px '+SCH_FONT;g.fillStyle='#333';
@@ -1801,7 +1829,7 @@ function savePNG(name){OFF.toBlob(b=>{dlBlob(b,name+'.png');tone(660,.09,.07)});
 const SUPA_URL='https://iieahzklwngqugkovhrs.supabase.co';const SUPA_KEY='sb_publishable_FHtRNaLBvDgDTSLa_8eQnQ_oPMWCIxF';
 function detectLang(t){if(/[\u0400-\u04FF]/.test(t))return 'uk';if(/[\u4E00-\u9FFF]/.test(t))return 'zh';if(/[a-zA-Z]/.test(t))return 'en';return '';}
 function openPublish(){const mainWord=D.single;if(!mainWord.trim()){toast('Спершу напиши щось');return;}const m=$('menu');menuOpen=true;m.classList.remove('hide');m.innerHTML=`<div class="menu-t">Опублікувати в галерею</div><div class="hint">⚠ Байткод — відкритий код. Будь-хто зможе прочитати ваш текст. Не публікуйте таємниць.</div><input id="pub-title" placeholder="Назва (видима всім)" autocomplete="off" spellcheck="false"><div class="row"><button class="b gold" id="pub-yes">✦ Так, опублікувати</button></div><div class="row"><button class="b" id="pub-no">Скасувати</button></div>`;$('pub-yes').onclick=e=>{e.stopPropagation();doPublish(mainWord)};$('pub-no').onclick=e=>{e.stopPropagation();closeMenu()};}
-async function doPublish(word){const btn=$('pub-yes');if(btn){btn.textContent='Публікую…';btn.disabled=true;}const settings={colOne:E1(), colZero:E0(), colAlt:EA(), accZero:(motif!=='none'?A0():null), palette:PAL().uk, motif, motifK, shape, volT, fabric:fabT, fabricGrain:fabG, stitch:'tpl51', frame:frameW, monoMark, frameColor:layers!==3, invert, rgbInv:INV_SEQ[rgbStep], words:layers===3?D.ch.slice():undefined};let image_url=null;try{const scale=Math.max(1,Math.round(1000/Math.max(OFF.width,1)));const ex=document.createElement('canvas');ex.width=OFF.width*scale;ex.height=OFF.height*scale;const cx=ex.getContext('2d');cx.imageSmoothingEnabled=false;cx.drawImage(OFF,0,0,OFF.width,OFF.height,0,0,ex.width,ex.height);const blob=await new Promise(function(res){ex.toBlob(res,'image/png');});const fname='o_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.png';const up=await fetch(SUPA_URL+'/storage/v1/object/ornaments/'+fname,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'image/png'},body:blob});if(up.ok)image_url=SUPA_URL+'/storage/v1/object/public/ornaments/'+fname;else console.log('upload err',up.status);}catch(e){console.log('img err',e);}const pubTitle=($('pub-title')||{}).value||'';const row={word,mode,layers,settings,lang:detectLang(word),image_url,title:pubTitle||word};try{const resp=await fetch(`${SUPA_URL}/rest/v1/bytecodes`,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(row)});closeMenu();if(resp.ok){toast('✦ Опубліковано в галерею!');okChime();}else{const t=await resp.text();toast('Помилка: '+resp.status);console.log('publish err',t);}}catch(e){closeMenu();toast('Немає зв\'язку з галереєю');}}
+async function doPublish(word){const btn=$('pub-yes');if(btn){btn.textContent='Публікую…';btn.disabled=true;}const settings={purpose,colOne:E1(), colZero:E0(), colAlt:EA(), accZero:(motif!=='none'?A0():null), palette:PAL().uk, motif, motifK, shape, volT, fabric:fabT, fabricGrain:fabG, stitch:'tpl51', frame:frameW, monoMark, frameColor:layers!==3, invert, rgbInv:INV_SEQ[rgbStep], words:layers===3?D.ch.slice():undefined};let image_url=null;try{const scale=Math.max(1,Math.round(1000/Math.max(OFF.width,1)));const ex=document.createElement('canvas');ex.width=OFF.width*scale;ex.height=OFF.height*scale;const cx=ex.getContext('2d');cx.imageSmoothingEnabled=false;cx.drawImage(OFF,0,0,OFF.width,OFF.height,0,0,ex.width,ex.height);const blob=await new Promise(function(res){ex.toBlob(res,'image/png');});const fname='o_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.png';const up=await fetch(SUPA_URL+'/storage/v1/object/ornaments/'+fname,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'image/png'},body:blob});if(up.ok)image_url=SUPA_URL+'/storage/v1/object/public/ornaments/'+fname;else console.log('upload err',up.status);}catch(e){console.log('img err',e);}const pubTitle=($('pub-title')||{}).value||'';const row={word,mode,layers,settings,lang:detectLang(word),image_url,title:pubTitle||word};try{const resp=await fetch(`${SUPA_URL}/rest/v1/bytecodes`,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(row)});closeMenu();if(resp.ok){toast('✦ Опубліковано в галерею!');okChime();}else{const t=await resp.text();toast('Помилка: '+resp.status);console.log('publish err',t);}}catch(e){closeMenu();toast('Немає зв\'язку з галереєю');}}
 
 /* ПАЛІТРИ — тільки базові кольори. Будь-який відтінок, від чорного до
    білого, дає повзунок яскравості під рядком. */
@@ -1859,7 +1887,13 @@ function inSeal(x,y){const c=(W-1)/2;return Math.abs(x-c)<=SEAL_R&&Math.abs(y-c)
    вийшли якомога ближчими до кольорів, які вже є в орнаменті: поле,
    нитка й обидва кольори мотиву. Печатка тоді виглядає частиною
    візерунка, а не плямою. */
-function sealCol(col){const o=PAL().sv.slice(),k=PAL().c;o[k]=hexRGB(col)[k];return rgbHexA(o);}
+function sealCol(col){
+  /* ВИШИВКА: печатка — лише справжні нитки. Одиниці в центрі шиються
+     другою ниткою (червоною), нулі лишаються канвою. Червона й біла канва
+     обидві світлі в червоному каналі, тож перший байт «зайвого» каналу
+     виходить невалідним — сканер його відкидає, як і задумано. */
+  if(STITCH()){const P=PAL();return chv(col)===P.bg[P.c]?col:rgbHexA(P.ai);}
+  const o=PAL().sv.slice(),k=PAL().c;o[k]=hexRGB(col)[k];return rgbHexA(o);}
 /* Чи потрапляє клітинка в смугу мотиву. Залежить лише від (|i|,|j|) —
    симетрія ×8 зберігається. */
 function inBand(x,y){
@@ -1929,14 +1963,47 @@ function rollDice(){
 }
 /* Палітри — одним списком, без груп. У кожної — чотири фарби: поле, нитка,
    мотив на полі, мотив на нитці (у поточному стані: позитив чи негатив). */
+/* СПИСОК ПАЛІТР ЗАЛЕЖИТЬ ВІД РЕЖИМУ.
+   «Для вишивки» — три поєднання з реальних матеріалів, під назвою —
+   номер канви й номери ниток. «Для екрана» — дванадцять екранних
+   палітр і останнім пунктом кольоровий (8 схем). */
+function palItems(){
+  if(STITCH())return SPALS.map((p,i)=>({p,on:i===spI,cols:[p.bg,p.ink].concat(p.mono?[]:[p.ai]),
+    name:(LANG==='en'?p.en:p.uk),
+    sub:'Zweigart '+p.canvas.code+' · DMC '+[p.ink].concat(p.mono?[]:[p.ai]).map(c=>nearestDMC(c).num).join(', '),
+    pick:()=>{spI=i;stitchSync();}}));
+  const out=[];
+  PALS.forEach((g,gi)=>g.items.forEach((p,ii)=>out.push({p,on:layers!==3&&gi===palG&&ii===palI,
+    cols:invert?[p.ink,p.bg,p.ai,p.ab]:[p.bg,p.ink,p.ab,p.ai],name:(LANG==='en'?p.en:p.uk),
+    pick:()=>{palG=gi;palI=ii;if(layers===3)setLayers(1);}})));
+  out.push({rgb:true,on:layers===3,cols:[rgbInk(1,0,0),rgbInk(0,1,0),rgbInk(0,0,1),RGB_INK].map(hexRGB),
+    name:(LANG==='en'?'Colour · 8 schemes':'Кольоровий · 8 схем'),pick:()=>{if(layers!==3)setLayers(3);}});
+  return out;
+}
+function palPick(it){
+  it.pick(); if(!STITCH()&&it.p&&it.p.mono)motif='none';
+  buildSwatches();syncPalRows();syncInv();scannedImg=null;build();readStatus(true);saveState();tone(760,.05,.05);
+}
+/* Вишивка: форма завжди хрестик, негатив і мотив — від палітри. */
+function stitchSync(){const P=PAL();invert=!!P.neg;
+  if(P.mono)motif='none'; else if(motif==='none')motif='rhomb';
+  shape='cross';syncSeg('shape','s',shape);}
+function setPurpose(p){
+  if(p===purpose)return;
+  if(p==='stitch'){scrLook={shape,invert,motif,layers};purpose='stitch';if(layers===3)setLayers(1);stitchSync();}
+  else{purpose='screen';const s=scrLook||{shape:'square',invert:false,motif:'none',layers:1};
+    shape=s.shape;invert=s.invert;motif=s.motif;syncSeg('shape','s',shape);setLayers(s.layers===3?3:1);}
+  syncSeg('layers','p',purpose);
+  buildSwatches();syncPalRows();syncInv();
+}
 function buildSwatches(){
   const list=$('pl-list'); if(!list)return; list.innerHTML='';
-  PALS.forEach((g,gi)=>g.items.forEach((p,ii)=>{const b=document.createElement('button');b.type='button';
-    b.className='plbtn'+(gi===palG&&ii===palI?' on':'');
-    const cols=invert?[p.ink,p.bg,p.ai,p.ab]:[p.bg,p.ink,p.ab,p.ai];
-    b.innerHTML='<span class="plchips">'+cols.map(c=>'<i style="background:rgb('+c+')"></i>').join('')+'</span><span>'+(LANG==='en'?p.en:p.uk)+'</span>';
-    b.onclick=()=>{palG=gi;palI=ii;buildSwatches();render();readStatus(true);saveState();tone(760,.05,.05);};
-    list.appendChild(b);}));
+  palItems().forEach(it=>{const b=document.createElement('button');b.type='button';
+    b.className='plbtn'+(it.on?' on':'');
+    b.innerHTML='<span class="plchips">'+it.cols.map(c=>'<i style="background:rgb('+c+')"></i>').join('')+'</span><span>'+it.name+
+      (it.sub?'<small class="plsub">'+it.sub+'</small>':'')+'</span>';
+    b.onclick=()=>palPick(it);
+    list.appendChild(b);});
   const e=$('vol');if(e)e.value=volT;
   buildMotifRow();
 }
@@ -1950,7 +2017,7 @@ function motifIcon(m){
   return cv;
 }
 function buildMotifRow(){const box=$('mot-row');if(!box)return;box.innerHTML='';
-  MOTIFS.forEach(m=>{const b=document.createElement('button');b.type='button';
+  MOTIFS.filter(m=>!(STITCH()&&!m.f)).forEach(m=>{const b=document.createElement('button');b.type='button';
     b.className='motb'+(m.k===motif?' on':'');
     b.appendChild(motifIcon(m));const sp=document.createElement('span');sp.textContent=(LANG==='en'?m.en:m.uk);b.appendChild(sp);
     b.onclick=()=>{motif=m.k;buildMotifRow();render();readStatus(true);saveState();tone(700,.05,.05);};
@@ -1971,6 +2038,8 @@ function diceSound(){let i;do{i=Math.floor(Math.random()*DICE_TUNES.length);}whi
   for(const [f,t] of DICE_TUNES[i])setTimeout(()=>tone(f,.13,v,wave),t);}
 function rollAll(btn){
   if(layers===3){let st;do{st=Math.floor(Math.random()*8);}while(st===rgbStep);rgbStep=st;rgbDeg=st*45;}
+  else if(STITCH()){let i;do{i=Math.floor(Math.random()*SPALS.length);}while(i===spI&&SPALS.length>1);spI=i;stitchSync();
+    if(!PAL().mono){const fm=MOTIFS.filter(m=>m.f);motif=fm[Math.floor(Math.random()*fm.length)].k;motifK=[3,4,5,6][Math.floor(Math.random()*4)];}}
   else rollDice();
   syncInv();buildSwatches();scannedImg=null;render();readStatus(true);saveState();diceSound();
   if(btn){btn.classList.remove('spin');void btn.offsetWidth;btn.classList.add('spin');}
@@ -1980,14 +2049,18 @@ function rollAll(btn){
    Полотно й товщина — тільки для хрестика, зате в обох режимах, бо
    хрестик однаково працює і в монохромі, і в кольорі. Тому в RGB
    палітра тепер не ховається цілком, а лишається заради цих двох. */
+/* ПОКАЗУЄМО ЛИШЕ ТЕ, ЩО ПРАЦЮЄ В ЦЬОМУ РЕЖИМІ.
+   Для вишивки: форма завжди хрестик (кнопки форми сховані), негатив
+   задає сама палітра (кнопки негативу немає), є «Схема для вишивки».
+   Для екрана: форми, негатив, усі палітри; схеми немає — екранні кольори
+   не відповідають реальним ниткам і канві.
+   Мотив — лише там, де є друга фарба; у кольоровому мотиву немає. */
 function syncPalRows(){
-  const cross=(shape==='cross'), rgb=(layers===3);
+  const st=STITCH(), rgb=(layers===3);
   const vis=(id,on)=>{const e=$(id);if(e)e.style.display=on?'':'none';};
-  vis('row-pl',!rgb); vis('row-mot',!rgb);
-  const show=!rgb;
-  const pp=$('pal-btn').parentElement;
-  pp.style.visibility=show?'visible':'hidden';
-  if(!show&&palOpen){palOpen=false;$('pal-panel').classList.add('hide');$('pal-btn').classList.remove('on');}
+  vis('row-pl',true); vis('row-mot',!rgb&&!PAL().mono);
+  vis('scheme-btn',st); vis('shape',!st); vis('shape-lbl',!st); vis('invBtn',!st);
+  $('pal-btn').parentElement.style.visibility='visible';
 }
 /* Готова вишиванка одним дотиком: червоно-чорна палітра в негативі
    (світле полотно, чорна нитка, червоні ромби), хрестики. */
@@ -2030,7 +2103,7 @@ function buildSymGrid(){const box=$('symgrid');box.innerHTML='';const isTarot=(c
 
 function syncSeg(id,attr,val){const box=$(id);if(!box)return;for(const b of box.children)b.classList.toggle('on',b.dataset[attr]===val)}
 function setLayers(n){
-  layers=n; syncSeg('layers','l',String(n));
+  layers=n; if(n===3)purpose='screen'; syncSeg('layers','p',purpose);
   monoMark = (n===3)?1:0;
   document.body.classList.toggle('room-rgb',n===3);
   document.body.classList.toggle('room-mono',n!==3);
@@ -2065,7 +2138,7 @@ function grow(el){fitField();}
 addEventListener('resize',()=>fitField());
 function autoGrow(){grow($('txt'),200);}
 
-$('layers').onclick=e=>{const b=e.target.closest('button');if(!b)return;scannedImg=null;setLayers(+b.dataset.l);build();readStatus(true)};
+$('layers').onclick=e=>{const b=e.target.closest('button');if(!b||!b.dataset.p)return;scannedImg=null;setPurpose(b.dataset.p);build();readStatus(true);saveState();};
 $('shape').onclick=e=>{const b=e.target.closest('button');if(!b)return;shape=b.dataset.s;syncSeg('shape','s',shape);syncPalRows();scannedImg=null;render();readStatus(true);saveState()};
 
 const HIST=[];let hPos=-1,hTimer=null;
@@ -2133,6 +2206,7 @@ function spotText(){
 function tourCleanup(){
   const t=tourSaved||{};
   tourPal(false);
+  purpose=t.purpose||'screen'; if(t.spI!=null)spI=t.spI; scrLook=null;
   if(t.palG!=null){palG=t.palG;palI=t.palI;} motif=t.motif||'none'; motifK=t.motifK||4;
   shape=t.shape||'square'; syncSeg('shape','s',shape);
   invert=!!t.invert; syncInv();
@@ -2147,7 +2221,7 @@ function rgbHex(c){const m=c.match(/\d+/g);return m?'#'+m.slice(0,3).map(v=>(+v)
 function tourPal(open){palOpen=open;$('pal-panel').classList.toggle('hide',!open);$('pal-btn').classList.toggle('on',open);fitPal();}
 async function tourPlay(){
   const run=++tourRun;
-  tourSaved={palG,palI,shape,layers,invert,motif,motifK};
+  tourSaved={palG,palI,shape,layers,invert,motif,motifK,purpose,spI};
   isDemo=true; document.body.classList.add('ghost');
   const steps=[
     async()=>{                                   // 1. друкує фразу — коло на орнаменті
@@ -2162,8 +2236,8 @@ async function tourPlay(){
       spot.classList.remove('fast');
       await tw(1300);
     },
-    async()=>{ if(!await look($('layers').children[1],'',run))return; setLayers(3); build(); await tw(1500); },  // 2. кольоровий
-    async()=>{ if(!await look($('layers').children[0],'',run))return; setLayers(1); build(); await tw(800); },   //    монохром
+    async()=>{ if(!await look($('layers').children[0],'',run))return; setPurpose('stitch'); build(); await tw(1700); },  // 2. для вишивки
+    async()=>{ if(!await look($('layers').children[1],'',run))return; setPurpose('screen'); build(); await tw(800); },   //    для екрана
     async()=>{ if(!await look($('pal-btn'),'',run))return; tourPal(true); await tw(600); },                    // 3. палітра
     async()=>{ if(!await look($('pl-list').children[0],'',run))return; tourPick(0,0); await tw(900); },          //    традиційні: червоно-чорна
     async()=>{ if(!await look($('pl-list').children[1],'',run))return; tourPick(0,1); await tw(1000); },         //    синьо-біла
@@ -2214,7 +2288,7 @@ function saveState(){
   if(isDemo)return;
   try{sessionStorage.setItem(LAB_KEY,JSON.stringify(
     {t:D.single,l:layers,sh:shape,pg:palG,pi:palI,inv:invert,
-     mo:motif,mk:motifK,vt:volT,ft:fabT,fg:fabG,rs:rgbStep}));}catch(e){}
+     mo:motif,mk:motifK,vt:volT,ft:fabT,fg:fabG,rs:rgbStep,pu:purpose,si:spI,sl:scrLook}));}catch(e){}
 }
 function restoreState(){
   let st=null;
@@ -2229,6 +2303,9 @@ function restoreState(){
   rgbStep=((+st.rs||0)%8+8)%8; rgbDeg=rgbStep*45;
   fabT=+st.ft||0; fabG=(st.fg!=null)?+st.fg:35; $('fab').value=fabT; $('fabg').value=fabG; $('vol').value=volT;
   shape=(st.sh==='circle'||st.sh==='cross')?st.sh:'square'; syncSeg('shape','s',shape);
+  if(st.pu==='stitch'&&SPALS[st.si]){purpose='stitch';spI=+st.si;}
+  if(st.sl&&typeof st.sl==='object')scrLook=st.sl;
+  if(STITCH())stitchSync();
   buildSwatches();
   setLayers(st.l===3?3:1);
   tourDead=true;   /* людина вже працювала в цій вкладці — показ не потрібен */
@@ -2351,8 +2428,8 @@ function applyLang(){
   q('.a-mode .sec-t').textContent=t('secMode');
   q('.a-shape .sec-t').textContent=t('secLook');
   q('.a-syms .sec-t').textContent=t('secSym');
-  q('#layers button[data-l="1"]').textContent=t('mono');
-  q('#layers button[data-l="3"]').textContent=t('rgb');
+  q('#layers button[data-p="stitch"]').textContent=t('mono');
+  q('#layers button[data-p="screen"]').textContent=t('rgb');
   q('#pal-btn').textContent=t('pal');
   const ml=q('#row-mot .lbl'); if(ml)ml.textContent=t('motifL');
   buildSwatches(); buildSymGrid();
@@ -3086,7 +3163,7 @@ pane('color').appendChild($('row-pl'));
 pane('color').appendChild($('row-mot'));
 
 var pf=pane('form');
-pf.insertAdjacentHTML('beforeend','<div class="lbl">форма клітинки</div>');
+pf.insertAdjacentHTML('beforeend','<div class="lbl" id="shape-lbl">форма клітинки</div>');
 pf.appendChild($('shape'));
 pf.appendChild($('row-vol'));
 pf.appendChild(document.querySelector('.fabrow'));
@@ -3258,7 +3335,7 @@ var MSIGN={none:'<path d="M6 12h12"/>',
 window.buildMotifRow=function(){
   var b2=$('mot-row');if(!b2)return;b2.innerHTML='';
   var bw=!!PAL().mono;        /* у чорно-білій мотив неможливий */
-  MOTIFS.forEach(function(m){
+  MOTIFS.filter(function(m){return !(STITCH()&&!m.f);}).forEach(function(m){
     var b=document.createElement('button');b.type='button';
     b.className='motb'+(m.k===motif?' on':'')+((bw&&m.f)?' off':'');
     b.innerHTML='<span class="msign">'+SV(MSIGN[m.k],1.7)+'</span><span>'+
@@ -3269,23 +3346,22 @@ window.buildMotifRow=function(){
 /* ── 11. КОЛЬОРИ — просто смуги: дві без мотиву, чотири з мотивом ── */
 window.buildSwatches=function(){
   var list=$('pl-list');if(!list)return;list.innerHTML='';
-  PALS.forEach(function(g,gi){g.items.forEach(function(p,ii){
+  palItems().forEach(function(it){
     var b=document.createElement('button');b.type='button';
-    b.className='plbtn'+(gi===palG&&ii===palI?' on':'');
-    var showM=(motif!=='none')&&!p.mono;
-    var cols=invert?[p.ink,p.bg]:[p.bg,p.ink];
-    if(showM)cols=invert?[p.ink,p.bg,p.ai,p.ab]:[p.bg,p.ink,p.ab,p.ai];
+    b.className='plbtn'+(it.on?' on':'');
+    b.title=it.name+(it.sub?' — '+it.sub:'');
+    var cols=it.cols;
+    if(!it.rgb&&!STITCH()){var p=it.p,showM=(motif!=='none')&&!p.mono;
+      cols=invert?[p.ink,p.bg]:[p.bg,p.ink];
+      if(showM)cols=invert?[p.ink,p.bg,p.ai,p.ab]:[p.bg,p.ink,p.ab,p.ai];}
     b.innerHTML='<span class="plchips">'+cols.map(function(c){
-      return '<i style="background:rgb('+c+')"></i>';}).join('')+'</span><span>'+
-      (LANG==='en'?p.en:p.uk)+'</span>';
-    b.onclick=function(){palG=gi;palI=ii;
-      if(p.mono)motif='none';                /* ч/б — без мотиву */
-      buildSwatches();render();readStatus(true);saveState();tone(760,.05,.05);};
-    list.appendChild(b);});});
+      return '<i style="background:rgb('+c+')"></i>';}).join('')+'</span><span>'+it.name+'</span>';
+    b.onclick=function(){palPick(it);};
+    list.appendChild(b);});
   var e=$('vol');if(e)e.value=volT;
   buildMotifRow();
 };
-buildSwatches();
+buildSwatches();syncPalRows();
 
 /* ── 11б. ПОКАЗ МОЖЛИВОСТЕЙ вимкнено на телефоні ───────────────
    Він підсвічував кнопки лівої й правої колонок, а їх тут немає:
@@ -3297,27 +3373,30 @@ window.applyLang=function(){_al();ph();};
 ph();
 
 /* ── 12. КУБИК: повний цикл без повторів ───────────────────────── */
-var deck=[],di=0;
+var deck=[],di=0,deckFor='';
 function buildDeck(){
-  deck=[];
-  PALS.forEach(function(g,gi){g.items.forEach(function(p,ii){
+  deck=[];deckFor=purpose;
+  if(STITCH()){SPALS.forEach(function(p,i){MOTIFS.forEach(function(m){
+      if(p.mono?m.f:!m.f)return; deck.push({st:1,i:i,m:m.k});});});}
+  else PALS.forEach(function(g,gi){g.items.forEach(function(p,ii){
     MOTIFS.forEach(function(m){
       if(p.mono&&m.f)return;                 /* ч/б без мотиву */
       [false,true].forEach(function(nv){deck.push({c:0,gi:gi,ii:ii,m:m.k,nv:nv});});
     });});});
-  for(var s=0;s<8;s++)deck.push({c:1,s:s});
+  if(!STITCH())for(var s=0;s<8;s++)deck.push({c:1,s:s});
   for(var i=deck.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));
     var t=deck[i];deck[i]=deck[j];deck[j]=t;}
   /* Чорно-білу відсуваємо в САМИЙ КІНЕЦЬ: сайт і так стартує з неї,
      тож перший кидок має дати колір, а ч/б замикає коло. */
-  var isBW=function(v){return !v.c&&PALS[v.gi].items[v.ii].mono;};
+  var isBW=function(v){return !v.c&&!v.st&&PALS[v.gi].items[v.ii].mono;};
   deck=deck.filter(function(v){return !isBW(v);}).concat(deck.filter(isBW));
   di=0;
 }
 function diceCycle(){
-  if(di>=deck.length)buildDeck();
+  if(di>=deck.length||deckFor!==purpose)buildDeck();
   var v=deck[di++];
-  if(v.c){setLayers(3);rgbStep=v.s;rgbDeg=v.s*45;}
+  if(v.st){spI=v.i;stitchSync();motif=v.m;motifK=4;buildSwatches();}
+  else if(v.c){setLayers(3);rgbStep=v.s;rgbDeg=v.s*45;}
   else{setLayers(1);palG=v.gi;palI=v.ii;motif=v.m;motifK=4;invert=v.nv;buildSwatches();}
   syncInv();scannedImg=null;build();readStatus(true);saveState();
   if(typeof diceSound==='function')diceSound();
@@ -3527,6 +3606,7 @@ addEventListener('resize',function(){if(!setEl.parentNode||setEl.style.display==
 
 /* ── 5. ЗАСТОСУВАТИ ВИГЛЯД ────────────────────────────────────── */
 function applyLook(){
+  purpose='screen';
   var pg=R.pal.split(',').map(Number);
   if(PALS[pg[0]]&&PALS[pg[0]].items[pg[1]]){palG=pg[0];palI=pg[1];}
   motif=PAL().mono?'none':R.motif; motifK=4; invert=!!R.neg;
