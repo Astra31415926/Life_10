@@ -189,6 +189,8 @@ body.light-mode .veil{background:rgba(255,253,248,.94)}
 .seg button:hover:not(.on){color:var(--acc-hot)}
 /* Три кнопки вигляду не влазять у ширину колонки великим шрифтом. */
 #shape button{font-size:13.5px;padding:17px 4px}
+/* Три варіанти просвітів — теж дрібнішим шрифтом, щоб назви вмістилися. */
+#gapseg button{font-size:12.5px;padding:17px 3px}
 
 .palette-pop{position:relative}
 .palette-panel{position:absolute;top:calc(100% + 8px);left:0;right:0;min-width:250px;overflow-y:auto;overscroll-behavior:contain;background:var(--panel);
@@ -464,6 +466,7 @@ body.light-mode .menu .hint{color:#8a4e00}
   #mobabar{display:flex!important}
   .seg button{padding:10px 6px;font-size:14px;min-height:46px}
   #shape button{font-size:12.5px;padding:10px 3px}
+  #gapseg button{font-size:12px;padding:10px 3px}
   .b{font-size:14px;padding:10px 10px;min-height:46px}
   /* символи: вкладки — одна стрічка, самі знаки — два ряди, гортаються вбік */
   .symtabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-bottom:6px;gap:6px}
@@ -603,10 +606,14 @@ body.light-mode .menu .hint{color:#8a4e00}
     <div class="sec-t">Вигляд</div>
     <div class="seg" id="shape"><button data-s="square" class="on" title="Квадрат"><svg class="shico" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2.5" fill="currentColor"/></svg><span class="shl">Квадрат</span></button><button data-s="circle" title="Кружечок"><svg class="shico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="currentColor"/></svg><span class="shl">Кружечок</span></button><button data-s="cross" title="Хрестик"><svg class="shico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg><span class="shl">Хрестик</span></button></div>
     <div class="volrow" id="row-vol"><span class="lbl" id="vol-lbl">об'єм</span><div class="slrow"><span class="sli" aria-hidden="true">◐</span><input type="range" class="rng" id="vol" min="0" max="100" value="100"></div></div>
-    <div class="volrow" id="row-gap"><span class="lbl" id="gap-lbl">просвіти</span><div class="seg" id="gapseg"><button type="button" data-g="0" class="on">як тканина</button><button type="button" data-g="1">чорні</button></div></div>
+    <div class="volrow" id="row-gap"><span class="lbl" id="gap-lbl">просвіти</span><div class="seg" id="gapseg"><button type="button" data-g="0" class="on">як тканина</button><button type="button" data-g="2">колір рамки</button><button type="button" data-g="1">чорні</button></div></div>
     <div class="fabrow">
       <div class="volrow"><span class="lbl" id="fab-lbl">фактура тканини</span><div class="slrow"><span class="sli" aria-hidden="true">▦</span><input type="range" class="rng" id="fab" min="0" max="100" value="0"></div></div>
       <div class="volrow"><span class="lbl" id="fabg-lbl">крупність плетіння</span><div class="slrow"><span class="sli" aria-hidden="true">#</span><input type="range" class="rng" id="fabg" min="0" max="100" value="35"></div></div>
+    </div>
+    <div class="fabrow" id="row-fsoft">
+      <div class="volrow"><span class="lbl" id="fsoft-lbl">тканина як друк · CMYK</span><div class="slrow"><span class="sli" aria-hidden="true">◑</span><input type="range" class="rng" id="fsoft" min="0" max="100" value="100"></div></div>
+      <div class="volrow"><span class="lbl" id="flight-lbl">світлість тканини</span><div class="slrow"><span class="sli" aria-hidden="true">☀</span><input type="range" class="rng" id="flight" min="-50" max="50" value="0"></div></div>
     </div>
   </section>
 
@@ -633,7 +640,7 @@ const $=id=>document.getElementById(id);
    українськими — там свій набір текстів.
    Словник один; якщо ключа немає в en, береться український. */
 const DICT={
- uk:{wBad:'кольори надто близькі — код не прочитається',wGood:'цей код читається',secMode:'Режим',secLook:'Вигляд',secSym:'Символи',mono:'Для вишивки',rgb:'Для екрана',pal:'🎨 Палітра',one:'одиниця',zero:'нуль і фон',alt:'друга фарба',motifL:'мотив',cloth:'полотно',thick:'товщина хрестика',vol:'об\'єм',gap:'просвіти',gapF:'як тканина',gapK:'чорні',fab:'фактура тканини',fabg:'крупність плетіння',bri:'яскравість',thread:'ширина нитки',glint:'блиск',vysh:'🧵 Вишиванка',wInkSide:'друга фарба по інший бік від фону — код не прочитається',wInkNear:'друга фарба зливається з фоном — код не прочитається',wInkRisk:'фарби близькі за яскравістю — з камери може не прочитатися',
+ uk:{wBad:'кольори надто близькі — код не прочитається',wGood:'цей код читається',secMode:'Режим',secLook:'Вигляд',secSym:'Символи',mono:'Для вишивки',rgb:'Для екрана',pal:'🎨 Палітра',one:'одиниця',zero:'нуль і фон',alt:'друга фарба',motifL:'мотив',cloth:'полотно',thick:'товщина хрестика',vol:'об\'єм',gap:'просвіти',gapF:'як тканина',gapK:'чорні',gapR:'колір рамки',fsoft:'тканина як друк · CMYK',flight:'світлість тканини',fab:'фактура тканини',fabg:'крупність плетіння',bri:'яскравість',thread:'ширина нитки',glint:'блиск',vysh:'🧵 Вишиванка',wInkSide:'друга фарба по інший бік від фону — код не прочитається',wInkNear:'друга фарба зливається з фоном — код не прочитається',wInkRisk:'фарби близькі за яскравістю — з камери може не прочитатися',
      sq:'Квадрат',ci:'Кружечок',cr:'Хрестик',chars:'Символів',bytes:'Байтів',bits:'Біт даних',field:'Поле',
      warn:'Даних більше, ніж уміщає поле',ph:'зашифруй послання',demo:'напиши свій текст',
      merch:'Приміряти на мерч →',save:'Зберегти',load:'Завантажити · сканувати',
@@ -647,7 +654,7 @@ const DICT={
      tipColor:'Кольори спотворені. Знімай при рівному денному світлі — жовта лампа збиває кольорові канали.',
      tipSlow:'Знімок завеликий — не вистачило часу. Обріж його по коду або зменш.',
      tipAny:'Спробуй ще: більший і чіткіший знімок, рівне світло без відблисків, уся рамка коду в кадрі.'},
- en:{wBad:'colours too close — the code will not scan',wGood:'this code scans',secMode:'Mode',secLook:'Look',secSym:'Symbols',mono:'For embroidery',rgb:'For screen',pal:'🎨 Palette',one:'one',zero:'zero & background',alt:'second ink',motifL:'motif',cloth:'cloth',thick:'cross thickness',vol:'relief',gap:'gaps',gapF:'like fabric',gapK:'black',fab:'fabric texture',fabg:'weave size',bri:'brightness',thread:'thread width',glint:'highlight',vysh:'🧵 Vyshyvanka',wInkSide:'second ink is on the wrong side of the background — unreadable',wInkNear:'second ink blends into the background — unreadable',wInkRisk:'inks are close in brightness — a camera may fail to read it',
+ en:{wBad:'colours too close — the code will not scan',wGood:'this code scans',secMode:'Mode',secLook:'Look',secSym:'Symbols',mono:'For embroidery',rgb:'For screen',pal:'🎨 Palette',one:'one',zero:'zero & background',alt:'second ink',motifL:'motif',cloth:'cloth',thick:'cross thickness',vol:'relief',gap:'gaps',gapF:'like fabric',gapK:'black',gapR:'frame colour',fsoft:'fabric as print · CMYK',flight:'fabric lightness',fab:'fabric texture',fabg:'weave size',bri:'brightness',thread:'thread width',glint:'highlight',vysh:'🧵 Vyshyvanka',wInkSide:'second ink is on the wrong side of the background — unreadable',wInkNear:'second ink blends into the background — unreadable',wInkRisk:'inks are close in brightness — a camera may fail to read it',
      sq:'Square',ci:'Circle',cr:'Cross',chars:'Characters',bytes:'Bytes',bits:'Data bits',field:'Field',
      warn:'More data than the field can hold',ph:'encode a message',demo:'write your text',
      merch:'Try it on merch →',save:'Save',load:'Load · scan',
@@ -740,7 +747,9 @@ function PAL(){return STITCH()?SPALS[spI]:PALS[palG].items[palI];}
 let motif='none';         /* який мотив розподіляє фарби */
 let motifK=4;             /* ширина смуги мотиву, у кільцях */
 let volT=100;             /* сила об'єму стібка: 0 — пласкі хрестики, 100 — повний об'єм */
-let gapK=0;               /* просвіти між плитками й бусинами: 0 — колір тканини, 1 — чорні */
+let gapK=0;               /* просвіти між плитками й бусинами: 0 — колір тканини, 1 — чорні, 2 — колір рамки */
+let fabSoft=100;          /* тканина «як надрукована» (CMYK): 0 — чисті екранні кольори, 100 — повністю */
+let fabLight=0;           /* світлість тканини: −50 темніше … 0 як є … +50 світліше */
 let monoMark=0;
 let scannedImg=null;
 let prevLen=0;
@@ -934,6 +943,48 @@ function hexRGB(h){const q=/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/.exec(h||'');if(q)r
 function rgbHexA(a){return '#'+a.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');}
 function lumA(a){return (a[0]*77+a[1]*150+a[2]*29)/256;}
 function mixA(a,b,t){return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];}
+/* ═══ ТКАНИНА ЯК У ДРУЦІ (CMYK) ═══
+   На екрані RGB-кольори дуже чисті: чорна тканина — абсолютно чорна,
+   синя — неоново-синя. Справжня тканина такою не буває: навіть чорний
+   оксамит сіруватий. Тут колір ТКАНИНИ переводиться так, як Photoshop
+   показує його після переходу з RGB у CMYK: глибокий чорний трохи
+   світлішає й сіріє, надто чисті кольори приглушуються. Вісім кутів
+   кольорового куба взято з типової друкарської проби (чорний друкується
+   як #231f20, синій як #2e3192 тощо), між ними — плавний перехід.
+   Сірі лишаються нейтральними, без відтінку.
+   ЧИТАНІСТЬ: тканина — це тиха зона, по ній сканер знаходить рамку.
+   Тому різниця між тканиною й кольором рамки (у несучому каналі та
+   за яскравістю) не може зменшитися більш ніж на 15%. Якщо повзунки
+   просять більше — ефект сам зупиняється на цій межі.
+   У режимі «Для вишивки» не діє: там кольори канви вже справжні. */
+const CMYK_CUBE=[[35,31,32],[46,49,146],[0,166,81],[0,174,239],[237,28,36],[236,0,140],[255,242,0],[255,255,255]];
+function cmykLook(a){
+  const t=a.map(v=>v/255), m=Math.min(t[0],t[1],t[2]);
+  const lut=(r,g,b)=>{const o=[0,0,0];for(let i=0;i<8;i++){const w=((i&4)?r:1-r)*((i&2)?g:1-g)*((i&1)?b:1-b);if(!w)continue;const c=CMYK_CUBE[i];o[0]+=w*c[0];o[1]+=w*c[1];o[2]+=w*c[2];}return o;};
+  const L=lut(t[0],t[1],t[2]), G=lut(m,m,m), n=255*m+33*Math.pow(1-m,3);
+  return L.map((v,i)=>Math.max(0,Math.min(255,v-G[i]+n)));
+}
+/* fab — логічний колір тканини, ring — колір зовнішнього кільця рамки
+   (протилежний їй), flip — повний RGB-негатив (малюється інвертованим). */
+function softFab(fab,ring,mono,flip){
+  if(STITCH()||(!fabSoft&&!fabLight))return fab;
+  const inv=a=>a.map(v=>255-v);
+  const a0=hexRGB(fab), d0=flip?inv(a0):a0;
+  let opp=mono?hexRGB(ring):a0.map(v=>v>128?RGB_LO:RGB_HI);
+  if(flip)opp=inv(opp);
+  let tg=mixA(d0,cmykLook(d0),fabSoft/100);
+  if(fabLight)tg=mixA(tg,fabLight>0?[255,255,255]:[0,0,0],Math.abs(fabLight)/100);
+  const chans=mono?[PAL().c]:[0,1,2];
+  const ok=x=>{
+    for(const c of chans){const D0=d0[c]-opp[c];if(Math.abs(D0)>20&&(x[c]-opp[c])*Math.sign(D0)<0.85*Math.abs(D0))return false;}
+    const L0=lumA(d0)-lumA(opp);
+    if(Math.abs(L0)>30&&(lumA(x)-lumA(opp))*Math.sign(L0)<0.85*Math.abs(L0))return false;
+    return true;};
+  let x=tg;
+  if(!ok(x)){let lo=0,hi=1;for(let i=0;i<14;i++){const k=(lo+hi)/2;if(ok(mixA(d0,tg,k)))lo=k;else hi=k;}x=mixA(d0,tg,lo);}
+  x=x.map(v=>Math.max(0,Math.min(255,Math.round(v))));
+  return rgbHexA(flip?inv(x):x);
+}
 let REQ=0.7;
 /* ТОНИ ОБ'ЄМУ. Кожна літера шаблону — це основний колір нитки, зсунутий
    до білого (блик) або до чорного (тінь) на свою частку.
@@ -1202,11 +1253,23 @@ function paint(ctx,cell,pad,qz){
      чорний. У повному RGB-негативі просвіт задаємо білим — після інверсії
      він стане чорним. */
   const BD=!XS&&ST;
-  const GAP=gapK?(rgbMask()===7?'#ffffff':'#000000'):FAB;
+  /* колір зовнішнього кільця рамки — він же протилежний тканині */
+  const RING=MONO?(NEG?plt:pdk):RGB_INK;
+  /* FABD — колір, яким тканину МАЛЮЄМО (з повзунками «CMYK» і «світлість»).
+     FAB лишається логічним кольором: за ним вирішується, де тканина. */
+  const FABD=softFab(FAB,RING,MONO,rgbMask()===7);
+  const fd=col=>col===FAB?FABD:col;
+  /* ПРОСВІТИ: 0 — як тканина, 1 — чорні, 2 — колір рамки.
+     Сканер знаходить код по суцільному зовнішньому кільцю. Просвіти кольору
+     тканини рвуть його на пунктир, тому при «як тканина» рамка й зебра
+     лишаються як раніше (BDF=false), а бусини — лише в полі. Чорні просвіти
+     й просвіти кольору рамки кільце не рвуть — тоді бусинами і рамка. */
+  const GAP=gapK===1?(rgbMask()===7?'#ffffff':'#000000'):gapK===2?RING:FABD;
+  const BDF=BD&&gapK!==0;
   /* опорний колір для тонів стібка: клітинка того ж боку коду, що й полотно,
      рахує тіні від протилежного кольору пари — щоб не перейти на його бік */
   const refOf=col=>(!MONO||chv(col)!==chv(FAB))?FAB:(FAB===c1?c0:c1);
-  BG_COLS=(XS||BD)?[FAB]:[QZC, MONO?c0:RGB_DBG].concat(a0?[a0]:[]);
+  BG_COLS=(XS||BD)?[FABD]:[FABD, MONO?c0:RGB_DBG].concat(a0?[a0]:[]);
   const TW=(W+pad*2)*cell,TH=(H+pad*2)*cell;
   /* КАРТА КОЛЬОРІВ КЛІТИНОК — з неї будується схема для вишивки */
   const CWm=W+pad*2; CELLS={n:CWm,pad,col:new Array(CWm*CWm).fill(MONO?c0:RGB_DBG),fab:FAB,inv:rgbMask()===7};
@@ -1214,7 +1277,7 @@ function paint(ctx,cell,pad,qz){
   /* Негатив перевертає ВЕСЬ код, разом із рамкою і тихою зоною, —
      як було. Декодер такий код упізнає: не знайшовши звичайного,
      він перевертає кадр цілком і пробує ще раз. */
-  if(qz>0){ctx.fillStyle=QZC;ctx.fillRect(0,0,TW+ox*2,TH+oy*2);}
+  if(qz>0){ctx.fillStyle=FABD;ctx.fillRect(0,0,TW+ox*2,TH+oy*2);}
   if(pad>=3){
     /* Рамка фарбується палітрою: темні смуги рамки — колір нуля, світлі —
        колір одиниці. Порядок «темне → світле → зебра» для декодера
@@ -1234,8 +1297,8 @@ function paint(ctx,cell,pad,qz){
     const o1=NEG?lt:dk, o2=NEG?dk:lt;
     let FA=o1, FB=o2;
     if(!MONO){FA=RGB_INK;FB=RGB_DBG;}
-    ctx.fillStyle=MONO?c0:RGB_DBG;ctx.fillRect(ox,oy,TW,TH);const CW=W+pad*2, CH=H+pad*2;const FBG=XS?FAB:(MONO?c0:RGB_DBG);   /* колір полотна: що НЕ йому дорівнює — те фарба й отримує об'єм */
-    const cellAt=(cx,cy,col)=>{rec(cx,cy,col);ctx.fillStyle=col;ctx.fillRect(ox+cx*cell,oy+cy*cell,cell,cell);if(ST&&(BD||col!==FBG))STITCH_LIST.push([ox+cx*cell,oy+cy*cell,col,BD?GAP:FBG,BD?0:1,(XS||BD)?refOf(col):null]);};
+    ctx.fillStyle=fd(MONO?c0:RGB_DBG);ctx.fillRect(ox,oy,TW,TH);const CW=W+pad*2, CH=H+pad*2;const FBG=XS?FAB:(MONO?c0:RGB_DBG);   /* колір полотна: що НЕ йому дорівнює — те фарба й отримує об'єм */
+    const cellAt=(cx,cy,col)=>{rec(cx,cy,col);ctx.fillStyle=fd(col);ctx.fillRect(ox+cx*cell,oy+cy*cell,cell,cell);if(ST&&(BDF||col!==FBG))STITCH_LIST.push([ox+cx*cell,oy+cy*cell,col,BDF?GAP:fd(FBG),BDF?0:1,(XS||BDF)?refOf(col):null]);};
     for(let cx=0;cx<CW;cx++){cellAt(cx,0,FA);cellAt(cx,CH-1,FA);}
     for(let cy=1;cy<CH-1;cy++){cellAt(0,cy,FA);cellAt(CW-1,cy,FA);}
     for(let cx=1;cx<CW-1;cx++){cellAt(cx,1,FB);cellAt(cx,CH-2,FB);}
@@ -1244,14 +1307,14 @@ function paint(ctx,cell,pad,qz){
     for(let cy=3;cy<CH-3;cy++){cellAt(2,cy,((2+cy)%2===0)?FA:FB);cellAt(CW-3,cy,((CW-3+cy)%2===0)?FA:FB);}
   }else if(pad>0){ctx.fillStyle=FRAME_COL;ctx.fillRect(ox,oy,TW,TH);}
   const dataBg=MONO?c0:RGB_DBG;
-  ctx.fillStyle=dataBg;
+  ctx.fillStyle=fd(dataBg);
   ctx.fillRect(ox+pad*cell,oy+pad*cell,W*cell,H*cell);
-  const put=(x,y,col)=>{rec(x+pad,y+pad,col);ctx.fillStyle=col;const px=ox+(x+pad)*cell,py=oy+(y+pad)*cell;if(XS){if(col!==FAB)STITCH_LIST.push([px,py,col,FAB,0,refOf(col)]);}else if(BD)STITCH_LIST.push([px,py,col,GAP,0,refOf(col)]);else if(ST)STITCH_LIST.push([px,py,col,dataBg]);if(shape==='circle'){ctx.beginPath();ctx.arc(px+cell/2,py+cell/2,cell/2*.94,0,6.2832);ctx.fill()}else ctx.fillRect(px,py,cell,cell)};
+  const put=(x,y,col)=>{rec(x+pad,y+pad,col);ctx.fillStyle=fd(col);const px=ox+(x+pad)*cell,py=oy+(y+pad)*cell;if(XS){if(col!==FAB)STITCH_LIST.push([px,py,col,FABD,0,refOf(col)]);}else if(BD)STITCH_LIST.push([px,py,col,GAP,0,refOf(col)]);else if(ST)STITCH_LIST.push([px,py,col,dataBg]);if(shape==='circle'){ctx.beginPath();ctx.arc(px+cell/2,py+cell/2,cell/2*.94,0,6.2832);ctx.fill()}else ctx.fillRect(px,py,cell,cell)};
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;if(layers===3){const on={r:dmask.r[i]&&grid.r[i],g:dmask.g[i]&&grid.g[i],b:dmask.b[i]&&grid.b[i]};if(!on.r&&!on.g&&!on.b){if(BD)put(x,y,dataBg);continue;}put(x,y,rgbInk(!!on.r!==!!(PM&4),!!on.g!==!!(PM&2),!!on.b!==!!(PM&1)));}else{const band=MOT&&inBand(x,y), pz=MOT&&inSeal(x,y);
       if(dmask.r[i]&&grid.r[i]){const col=band?a1:c1;put(x,y,pz?sealCol(col):col);}
       else if(XS){const col=pz?sealCol(c0):band?a0:c0;put(x,y,col);}     /* хрестик: нулі теж вишиті, якщо не кольору полотна */
       else if(BD){const col=pz?sealCol(c0):band?a0:c0;put(x,y,col);}     /* мозаїка: нулі — теж плитки або бусини */
-      else if(pz||band){rec(x+pad,y+pad,pz?sealCol(c0):a0);ctx.fillStyle=pz?sealCol(c0):a0;ctx.fillRect(ox+(x+pad)*cell,oy+(y+pad)*cell,cell,cell);}}}
+      else if(pz||band){rec(x+pad,y+pad,pz?sealCol(c0):a0);ctx.fillStyle=fd(pz?sealCol(c0):a0);ctx.fillRect(ox+(x+pad)*cell,oy+(y+pad)*cell,cell,cell);}}}
 }
 /* РОЗМІР МОДУЛЯ. Холст цілиться в 1161 px по стороні й ділиться на повну
    ширину коду в модулях (поле + рамка 3 + тиха зона 2 з кожного боку).
@@ -2071,6 +2134,7 @@ function syncPalRows(){
   vis('row-pl',true); vis('row-mot',!rgb&&!PAL().mono);
   vis('scheme-btn',st); vis('shape',!st); vis('shape-lbl',!st); vis('invBtn',!st);
   vis('row-gap',!st&&shape!=='cross');   /* просвіти — лише для квадрата й кружечка */
+  vis('row-fsoft',!st);                  /* «тканина як друк» — лише для екрана */
   $('pal-btn').parentElement.style.visibility='visible';
 }
 /* Готова вишиванка одним дотиком: червоно-чорна палітра в негативі
@@ -2095,6 +2159,8 @@ function setVol(v){volT=v;['vol','vol-m'].forEach(id=>{const e=$(id);if(e&&+e.va
 $('vol').oninput=e=>setVol(+e.target.value);
 $('gapseg').onclick=e=>{const b=e.target.closest('button');if(!b)return;gapK=+b.dataset.g;syncSeg('gapseg','g',String(gapK));scannedImg=null;render();readStatus(true);saveState();tone(700,.05,.05);};
 $('fab').oninput=e=>{fabT=+e.target.value;scannedImg=null;render();readStatus(true);saveState();};
+$('fsoft').oninput=e=>{fabSoft=+e.target.value;scannedImg=null;render();readStatus(true);saveState();};
+$('flight').oninput=e=>{fabLight=+e.target.value;scannedImg=null;render();readStatus(true);saveState();};
 $('fabg').oninput=e=>{fabG=+e.target.value;scannedImg=null;render();readStatus(true);saveState();};
 if($('vol-m'))$('vol-m').oninput=e=>setVol(+e.target.value);
 
@@ -2299,7 +2365,7 @@ function saveState(){
   if(isDemo)return;
   try{sessionStorage.setItem(LAB_KEY,JSON.stringify(
     {t:D.single,l:layers,sh:shape,pg:palG,pi:palI,inv:invert,
-     mo:motif,mk:motifK,vt:volT,gk:gapK,ft:fabT,fg:fabG,rs:rgbStep,pu:purpose,si:spI,sl:scrLook}));}catch(e){}
+     mo:motif,mk:motifK,vt:volT,gk:gapK,fs:fabSoft,fl:fabLight,ft:fabT,fg:fabG,rs:rgbStep,pu:purpose,si:spI,sl:scrLook}));}catch(e){}
 }
 function restoreState(){
   let st=null;
@@ -2311,7 +2377,8 @@ function restoreState(){
   invert=!!st.inv; syncInv();
   motif=MOTIFS.some(m=>m.k===st.mo)?st.mo:'none'; motifK=st.mk||4;
   if(st.vt!=null)volT=st.vt;
-  gapK=st.gk?1:0; syncSeg('gapseg','g',String(gapK));
+  gapK=[0,1,2].includes(+st.gk)?+st.gk:0; syncSeg('gapseg','g',String(gapK));
+  if(st.fs!=null)fabSoft=+st.fs; if(st.fl!=null)fabLight=+st.fl; $('fsoft').value=fabSoft; $('flight').value=fabLight;
   rgbStep=((+st.rs||0)%8+8)%8; rgbDeg=rgbStep*45;
   fabT=+st.ft||0; fabG=(st.fg!=null)?+st.fg:35; $('fab').value=fabT; $('fabg').value=fabG; $('vol').value=volT;
   shape=(st.sh==='circle'||st.sh==='cross')?st.sh:'square'; syncSeg('shape','s',shape);
@@ -2449,7 +2516,8 @@ function applyLang(){
   ['dice-pal','dice-stage'].forEach(id=>{const e=$(id);if(e)e.title=LANG==='en'?'Random':'Навмання';});
   const vl=$('vol-lbl'); if(vl)vl.textContent=t('vol');
   const gpl=$('gap-lbl'); if(gpl)gpl.textContent=t('gap');
-  const gps=$('gapseg'); if(gps){gps.children[0].textContent=t('gapF');gps.children[1].textContent=t('gapK');}
+  const gps=$('gapseg'); if(gps){gps.querySelector('[data-g="0"]').textContent=t('gapF');gps.querySelector('[data-g="2"]').textContent=t('gapR');gps.querySelector('[data-g="1"]').textContent=t('gapK');}
+  const fsl=$('fsoft-lbl'); if(fsl)fsl.textContent=t('fsoft'); const fll=$('flight-lbl'); if(fll)fll.textContent=t('flight');
   const fl=$('fab-lbl'); if(fl)fl.textContent=t('fab'); const gl=$('fabg-lbl'); if(gl)gl.textContent=t('fabg');
   ['bri-one','bri-zero','bri-alt'].forEach(id=>{const e=$(id);if(e)e.title=t('bri');});
   const pv=$('pres-vysh'); if(pv)pv.textContent=t('vysh');
@@ -3184,6 +3252,7 @@ pf.appendChild($('shape'));
 pf.appendChild($('row-vol'));
 pf.appendChild($('row-gap'));
 pf.appendChild(document.querySelector('.fabrow'));
+pf.appendChild($('row-fsoft'));
 
 var ps=pane('syms');
 ps.appendChild($('symtabs'));ps.appendChild($('symgrid'));
