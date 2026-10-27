@@ -23,7 +23,24 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shell.css">
 <script defer src="shell.js"></script>
-  <script>
+<script>
+/* РЕЖИМ АДМІНІСТРАТОРА. Вмикається ще до малювання сторінки, щоб інтерфейс не мигав.
+   Увімкнути: додати до адреси ?admin=1 (вимкнути: ?admin=0) або набрати в полі //admin.
+   Прапорець живе лише в цьому браузері. Звичайний відвідувач його не має. */
+(function(){
+  var on=false;
+  try{
+    var u=new URL(location.href),q=u.searchParams.get('admin');
+    if(q==='1')localStorage.setItem('taina_admin','1');
+    else if(q==='0')localStorage.removeItem('taina_admin');
+    on=localStorage.getItem('taina_admin')==='1';
+    if(q!==null){u.searchParams.delete('admin');history.replaceState(null,'',u.pathname+u.search+u.hash);}
+  }catch(e){}
+  window.TAINA_ADMIN=on;
+  if(on)document.documentElement.classList.add('adm');
+})();
+</script>
+<script>
   window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
 </script>
 <script defer src="/_vercel/insights/script.js"></script>
@@ -521,18 +538,140 @@ body.light-mode .menu .hint{color:#8a4e00}
   align-items:center;justify-content:center;gap:10px;min-height:62px}
 #sheet .sh-b:active{background:color-mix(in srgb,var(--acc) 16%,transparent)}
 #sheet .sh-cancel{color:var(--muted);border-style:dashed}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ВЕРСІЯ 3
+   Режим адміністратора · ☰ (тема й мова) · стрілка «Зберегти» ·
+   значки форми біля холста · холст на всю висоту · «Відкрити посилання».
+   Усе, що позначено adm-only, бачить лише адміністратор (html.adm).
+   ═══════════════════════════════════════════════════════════════════ */
+html:not(.adm) .adm-only{display:none!important}
+/* панель «Підпис» лежить у body, поки її не поставили в меню; display:flex у .sig
+   перебивав атрибут hidden, і вона висіла внизу сторінки */
+.sig[hidden]{display:none!important}
+
+/* ☰ — тема й мова. Лише ПК: на телефоні своє меню. */
+.sm-btn{position:absolute;top:10px;right:14px;z-index:1200;width:44px;height:44px;padding:0;border-radius:12px;
+  border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 88%,transparent);color:var(--parchment);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s}
+.sm-btn svg{width:22px;height:22px}
+.sm-btn:hover,.sm-btn[aria-expanded="true"]{color:var(--acc-hot);border-color:var(--acc-dim)}
+html.adm .sm-btn::after{content:'';position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;
+  background:var(--acc-hot);box-shadow:0 0 0 2px var(--panel)}
+.sm-pop{position:fixed;z-index:1201;width:270px;padding:8px;display:flex;flex-direction:column;gap:2px;
+  background:var(--panel);border:1px solid color-mix(in srgb,var(--acc) 45%,transparent);border-radius:14px;
+  box-shadow:0 12px 34px rgba(0,0,0,.6)}
+.sm-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 6px 6px 12px;border-radius:10px;
+  font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.05em;color:var(--parchment)}
+.sm-row[data-for]{cursor:pointer}
+.sm-row[data-for]:hover{background:color-mix(in srgb,var(--acc) 10%,transparent)}
+.sm-row .cornbtn{position:static;transform:none;flex:0 0 auto;width:44px;height:44px;border:1px solid var(--line);border-radius:12px}
+.sm-row .cornbtn.theme svg{width:24px;height:24px}
+.sm-adm{border-top:1px solid var(--line);margin-top:4px;padding-top:10px}
+.sm-adm .b{min-height:0;padding:8px 14px;font-size:12px}
+body.light-mode .sm-pop{box-shadow:0 12px 34px rgba(60,45,25,.22)}
+@media(max-width:820px){.sm-btn,.sm-pop{display:none!important}}
+
+/* «ВІДКРИТИ ПОСИЛАННЯ». Раніше кнопка лежала в рядку під полем, і поле, що росте
+   вниз, її закривало. Тепер вона висить просто під самим полем і росте разом
+   із ним, тож перекрити її нічим. Малює її скрипт (див. «linkpill» нижче). */
+#rt .linkbtn{display:none!important}
+.linkpill{position:absolute;left:50%;top:calc(100% + 10px);transform:translateX(-50%);z-index:3;
+  display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border-radius:12px;
+  background:var(--acc);color:var(--on-acc);border:1px solid var(--acc-hot);
+  font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:.03em;text-decoration:none;white-space:nowrap;
+  box-shadow:0 8px 24px rgba(0,0,0,.45),0 0 22px color-mix(in srgb,var(--acc) 40%,transparent);
+  animation:pillin .25s ease}
+.linkpill:hover{background:var(--acc-hot)}
+@keyframes pillin{from{opacity:0;transform:translateX(-50%) translateY(-6px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+body.light-mode .linkpill{box-shadow:0 8px 22px rgba(60,45,25,.28)}
+@media(max-width:820px){.linkpill{padding:9px 16px;font-size:13px}}
+
+/* Не-адміністратору на телефоні: переключателя режимів немає, лишається лише негатив */
+@media(max-width:820px){
+  html:not(.adm) .m-rowtop{min-height:52px}
+  html:not(.adm) body.room-rgb .m-rowtop{display:none}
+}
+
+@media(min-width:821px){
+  /* — сторінка рівно у вікно: колонки не вилазять нижче екрана, довгий список
+       символів гортається всередині своєї колонки. Ширину сторінки більше не
+       обрізаємо на 1660 px: на широких екранах холст виходить ще більшим. — */
+  .app{flex:1 1 0;min-height:0;max-width:2000px}
+  /* — холст на всю доступну висоту; розмір виставляє fitStage() — */
+  .stagebox{max-width:var(--stage-max,min(52vh,440px))}
+
+  /* — «Зберегти»: значок-стрілка в правій колонці. Меню лежить поверх, місця не займає — */
+  .a-center .action{position:absolute;width:0;max-width:0;height:0;gap:0;overflow:visible}
+  .a-center .action .menu{position:fixed;left:0;top:0;right:auto;bottom:auto;width:320px;max-width:calc(100vw - 16px);z-index:1300}
+  .savebtn{position:absolute;top:0;left:50%;transform:translateX(-50%)}
+
+  /* — рядок результату не займає місця: підпис висить під полем — */
+  .txtzone{gap:0;position:relative}
+  #rt,#rt:empty{position:relative;height:0;min-height:0;overflow:visible}
+  #rt>span{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:34;white-space:nowrap;
+    padding:3px 10px;border-radius:8px;background:color-mix(in srgb,var(--ink) 82%,transparent)}
+
+  /* — форма: три значки в лівій колонці, один над одним, того ж розміру, що стрілка і кошик — */
+  .rightcol #shape{position:absolute;top:0;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;
+    gap:8px;width:48px;border:0;border-radius:0;overflow:visible}
+  .rightcol #shape button{flex:0 0 auto;width:48px;height:48px;min-height:0;padding:0;border:1px solid var(--line);
+    border-radius:12px;display:flex;align-items:center;justify-content:center;background:transparent;color:var(--muted);overflow:visible}
+  .rightcol #shape button:hover:not(.on){color:var(--acc-hot);border-color:var(--acc-dim)}
+  .rightcol #shape button.on{background:color-mix(in srgb,var(--acc) 20%,transparent);color:var(--acc-hot);
+    border-color:color-mix(in srgb,var(--acc) 55%,transparent)}
+  .rightcol #shape .shico{display:block;width:22px;height:22px;margin:0}
+  .rightcol #shape .shl{display:none}
+  body.light-mode .rightcol #shape button{color:var(--parchment)}
+  body.light-mode .rightcol #shape button.on{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+
+  /* — сканування на ПК: значок у полі (раніше був лише нижній кнопкою) — */
+  .inscan{display:flex;position:absolute;right:8px;top:calc((1.4em + 32px - 40px)/2);z-index:2;width:40px;height:40px;
+    font-size:inherit;border-radius:10px;border:0;background:var(--acc);color:var(--on-acc);
+    align-items:center;justify-content:center;cursor:pointer;padding:0;transition:.15s}
+  .inscan:hover{background:var(--acc-hot)}
+  .inscan svg{width:22px;height:22px}
+  textarea.inp.big{padding-left:56px;padding-right:56px}
+  /* вибір «камера / файл» на ПК — вікно посередині, а не шухляда знизу */
+  #sheet .card{left:50%;right:auto;bottom:auto;top:50%;transform:translate(-50%,-50%);width:min(420px,calc(100vw - 32px));
+    border-radius:18px;padding:18px;animation:none;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+
+  /* — ліва колонка без режимів: палітра одразу вгорі — */
+  html:not(.adm) .app{grid-template-rows:auto 1fr;grid-template-areas:"pal center shape" "stat center syms"}
+  html:not(.adm) .cell.a-pal{padding-top:20px}
+
+  /* — палітра: список гортається, мотиви завжди на виду — */
+  .palette-panel #row-pl{flex:1 1 auto;min-height:150px;overflow-y:auto;overscroll-behavior:contain;padding-right:4px}
+  .palette-panel #row-mot{flex:0 0 auto}
+
+  /* — праворуч місце, що звільнилось, віддано символам — */
+  .a-syms{display:flex;flex-direction:column}
+  .a-syms .symgrid,.a-syms .symgrid.tarot-row{flex:1 1 auto;min-height:0;max-height:calc(100vh - 200px);align-content:start}
+}
 </style>
 </head>
 <body class="room-mono">
 
 <div id="hdr"></div>
 
+<button class="sm-btn" id="sm-btn" type="button" aria-haspopup="true" aria-expanded="false" title="Меню" aria-label="Меню"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+<div class="sm-pop hide" id="sm-pop">
+  <div class="sm-row" data-for="themeBtn"><span id="sm-theme-l">Тема</span>
+    <button class="cornbtn theme" id="themeBtn" type="button" title="Тема"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.6" fill="currentColor"/><path d="M12 1.8v2.6M12 19.6v2.6M1.8 12h2.6M19.6 12h2.6M4.8 4.8l1.85 1.85M17.35 17.35l1.85 1.85M4.8 19.2l1.85-1.85M17.35 6.65l1.85-1.85"/></svg></button>
+  </div>
+  <div class="sm-row" data-for="langBtn"><span id="sm-lang-l">Мова</span>
+    <button class="cornbtn" id="langBtn" type="button" title="Мова / Language">UA</button>
+  </div>
+  <div class="sm-row sm-adm adm-only"><span id="sm-adm-l">Режим адміністратора</span><button type="button" class="b" id="sm-adm-off">вимкнути</button></div>
+</div>
+
+
 <div class="app">
 
   <!-- ЛІВА КОЛОНКА -->
-  <section class="cell a-mode">
+  <section class="cell a-mode adm-only">
     <div class="sec-t">Режим</div>
-    <div class="seg" id="layers">
+    <div class="seg adm-only" id="layers">
       <button data-p="stitch" class="on">Для вишивки</button>
       <button data-p="screen">Для екрана</button>
     </div>
@@ -573,7 +712,7 @@ body.light-mode .menu .hint{color:#8a4e00}
 
     <div class="stagewrap">
       <div class="rightcol">
-        <button class="cornbtn" id="langBtn" type="button" title="Мова / Language">UA</button>
+        <div class="seg" id="shape"><button data-s="square" class="on" title="Квадрат"><svg class="shico" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2.5" fill="currentColor"/></svg><span class="shl">Квадрат</span></button><button data-s="circle" title="Кружечок"><svg class="shico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="currentColor"/></svg><span class="shl">Кружечок</span></button><button data-s="cross" title="Хрестик"><svg class="shico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg><span class="shl">Хрестик</span></button></div>
         <button class="arrow" id="undo" title="Назад" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
         <span class="spacer" aria-hidden="true"></span>
         <button class="trash dicebtn" id="dice-stage" type="button" title="Навмання">🎲</button>
@@ -591,7 +730,7 @@ body.light-mode .menu .hint{color:#8a4e00}
         </div>
       </div>
       <div class="rightcol">
-        <button class="cornbtn theme" id="themeBtn" type="button" title="Тема"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.6" fill="currentColor"/><path d="M12 1.8v2.6M12 19.6v2.6M1.8 12h2.6M19.6 12h2.6M4.8 4.8l1.85 1.85M17.35 17.35l1.85 1.85M4.8 19.2l1.85-1.85M17.35 6.65l1.85-1.85"/></svg></button>
+        <button class="arrow savebtn" id="mainbtn" type="button" disabled></button>
         <button class="arrow" id="redo" title="Вперед" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
         <button class="trash" id="clr" title="Очистити"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
       </div>
@@ -600,7 +739,6 @@ body.light-mode .menu .hint{color:#8a4e00}
     <div class="action">
       <button id="cam-btn" class="mainbtn" style="display:none">📷 Камера</button>
       <div class="menu hide" id="menu"></div>
-      <button class="mainbtn" id="mainbtn"></button>
     </div>
     <a href="services.html" class="btn-main">Приміряти на мерч →</a>
   </main>
@@ -608,14 +746,13 @@ body.light-mode .menu .hint{color:#8a4e00}
   <!-- ПРАВА КОЛОНКА -->
   <section class="cell a-shape">
     <div class="sec-t">Вигляд</div>
-    <div class="seg" id="shape"><button data-s="square" class="on" title="Квадрат"><svg class="shico" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2.5" fill="currentColor"/></svg><span class="shl">Квадрат</span></button><button data-s="circle" title="Кружечок"><svg class="shico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="currentColor"/></svg><span class="shl">Кружечок</span></button><button data-s="cross" title="Хрестик"><svg class="shico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg><span class="shl">Хрестик</span></button></div>
     <div class="volrow" id="row-vol"><span class="lbl" id="vol-lbl">об'єм</span><div class="slrow"><span class="sli" aria-hidden="true">◐</span><input type="range" class="rng" id="vol" min="0" max="100" value="100"></div></div>
     <div class="volrow" id="row-gap"><span class="lbl" id="gap-lbl">просвіти</span><div class="seg" id="gapseg"><button type="button" data-g="0" class="on">як тканина</button><button type="button" data-g="2">колір рамки</button><button type="button" data-g="1">чорні</button></div></div>
-    <div class="fabrow">
+    <div class="fabrow adm-only">
       <div class="volrow"><span class="lbl" id="fab-lbl">фактура тканини</span><div class="slrow"><span class="sli" aria-hidden="true">▦</span><input type="range" class="rng" id="fab" min="0" max="100" value="0"></div></div>
       <div class="volrow"><span class="lbl" id="fabg-lbl">крупність плетіння</span><div class="slrow"><span class="sli" aria-hidden="true">#</span><input type="range" class="rng" id="fabg" min="0" max="100" value="35"></div></div>
     </div>
-    <div class="fabrow" id="row-fsoft">
+    <div class="fabrow adm-only" id="row-fsoft">
       <div class="volrow"><span class="lbl" id="fsoft-lbl">тканина як друк · CMYK</span><div class="slrow"><span class="sli" aria-hidden="true">◑</span><input type="range" class="rng" id="fsoft" min="0" max="100" value="100"></div></div>
       <div class="volrow"><span class="lbl" id="flight-lbl">світлість тканини</span><div class="slrow"><span class="sli" aria-hidden="true">☀</span><input type="range" class="rng" id="flight" min="-50" max="50" value="0"></div></div>
     </div>
@@ -648,7 +785,7 @@ const DICT={
      sq:'Квадрат',ci:'Кружечок',cr:'Хрестик',chars:'Символів',bytes:'Байтів',bits:'Біт даних',field:'Поле',
      warn:'Даних більше, ніж уміщає поле',ph:'зашифруй послання',demo:'напиши свій текст',
      merch:'Приміряти на мерч →',save:'Зберегти',load:'Завантажити · сканувати',
-     undo:'Назад',redo:'Вперед',clear:'Очистити',inv:'Негатив',invRgb:'Колірна схема (8 варіантів)',bOk:'✓ цей код читається',bWarn:'ліміт — до 100 байт',bMax:'ліміт 100 байт вичерпано',bUnit:'Б',theme:'Тема',
+     undo:'Назад',redo:'Вперед',clear:'Очистити',inv:'Негатив',invRgb:'Колірна схема (8 варіантів)',bOk:'✓ цей код читається',bWarn:'ліміт — до 100 байт',bMax:'ліміт 100 байт вичерпано',bUnit:'Б',theme:'Тема',menuT:'Меню',langL:'Мова',openLink:'Відкрити посилання',admL:'Режим адміністратора',admOff:'вимкнути',shFilePc:'🖼 Обрати файл',
      mbSave:'⤓ Зберегти',mbScan:'⌖ Сканувати',shTitle:'Сканувати код',shCam:'📷 Камера',
      shFile:'🖼 Завантажити з галереї',shCancel:'Скасувати',
      noCode:'Код не прочитано',
@@ -662,7 +799,7 @@ const DICT={
      sq:'Square',ci:'Circle',cr:'Cross',chars:'Characters',bytes:'Bytes',bits:'Data bits',field:'Field',
      warn:'More data than the field can hold',ph:'encode a message',demo:'write your text',
      merch:'Try it on merch →',save:'Save',load:'Load · scan',
-     undo:'Back',redo:'Forward',clear:'Clear',inv:'Negative',invRgb:'Colour scheme (8 variants)',bOk:'✓ this code is readable',bWarn:'limit — up to 100 bytes',bMax:'100-byte limit reached',bUnit:'B',theme:'Theme',
+     undo:'Back',redo:'Forward',clear:'Clear',inv:'Negative',invRgb:'Colour scheme (8 variants)',bOk:'✓ this code is readable',bWarn:'limit — up to 100 bytes',bMax:'100-byte limit reached',bUnit:'B',theme:'Theme',menuT:'Menu',langL:'Language',openLink:'Open link',admL:'Admin mode',admOff:'turn off',shFilePc:'🖼 Choose a file',
      mbSave:'⤓ Save',mbScan:'⌖ Scan',shTitle:'Scan a code',shCam:'📷 Camera',
      shFile:'🖼 Pick from gallery',shCancel:'Cancel',
      noCode:'Code not read',
@@ -677,6 +814,19 @@ let LANG='uk';
 try{LANG=localStorage.getItem('taina_lang')||'uk';}catch(e){}
 if(LANG!=='en')LANG='uk';
 function t(k){return (DICT[LANG]&&DICT[LANG][k])||DICT.uk[k]||k;}
+
+/* ═══ РЕЖИМ АДМІНІСТРАТОРА ═══
+   Прапорець ставиться ще в <head> (клас html.adm); тут його лише читаємо.
+   Увімкнути: додати до адреси ?admin=1 (вимкнути — ?admin=0) або набрати
+   в полі //admin (повторно — вимикає). У режимі адміністратора в ☰ є рядок
+   «вимкнути». Усе з класом adm-only бачить лише адмін: режими вишивки,
+   повзунки тканини, «Підпис», «Сканувати інше», «Для друку». */
+const ADMIN=!!window.TAINA_ADMIN;
+function setAdmin(on){
+  try{if(on)localStorage.setItem('taina_admin','1');else localStorage.removeItem('taina_admin');}catch(e){}
+  try{sessionStorage.removeItem('taina_lab_state');}catch(e){}
+  location.reload();
+}
 const enc=new TextEncoder();
 const decFatal=new TextDecoder('utf-8',{fatal:true});
 const CH=['r','g','b'];
@@ -743,7 +893,7 @@ const SPALS=[
   bg:[32,32,34],ink:[252,251,248],ai:[252,251,248],ab:[32,32,34],mono:true,neg:true,
   canvas:{uk:'Zweigart Aida, чорна',en:'Zweigart Aida, black',code:'720'}}
 ];
-let purpose='stitch';    /* 'stitch' — для вишивки (сайт відкривається в ньому), 'screen' — для екрана */
+let purpose='screen';    /* 'screen' — для екрана (за замовчуванням, окремо не підписується); 'stitch' — для вишивки, лише в режимі адміністратора */
 let spI=0;               /* палітра вишивки */
 let scrLook=null;        /* як було в «Для екрана» — повертаємо при поверненні */
 function STITCH(){return purpose==='stitch';}
@@ -1079,6 +1229,16 @@ const OFF=document.createElement('canvas'), OCTX=OFF.getContext('2d',{willReadFr
 function stageBg(){return (window.TAINA_ACC&&TAINA_ACC.light)?'#fffdf8':'#0a0806';}
 function blit(){CTX.imageSmoothingEnabled=false;CTX.fillStyle=stageBg();CTX.fillRect(0,0,CV.width,CV.height);if(!OFF.width)return;const s=Math.min(CV.width/OFF.width,CV.height/OFF.height);const w=OFF.width*s,h=OFF.height*s;CTX.drawImage(OFF,0,0,OFF.width,OFF.height,(CV.width-w)/2,(CV.height-h)/2,w,h);}
 function clearStage(){OFF.width=OFF.height=0;hasImage=false;blit();syncMain();$('stage').classList.remove('scanning','failed');}
+/* Мініатюра для інших сторінок (галерея, мерч): завжди 512 px, як було,
+   хоч сам холст на ПК тепер більший. */
+function lastThumb(){
+  const c=document.createElement('canvas');c.width=c.height=512;
+  const x=c.getContext('2d');x.imageSmoothingEnabled=false;x.fillStyle=stageBg();x.fillRect(0,0,512,512);
+  if(OFF.width){const s=Math.min(512/OFF.width,512/OFF.height),w=OFF.width*s,h=OFF.height*s;
+    x.drawImage(OFF,0,0,OFF.width,OFF.height,(512-w)/2,(512-h)/2,w,h);}
+  return c.toDataURL();
+}
+
 
 
 let AC=null;
@@ -1215,7 +1375,7 @@ function build(){
   if(!ok) $('rt').innerHTML='<span class="w">перевір текст</span>';
   else readStatus(false);
   hasImage=true;syncMain();
-  if(!isDemo){try{localStorage.setItem('taina_last_ornament',document.getElementById('cv').toDataURL());}catch(e){}}
+  if(!isDemo){try{localStorage.setItem('taina_last_ornament',lastThumb());}catch(e){}}
   saveState();
 }
 
@@ -1799,7 +1959,9 @@ $('in-scan').addEventListener('mousedown',e=>e.preventDefault());
 /* stopPropagation обов'язковий: кнопка лежить усередині поля орнамента,
    а дотик до поля ВИМИКАЄ камеру. Без цього повторний скан (коли камера
    ще «тепла» й вмикається миттєво) одразу ж її й вимикав → AbortError. */
-$('in-scan').onclick=e=>{e.stopPropagation();scanFromAnywhere();};
+$('in-scan').onclick=e=>{e.stopPropagation();
+  if(matchMedia('(max-width:820px)').matches){scanFromAnywhere();return;}
+  const b=$('mb-scan');if(b)b.click();else $('file').click();};   /* ПК: вікно «камера / файл» */
 $('cta-scan').onclick=e=>{e.stopPropagation();scanFromAnywhere();};
 /* велика кнопка видна, лише поки полотно порожнє */
 setInterval(()=>{const c=$('stage-cta');if(!c)return;
@@ -1846,7 +2008,8 @@ $('file').onchange=e=>{
 function modeName(m){return {oct:'×8',quad:'×4',half:'×2',row:'×1'}[m]||m}
 
 function findURL(t){if(!t)return null;const m=t.match(/((https?:\/\/|www\.)[^\s]+)|([a-z0-9-]+\.[a-z]{2,}(\/[^\s]*)?)/i);if(!m)return null;let u=m[0];if(!/^https?:\/\//i.test(u))u='https://'+u;try{new URL(u);return u}catch(e){return null}}
-function showResult(msg,text){const url=findURL(text);let html=msg?('<span class="g">'+msg+'</span>'):'';if(url)html+=`<a class="linkbtn" href="${url}" target="_blank" rel="noopener">🔗 Відкрити</a>`;$('rt').innerHTML=html;}
+function escAttr(x){return String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function showResult(msg,text){const url=findURL(text);let html=msg?('<span class="g">'+msg+'</span>'):'';if(url)html+=`<a class="linkbtn" href="${escAttr(url)}" target="_blank" rel="noopener">🔗 Відкрити</a>`;$('rt').innerHTML=html;}
 
 /* ═══ ЧОМУ НЕ ПРОЧИТАЛОСЯ ═══
    Декодер лишає в TainaDecoder.last.diagnostic перелік відхилених гіпотез
@@ -1878,17 +2041,41 @@ const IC_SAVE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
 const IC_LOAD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 3h14"/></svg>';
 /* Кнопку перемальовуємо ЛИШЕ коли змінюється її стан (або мова).
    Інакше вміст замінюється прямо під пальцем — і браузер губить клік. */
-function syncMain(){const b=$('mainbtn'),st=((hasImage&&!isDemo)?'save':'load')+'|'+LANG;
-  if(b.dataset.st!==st){b.dataset.st=st;b.innerHTML=st.startsWith('save')?IC_SAVE+'<span>'+t('save')+'</span>':IC_LOAD+'<span>'+t('load')+'</span>';}
+function syncMain(){const b=$('mainbtn'),can=(hasImage&&!isDemo),st=(can?'save':'load')+'|'+LANG;
+  if(b.dataset.st!==st){b.dataset.st=st;b.innerHTML=IC_SAVE;b.title=t('save');b.setAttribute('aria-label',t('save'));}
+  b.disabled=!can;                     /* нема що зберігати — стрілка згасла */
   if(menuOpen)closeMenu();}
 function closeMenu(){menuOpen=false;$('menu').classList.add('hide');$('menu').innerHTML=''}
+/* Меню «Зберегти» висить під стрілкою біля холста (ПК). На телефоні його
+   місце — шухляда мобільної оболонки, тут лише вікно публікації. */
+function placeMenu(){
+  const m=$('menu'),b=$('mainbtn');
+  if(!m||!b||m.classList.contains('hide')||matchMedia('(max-width:820px)').matches)return;
+  const r=b.getBoundingClientRect(),w=m.offsetWidth||320;
+  m.style.left=Math.max(8,Math.min(r.right,innerWidth-8)-w)+'px';
+  m.style.top=Math.round(r.bottom+8)+'px';
+  m.style.maxHeight=Math.max(220,innerHeight-r.bottom-8-14)+'px';
+}
+addEventListener('resize',placeMenu);
+/* Звичайному відвідувачу — дві дії: зберегти й опублікувати в галерею.
+   Ім'я файлу, «Для друку» і «Сканувати інше» — лише адміністратору. */
 function openMenu(){
   const m=$('menu');menuOpen=true;m.classList.remove('hide');
   if(hasImage){
-    const sug=defaultName();m.innerHTML=`<div class="menu-t">Ім'я файлу</div><input id="fname" value="${sug}" autocomplete="off" spellcheck="false"><div class="row"><button class="b gold" id="do-save">⤓ Для соцмереж</button></div><div class="row"><button class="b" id="do-save-print">⤓ Для друку</button></div><div class="row"><button class="b" id="do-publish">✦ Опублікувати в галерею</button></div><div class="row"><button class="b" id="do-scan">⌖ Сканувати інше</button></div>`;const fnm=()=>($('fname').value||sug).trim().replace(/[\\/:*?"<>|]/g,'_')||'taina';
+    const sug=defaultName();
+    if(ADMIN){
+      m.innerHTML=`<div class="menu-t">Ім'я файлу</div><input id="fname" value="${sug}" autocomplete="off" spellcheck="false"><div class="row"><button class="b gold" id="do-save">⤓ Для соцмереж</button></div><div class="row"><button class="b" id="do-save-print">⤓ Для друку</button></div><div class="row"><button class="b" id="do-publish">✦ Опублікувати в галерею</button></div><div class="row"><button class="b" id="do-scan">⌖ Сканувати інше</button></div>`;const fnm=()=>($('fname').value||sug).trim().replace(/[\\/:*?"<>|]/g,'_')||'taina';
       $('do-save').onclick=()=>{window.saveImage?saveImage(fnm(),'web'):savePNG(fnm());closeMenu()};
       $('do-save-print').onclick=()=>{if(window.saveImage)saveImage(fnm(),'print');closeMenu()};$('do-publish').onclick=e=>{e.stopPropagation();openPublish()};$('do-scan').onclick=()=>{closeMenu();$('file').click()};setTimeout(()=>{const f=$('fname');if(f){f.focus();f.select()}},40);
-  }else{m.innerHTML=`<div class="menu-t">Джерело</div><div class="row"><button class="b gold" id="src-gal">🖼 Обрати файл</button></div>`;$('src-gal').onclick=()=>{closeMenu();$('file').click()};}}
+    }else{
+      const nm=()=>sug.trim().replace(/[\\/:*?"<>|]/g,'_')||'taina';
+      m.innerHTML=`<div class="row"><button class="b gold" id="do-save">⤓ ${t('save')}</button></div><div class="row"><button class="b" id="do-publish">✦ Опублікувати в галерею</button></div>`;
+      $('do-save').onclick=()=>{savePNG(nm());closeMenu()};
+      $('do-publish').onclick=e=>{e.stopPropagation();openPublish()};
+    }
+  }else{m.innerHTML=`<div class="menu-t">Джерело</div><div class="row"><button class="b gold" id="src-gal">🖼 Обрати файл</button></div>`;$('src-gal').onclick=()=>{closeMenu();$('file').click()};}
+  placeMenu();
+}
 $('mainbtn').onclick=e=>{e.stopPropagation();if(busy)return;menuOpen?closeMenu():openMenu()};
 document.addEventListener('click',e=>{if(menuOpen&&!e.target.closest('.action'))closeMenu();});
 
@@ -1905,7 +2092,7 @@ function savePNG(name){OFF.toBlob(b=>{dlBlob(b,name+'.png');tone(660,.09,.07)});
 
 const SUPA_URL='https://iieahzklwngqugkovhrs.supabase.co';const SUPA_KEY='sb_publishable_FHtRNaLBvDgDTSLa_8eQnQ_oPMWCIxF';
 function detectLang(t){if(/[\u0400-\u04FF]/.test(t))return 'uk';if(/[\u4E00-\u9FFF]/.test(t))return 'zh';if(/[a-zA-Z]/.test(t))return 'en';return '';}
-function openPublish(){const mainWord=D.single;if(!mainWord.trim()){toast('Спершу напиши щось');return;}const m=$('menu');menuOpen=true;m.classList.remove('hide');m.innerHTML=`<div class="menu-t">Опублікувати в галерею</div><div class="hint">⚠ Байткод — відкритий код. Будь-хто зможе прочитати ваш текст. Не публікуйте таємниць.</div><input id="pub-title" placeholder="Назва (видима всім)" autocomplete="off" spellcheck="false"><div class="row"><button class="b gold" id="pub-yes">✦ Так, опублікувати</button></div><div class="row"><button class="b" id="pub-no">Скасувати</button></div>`;$('pub-yes').onclick=e=>{e.stopPropagation();doPublish(mainWord)};$('pub-no').onclick=e=>{e.stopPropagation();closeMenu()};}
+function openPublish(){const mainWord=D.single;if(!mainWord.trim()){toast('Спершу напиши щось');return;}const m=$('menu');menuOpen=true;m.classList.remove('hide');m.innerHTML=`<div class="menu-t">Опублікувати в галерею</div><div class="hint">⚠ Байткод — відкритий код. Будь-хто зможе прочитати ваш текст. Не публікуйте таємниць.</div><input id="pub-title" placeholder="Назва (видима всім)" autocomplete="off" spellcheck="false"><div class="row"><button class="b gold" id="pub-yes">✦ Так, опублікувати</button></div><div class="row"><button class="b" id="pub-no">Скасувати</button></div>`;$('pub-yes').onclick=e=>{e.stopPropagation();doPublish(mainWord)};$('pub-no').onclick=e=>{e.stopPropagation();closeMenu()};placeMenu();}
 async function doPublish(word){const btn=$('pub-yes');if(btn){btn.textContent='Публікую…';btn.disabled=true;}const settings={purpose,colOne:E1(), colZero:E0(), colAlt:EA(), accZero:(motif!=='none'?A0():null), palette:PAL().uk, motif, motifK, shape, volT, fabric:fabT, fabricGrain:fabG, stitch:'tpl51', frame:frameW, monoMark, frameColor:layers!==3, invert, rgbInv:INV_SEQ[rgbStep], words:layers===3?D.ch.slice():undefined};let image_url=null;try{const scale=Math.max(1,Math.round(1000/Math.max(OFF.width,1)));const ex=document.createElement('canvas');ex.width=OFF.width*scale;ex.height=OFF.height*scale;const cx=ex.getContext('2d');cx.imageSmoothingEnabled=false;cx.drawImage(OFF,0,0,OFF.width,OFF.height,0,0,ex.width,ex.height);const blob=await new Promise(function(res){ex.toBlob(res,'image/png');});const fname='o_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.png';const up=await fetch(SUPA_URL+'/storage/v1/object/ornaments/'+fname,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'image/png'},body:blob});if(up.ok)image_url=SUPA_URL+'/storage/v1/object/public/ornaments/'+fname;else console.log('upload err',up.status);}catch(e){console.log('img err',e);}const pubTitle=($('pub-title')||{}).value||'';const row={word,mode,layers,settings,lang:detectLang(word),image_url,title:pubTitle||word};try{const resp=await fetch(`${SUPA_URL}/rest/v1/bytecodes`,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(row)});closeMenu();if(resp.ok){toast('✦ Опубліковано в галерею!');okChime();}else{const t=await resp.text();toast('Помилка: '+resp.status);console.log('publish err',t);}}catch(e){closeMenu();toast('Немає зв\'язку з галереєю');}}
 
 /* ПАЛІТРИ — тільки базові кольори. Будь-який відтінок, від чорного до
@@ -2021,9 +2208,10 @@ function readStatus(flash){
   clearTimeout(rsTimer);
   if(!readable()){rsBad=true;e.innerHTML='<span class="r rs-bad">⚠ '+t('wBad')+'</span>';return;}
   const was=rsBad; rsBad=false;
-  if(!flash&&!was){if(e.querySelector('.rs-bad'))e.innerHTML='';return;}
-  e.innerHTML='<span class="g rs-ok">✓ '+t('wGood')+'</span>';
-  if(matchMedia('(max-width:820px)').matches||rsOverlaps())rsHideLater();
+  /* Напис «цей код читається» прибрано: код, що не читається, не допускається
+     взагалі (readable() завжди true), тож повідомляти нема про що. Лишається
+     лише застереження вище, якщо колись воно знадобиться. */
+  if(was||e.querySelector('.rs-bad'))e.innerHTML='';
 }
 /* На ПК зелений напис лишається — поки не почне налазити на орнамент. */
 addEventListener('input',e=>{if(e.target&&e.target.id==='txt'&&$('rt').querySelector('.rs-ok')&&rsOverlaps())rsHideLater();});
@@ -2259,7 +2447,7 @@ const PHRASES={uk:'Напиши що завгодно',en:'Write anything'};
 let tourRun=0, tourDead=false, tourSaved=null;
 const tw=ms=>new Promise(r=>setTimeout(r,ms));
 function tourAlive(run){return run===tourRun&&!tourDead;}
-function tourPick(gi,ii){palG=gi;palI=ii;buildSwatches();render();}
+function tourPick(gi,ii){palG=gi;palI=ii;buildSwatches();syncPalRows();render();}
 /* ПРОЖЕКТОР: екран темніє на 20%, світле коло перелітає туди, де
    зараз станеться дія, — і лише потім дія відбувається. Затемнення
    зроблене величезною тінню навколо кола (box-shadow), тому коло
@@ -2318,7 +2506,7 @@ async function tourPlay(){
       spot.classList.remove('fast');
       await tw(1300);
     },
-    async()=>{ if(!await look($('layers').children[1],'',run))return; setPurpose('screen'); build(); await tw(1200); },  // 2. для екрана (у кінці показ повертає вишивку)
+    async()=>{ if(!ADMIN)return; if(!await look($('layers').children[1],'',run))return; setPurpose('screen'); build(); await tw(1200); },  // 2. для екрана (у кінці показ повертає вишивку)
     async()=>{ if(!await look($('pal-btn'),'',run))return; tourPal(true); await tw(600); },                    // 3. палітра
     async()=>{ if(!await look($('pl-list').children[0],'',run))return; tourPick(0,0); await tw(900); },          //    традиційні: червоно-чорна
     async()=>{ if(!await look($('pl-list').children[1],'',run))return; tourPick(0,1); await tw(1000); },         //    синьо-біла
@@ -2386,7 +2574,7 @@ function restoreState(){
   rgbStep=((+st.rs||0)%8+8)%8; rgbDeg=rgbStep*45;
   fabT=+st.ft||0; fabG=(st.fg!=null)?+st.fg:35; $('fab').value=fabT; $('fabg').value=fabG; $('vol').value=volT;
   shape=(st.sh==='circle'||st.sh==='cross')?st.sh:'square'; syncSeg('shape','s',shape);
-  if(st.pu==='stitch'&&SPALS[st.si]){purpose='stitch';spI=+st.si;}
+  if(ADMIN&&st.pu==='stitch'&&SPALS[st.si]){purpose='stitch';spI=+st.si;}
   if(st.sl&&typeof st.sl==='object')scrLook=st.sl;
   if(STITCH())stitchSync();
   buildSwatches();
@@ -2446,6 +2634,7 @@ function updateBytes(){
 function bumpField(){const f=$('txt');f.classList.remove('bump');void f.offsetWidth;f.classList.add('bump');tone(220,.1,.07,'square');}
 
 $('txt').oninput=e=>{
+  if(e.target.value.trim().toLowerCase()==='//admin'){e.target.value='';setAdmin(!ADMIN);return;}   /* режим адміністратора */
   if($('rt'))$('rt').innerHTML='';
   const fit=fitBytes(D.single,e.target.value);
   if(fit){ e.target.value=fit.value; try{e.target.selectionStart=e.target.selectionEnd=fit.caret;}catch(_){} bumpField(); }
@@ -2536,11 +2725,17 @@ function applyLang(){
   $('undo').title=t('undo'); $('redo').title=t('redo'); $('clr').title=t('clear'); syncInv();
   $('themeBtn').title=t('theme');
   $('langBtn').textContent=(LANG==='en')?'EN':'UA';
+  const smt=$('sm-theme-l');if(smt)smt.textContent=t('theme');
+  const sml=$('sm-lang-l');if(sml)sml.textContent=t('langL');
+  const sma=$('sm-adm-l');if(sma)sma.textContent=t('admL');
+  const smo=$('sm-adm-off');if(smo)smo.textContent=t('admOff');
+  const smb=$('sm-btn');if(smb){smb.title=t('menuT');smb.setAttribute('aria-label',t('menuT'));}
+  if(window.syncLinkPill)syncLinkPill();
   const mbS=$('mb-save'), mbC=$('mb-scan');
   if(mbS)mbS.textContent=t('mbSave'); if(mbC)mbC.textContent=t('mbScan');
   const sh=$('sheet');
   if(sh){sh.querySelector('.sh-t').textContent=t('shTitle');
-    $('sh-cam').textContent=t('shCam'); $('sh-file').textContent=t('shFile'); $('sh-x').textContent=t('shCancel');}
+    $('sh-cam').textContent=t('shCam'); $('sh-file').textContent=matchMedia('(max-width:820px)').matches?t('shFile'):t('shFilePc'); $('sh-x').textContent=t('shCancel');}
   syncMain(); updateBytes();
   /* Шапку малює оболонка — просимо її перемалюватися новою мовою. */
   if(window.TainaShell&&TainaShell.setLang)TainaShell.setLang(LANG);
@@ -2552,6 +2747,121 @@ $('langBtn').onclick=()=>{
   applyLang(); tone(680,.07,.05);
 };
 applyLang();
+
+/* ═══════════════ ВЕРСІЯ 3 ═══════════════ */
+
+/* — Холст на всю доступну висоту (ПК). Ширину обмежують колонки й стрілки,
+     висоту — вікно: від верху холста до низу екрана, без прокрутки.
+     Внутрішня роздільність холста росте разом із ним (до 1160 px — це
+     розмір готової картинки), щоб на великому екрані орнамент не розмивався. */
+function setCv(px){if(CV.width!==px){CV.width=CV.height=px;blit();}}
+function fitStage(){
+  const root=document.documentElement;
+  if(matchMedia('(max-width:820px)').matches){root.style.removeProperty('--stage-max');setCv(512);return;}
+  const wrap=document.querySelector('.stagewrap');if(!wrap)return;
+  const foot=document.querySelector('footer');
+  const top=wrap.getBoundingClientRect().top+scrollY;
+  const byH=innerHeight-top-22-((foot&&foot.offsetHeight)||0);
+  const byW=wrap.clientWidth-2*(48+12);
+  const side=Math.floor(Math.max(160,Math.min(byH,byW)));
+  root.style.setProperty('--stage-max',side+'px');
+  setCv(Math.max(512,Math.min(1160,Math.round(side*(window.devicePixelRatio||1)))));
+}
+
+/* — ☰ стоїть у смузі шапки справа. Шапку малює shell.js, тож ми лише
+     вирівнюємо кнопку по її висоті; якщо вміст шапки заходить під кнопку,
+     звільняємо їй місце справа. — */
+function placeSm(){
+  const b=$('sm-btn');if(!b||matchMedia('(max-width:820px)').matches)return;
+  const h=document.querySelector('header');
+  let top=10,pos='absolute';
+  if(h){
+    h.style.paddingRight='';
+    const r=h.getBoundingClientRect(),cs=getComputedStyle(h);
+    pos=(cs.position==='fixed'||cs.position==='sticky')?'fixed':'absolute';
+    const mid=r.top+(r.height-44)/2;
+    top=mid+(pos==='absolute'?scrollY:0);
+    const L=innerWidth-14-44-8;let hit=false;
+    h.querySelectorAll('a,button').forEach(el=>{const q=el.getBoundingClientRect();
+      if(q.width&&q.right>L&&q.left<innerWidth-14&&q.bottom>mid&&q.top<mid+44)hit=true;});
+    if(hit)h.style.paddingRight=(44+14+14)+'px';
+  }
+  b.style.position=pos;b.style.top=Math.max(4,Math.round(top))+'px';
+}
+function relayout(){fitStage();placeSm();}
+relayout();
+addEventListener('resize',relayout);
+addEventListener('load',relayout);
+[60,400,1200,3000].forEach(ms=>setTimeout(relayout,ms));
+if(window.ResizeObserver){
+  const ro=new ResizeObserver(relayout);
+  [$('hdr'),document.querySelector('.app'),document.querySelector('.txtzone')].forEach(e=>{if(e)ro.observe(e);});
+}
+if(window.MutationObserver)new MutationObserver(relayout).observe(document.body,{childList:true});   /* шапку малює shell.js вже після нас */
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(relayout);
+
+/* — Кнопка «Лабораторія» в шапці зайва: назва ТАЙНА веде на ту саму сторінку.
+     Шапку малює shell.js (його тут немає), тож кнопку ховаємо за написом;
+     це запобіжний захід на цій сторінці — повністю її прибирає правка в shell.js. — */
+(function(){
+  const NAMES=['лабораторія','лаборатория','laboratory','lab'];
+  function hideLab(){
+    const h=document.querySelector('header');if(!h)return;
+    let changed=false;
+    h.querySelectorAll('a,button').forEach(e=>{
+      if(e.id==='sm-btn'||e.style.display==='none')return;
+      if(NAMES.indexOf((e.textContent||'').trim().toLowerCase())>=0){e.style.display='none';changed=true;}
+    });
+    if(changed)relayout();
+  }
+  hideLab();
+  const root=$('hdr')||document.body;
+  if(window.MutationObserver)new MutationObserver(hideLab).observe(root,{childList:true,subtree:true,characterData:true});
+  [200,800,2000].forEach(ms=>setTimeout(hideLab,ms));
+})();
+
+/* — ☰: тема й мова — */
+(function(){
+  const btn=$('sm-btn'),pop=$('sm-pop');if(!btn||!pop)return;
+  const open=()=>{
+    if(matchMedia('(max-width:820px)').matches)return;
+    const r=btn.getBoundingClientRect();
+    pop.style.top=Math.round(r.bottom+8)+'px';
+    pop.style.right=Math.max(8,Math.round(innerWidth-r.right))+'px';
+    pop.classList.remove('hide');btn.setAttribute('aria-expanded','true');
+  };
+  const close=()=>{pop.classList.add('hide');btn.setAttribute('aria-expanded','false');};
+  btn.onclick=e=>{e.stopPropagation();pop.classList.contains('hide')?open():close();};
+  document.addEventListener('click',e=>{if(!pop.classList.contains('hide')&&!e.target.closest('#sm-pop'))close();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
+  addEventListener('resize',close);
+  addEventListener('scroll',close,{passive:true});
+  /* дотик по рядку = дотик по його кнопці */
+  pop.querySelectorAll('.sm-row[data-for]').forEach(row=>row.addEventListener('click',e=>{
+    if(e.target.closest('button'))return;
+    const b=$(row.dataset.for);if(b)b.click();}));
+  const off=$('sm-adm-off');if(off)off.onclick=e=>{e.stopPropagation();setAdmin(false);};
+})();
+
+/* Esc закриває й меню під стрілкою — так само, як ☰ */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&menuOpen&&!matchMedia('(max-width:820px)').matches)closeMenu();});
+
+/* — «Відкрити посилання»: кнопка висить під самим полем і росте разом із ним — */
+(function(){
+  const rt=$('rt'),host=document.querySelector('.inbox');if(!rt||!host)return;
+  let pill=null;
+  function sync(){
+    const a=rt.querySelector('a.linkbtn');
+    if(!a){if(pill){pill.remove();pill=null;}return;}
+    if(!pill){pill=document.createElement('a');pill.className='linkpill';pill.target='_blank';pill.rel='noopener';host.appendChild(pill);}
+    pill.setAttribute('href',a.getAttribute('href'));
+    pill.textContent='🔗 '+t('openLink');
+  }
+  window.syncLinkPill=sync;
+  if(window.MutationObserver)new MutationObserver(sync).observe(rt,{childList:true,subtree:true,characterData:true});
+  sync();
+})();
 
 </script>
 
@@ -2909,7 +3219,7 @@ function printOrn(o){
 function saveImage(base,kind){
   var name=(base||'taina')+(kind==='print'?'_print':'_web');
   var cv;
-  if(S.on) cv=poster({print:kind==='print'});
+  if(S.on&&window.TAINA_ADMIN) cv=poster({print:kind==='print'});
   else if(kind==='print') cv=printOrn().canvas;
   else cv=OFF;
   cv.toBlob(function(b){dlBlob(b,name+'.png');if(typeof tone==='function')tone(660,.09,.07);},'image/png');
@@ -2957,7 +3267,7 @@ function sync(){
 }
 var tmr=0;
 function refresh(){
-  if(!S.on||!hasImage)return;
+  if(!window.TAINA_ADMIN||!S.on||!hasImage)return;
   clearTimeout(tmr);tmr=setTimeout(function(){
     try{var c=poster();$('sig-pv').src=c.toDataURL('image/png');}catch(e){console.warn(e);}
   },120);
@@ -2978,7 +3288,7 @@ document.body.appendChild(P);P.hidden=true;   /* поки не вставлен�
 
 /* ── збереження: увімкнено — віддаємо постер ── */
 var _save=window.savePNG;
-window.savePNG=function(name){ if(!S.on) return _save(name); download(name); };
+window.savePNG=function(name){ if(!S.on||!window.TAINA_ADMIN) return _save(name); download(name); };
 window.saveImage=saveImage;
 /* орнамент змінився — оновлюємо попередній перегляд */
 var _render=window.render;
@@ -2986,12 +3296,9 @@ window.render=function(){var r=_render.apply(this,arguments);refresh();return r;
 /* ПК: панель у меню збереження */
 var _open=window.openMenu;
 window.openMenu=function(){_open.apply(this,arguments);
-  if(hasImage&&!matchMedia('(max-width:820px)').matches){$('menu').appendChild(P);P.hidden=false;refresh();fitMenu();}};
+  if(window.TAINA_ADMIN&&hasImage&&!matchMedia('(max-width:820px)').matches){$('menu').appendChild(P);P.hidden=false;refresh();fitMenu();}};
 /* меню росте вгору — не даємо йому залізти під шапку сайту */
-function fitMenu(){var m=$('menu');if(!m||m.classList.contains('hide')||!m.contains(P))return;
-  m.style.maxHeight='none';
-  var hdr=document.querySelector('header'), top=hdr?hdr.getBoundingClientRect().bottom+10:10;
-  m.style.maxHeight=Math.max(220,m.getBoundingClientRect().bottom-top)+'px';}
+function fitMenu(){if(window.placeMenu)placeMenu();}
 P.addEventListener('click',function(){setTimeout(fitMenu,0);});
 
 window.TainaSig={panel:P,poster:poster,settings:S,refresh:refresh,printOrn:printOrn,saveImage:saveImage};
@@ -3294,7 +3601,7 @@ var aMerch=document.createElement('a');aMerch.className='m-act';aMerch.href='ser
 aMerch.innerHTML=I.sh+'<span>Приміряти на мерч<small>футболка, торба, листівка</small></span>';
 pv.appendChild(aMerch);
 /* «Підпис» — у самому низу шухляди «Зберегти» */
-if(window.TainaSig){pv.appendChild(TainaSig.panel);TainaSig.panel.hidden=false;}
+if(window.TainaSig&&window.TAINA_ADMIN){pv.appendChild(TainaSig.panel);TainaSig.panel.hidden=false;}
 
 /* вікно публікації живе в прихованому блоці — показуємо його поверх екрана */
 var _closeMenu=window.closeMenu;
