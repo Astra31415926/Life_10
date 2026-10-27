@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   decoder.js — TAINA Decoder v2.8 (з лабораторією: адреса сайту + #lab)
+   decoder.js — TAINA Decoder v2.9 (з лабораторією: адреса сайту + #lab)
    Новый декодер, написанный с нуля под камеру мобильного телефона.
 
    НОТАЦИЯ РАЗМЕРА (стандарт проекта):
@@ -820,7 +820,16 @@ function insetCornersFrac(pts, frac, S) {
  * а в синьому каналі — 79. Шукати зебру по яскравості там марно.
  */
 function pickStructureChannels(px, W, H0) {
-  let step = Math.max(1, Math.floor((W * H0) / 20000)) * 4;
+  /* Крок вибірки (у пікселях) — ПРОСТЕ число, що не ділить ширину (з 2.9).
+     Раніше крок був «будь-який»: на збереженому орнаменті 1173×1173, де
+     модуль рівно 17 px, крок 68 px (4 модулі) потрапляв щоразу в той самий
+     піксель модуля — у чорний просвіт між намистинками. Розкид виходив 2.8
+     в усіх каналах, «несучий» канал не пробувався, і червоно-чорний код не
+     читався. З простим кроком вибірка обходить усі фази модуля. */
+  const isPrime = n => { if (n < 2) return false; for (let d = 2; d * d <= n; d++) if (n % d === 0) return false; return true; };
+  let ps = Math.max(1, Math.floor((W * H0) / 20000));
+  while (ps > 2 && (!isPrime(ps) || W % ps === 0)) ps--;
+  let step = ps * 4;
   const s = [0, 0, 0, 0], s2 = [0, 0, 0, 0];
   let N = 0;
   for (let i = 0; i + 3 < px.length; i += step) {
@@ -995,40 +1004,95 @@ function outerFrameScore(px, W, H0, pts, Tz, ch) {
      Так не читалися коди з полем 41×41. Два відліки на модуль гарантують,
      що обидва кольори зебри потрапляють у вибірку на будь-якому розмірі. */
   const NS = Math.max(20, Math.ceil(Tz * 2.2));
-  const ringAt = (radMod) => {
+  const lumAt = (x, y) => {
+    const q = (y * W + x) * 4;
+    return (ch == null || ch < 0)
+      ? (px[q] * 77 + px[q+1] * 150 + px[q+2] * 29) >> 8
+      : px[q + ch];
+  };
+  /* ЩІЛИНИ МІЖ НАМИСТИНАМИ (з 2.9). Намистинки й плитки лежать впритул,
+     а між ними — тонка темна смужка (обвідка плюс просвіт, до 6–8% модуля).
+     Одна точка вибірки іноді падала саме в неї, і суцільне світле кільце
+     виходило «пунктиром»: на плакаті, де модуль 12 px, чесна рамка набирала
+     0.93–0.94 при порозі 0.95 — і код з довгим посиланням не читався.
+     Тому точка кільця тепер — МЕДІАНА З ТРЬОХ відліків уздовж кільця: сам
+     центр і по одному в обидва боки на 0.08 модуля (не ближче піксела).
+     Одинока щілина (один відлік із трьох) медіану не зсуває, а от справжня
+     зміна кольору — зсуває. Саме медіана, а не «найсвітліший із трьох»:
+     вибір найсвітлішого (чи найтемнішого) нахиляє перевірку в бік потрібної
+     відповіді, і всередині чужого візерунка вона починала бачити «рамки»,
+     яких там немає (на коротких текстах це давало зайву літеру замість
+     тексту). Медіана нікуди не нахиляє: лише прощає одиноку щілину.
+     win = false: один піксель, як було раніше (так міряється сама зебра).
+     visit(v, j, fr) — для зебри: номер клітинки вздовж сторони й відстань
+     точки від її центра (у модулях). */
+  const WIN = 0.08;
+  const inb = (x, y) => !(x < 0 || y < 0 || x >= W || y >= H0);
+  const ringAt = (radMod, win, visit) => {
     const p = insetCorners(pts, -radMod, Tz);
     if (!p) return null;
     const out = [];
     for (let i = 0; i < 4; i++) {
       const a = p[i], b = p[(i + 1) % 4];
+      const dx = b[0] - a[0], dy = b[1] - a[1];
+      const len = Math.hypot(dx, dy) || 1;
+      const d = win ? Math.max(1, WIN * len / (Tz + 2 * radMod)) : 0;
+      const ux = dx / len * d, uy = dy / len * d;
       for (let s = 0; s < NS; s++) {
         const t = 0.05 + (0.9 * s) / (NS - 1);
-        const x = Math.round(a[0] + (b[0] - a[0]) * t);
-        const y = Math.round(a[1] + (b[1] - a[1]) * t);
-        if (x < 0 || y < 0 || x >= W || y >= H0) continue;
-        const q = (y * W + x) * 4;
-        out.push((ch == null || ch < 0)
-          ? (px[q] * 77 + px[q+1] * 150 + px[q+2] * 29) >> 8
-          : px[q + ch]);
+        const cx = a[0] + dx * t, cy = a[1] + dy * t;
+        const x = Math.round(cx), y = Math.round(cy);
+        if (!inb(x, y)) continue;
+        let v = lumAt(x, y);
+        if (win) {
+          const x1 = Math.round(cx - ux), y1 = Math.round(cy - uy);
+          const x2 = Math.round(cx + ux), y2 = Math.round(cy + uy);
+          const v1 = inb(x1, y1) ? lumAt(x1, y1) : v;
+          const v2 = inb(x2, y2) ? lumAt(x2, y2) : v;
+          v = Math.max(Math.min(v, v1), Math.min(Math.max(v, v1), v2));   // медіана з трьох
+        }
+        out.push(v);
+        if (visit) { const u = t * (Tz - 1), j = Math.round(u); visit(v, j, Math.abs(u - j)); }
       }
     }
     return out.length >= 40 ? out : null;
   };
 
-  const zeb = ringAt(-0.5);     // само кольцо зебры — эталон контраста
+  const zeb = ringAt(-0.5, false);   // само кольцо зебры — эталон контраста
   if (!zeb) return { score: 0, wOk: 0, bOk: 0, reason: 'кольца вне кадра' };
 
   const sz = [...zeb].sort((a, b) => a - b);
   const lo = sz[Math.floor(sz.length * 0.1)], hi = sz[Math.floor(sz.length * 0.9)];
   if (hi - lo < 30) return { score: 0, wOk: 0, bOk: 0, reason: 'нет контраста зебры' };
-  const thr = (lo + hi) / 2;
+
+  /* ПОРІГ «СВІТЛЕ / ТЕМНЕ» (з 2.9). За основу — як і раніше, середина між
+     10-м і 90-м відсотком зебри. Але об'ємні намистинки мають тіні й
+     відблиски: тінь СВІТЛОЇ намистинки лежить рівно біля цієї середини, і
+     частина точок білого кільця випадала «в темне» (на червоно-чорному
+     плакаті рамка не діставала до порогу). Зебра чергується «темна, світла,
+     темна…» й сама показує, як на цьому знімку виглядають обидві клітинки:
+     якщо найсвітліша з темних і найтемніша зі світлих чітко розділені
+     (просвіт не менший за 10% розмаху), поріг — середина цього просвіту.
+     Якщо не розділені — це не справжня зебра (чужий візерунок, випадкове
+     «чергування»), і лишається проста середина. Так поріг підлаштовується
+     лише під справжню рамку й не дає чужому візерунку вдаваного порогу. */
+  const R = hi - lo;
+  const pct = (a, p) => { const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(s.length * p))]; };
+  const Ds = [], Ls = [];
+  ringAt(-0.5, true, (v, j, fr) => { if (fr <= 0.35) ((j % 2) === 0 ? Ds : Ls).push(v); });
+  let thr = (lo + hi) / 2;
+  if (Ds.length >= 12 && Ls.length >= 12) {
+    const d95 = pct(Ds, 0.95), l5 = pct(Ls, 0.05);
+    if (l5 - d95 >= 0.10 * R)
+      thr = Math.max(lo + 0.25 * R, Math.min(lo + 0.75 * R, (d95 + l5) / 2));
+  }
 
   /* Радіус беремо з допуском (з 1.9). Кут квадрата визначено з точністю
      до кількох пікселів, і для великого коду (модуль 10 px) це половина
      модуля: кільце з'їжджає на межу смужки й валить цілий код. */
   const best = (radii, pred) => {
     let v = -1;
-    for (const r of radii) { const w = ringAt(r); if (!w) continue;
+    for (const r of radii) { const w = ringAt(r, true); if (!w) continue;
       const f = w.filter(pred).length / w.length; if (f > v) v = f; }
     return v;
   };
@@ -1100,8 +1164,8 @@ function findQuadsCV(canvas, W, H) {
     bs = Math.max(11, Math.min(151, bs));
     const minA = W * H * 0.002, maxA = W * H * 0.98;
     const quads = [];
-    const same = (a, bq) => {
-      const tol = Math.max(3, meanSide(a) * 0.02);
+    const same = (a, bq, k) => {
+      const tol = Math.max(3, meanSide(a) * (k || 0.02));
       return a.every((p, i) => Math.hypot(p[0] - bq[i][0], p[1] - bq[i][1]) <= tol);
     };
     for (const chan of [gray, vmax]) {
@@ -1124,8 +1188,21 @@ function findQuadsCV(canvas, W, H) {
           for (let p = 0; p < 4; p++) pts.push([ap.data32S[p*2], ap.data32S[p*2+1]]);
           const ord = orderCorners(pts);
           const sq = squareness(ord);
-          if (sq > CFG.SQUARENESS_MIN && !quads.some(q => same(q.pts, ord)))
-            quads.push({ pts: ord, area, sq, ch: chan === gray ? 'gray' : 'max' });
+          const chName = chan === gray ? 'gray' : 'max';
+          if (sq > CFG.SQUARENESS_MIN) {
+            /* (з 2.9) Той самий контур, знайдений ДРУГИМ каналом, але з
+               помітно іншими кутами (понад 0.4% сторони) — не дублікат, а
+               інша оцінка. На синьому коді з темними намистинками сіра копія
+               крива (синій фон за яскравістю темніший за самі намистинки),
+               а яскравий канал дає точний контур — і його раніше відкидали
+               як «схожий на вже знайдений». Дублікатом лишається збіг
+               в межах 3 px (або 0.4% сторони) і будь-який збіг у межах
+               того ж каналу. */
+            const dup = quads.find(q => same(q.pts, ord));
+            if (!dup || (dup.ch !== chName && !same(dup.pts, ord, 0.004) &&
+                         !quads.some(q => q.ch === chName && same(q.pts, ord))))
+              quads.push({ pts: ord, area, sq, ch: chName });
+          }
         }
         ap.delete(); cnt.delete();
       }
@@ -1900,7 +1977,7 @@ window.TainaDecoder = {
   last: null,               // результат останнього розбору, разом із діагностикою
   cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
-  version: '2.8',
+  version: '2.9',
   /* внутренности — для decoder-lab.html и автотестов */
   /* лабораторія: TainaDecoder.lab.show() — відкрити, .on — чи ввімкнена */
   lab: { get on() { return LAB.on; }, show() { labUI.open = true; labShow(); }, records: LAB.recs, text: () => LAB.recs.length ? labText(LAB.recs[LAB.idx]) : '' },
