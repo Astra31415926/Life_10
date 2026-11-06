@@ -883,9 +883,8 @@ async function admHash(pw){
   const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode(ADM_SALT),iterations:ADM_ITER,hash:'SHA-256'},key,256);
   return Array.from(new Uint8Array(bits),b=>b.toString(16).padStart(2,'0')).join('');
 }
-function admDoor(){            /* набрали //admin: власнику — перемкнути режим, іншим — спитати пароль */
-  if(OWNER){setAdmin(!ADMIN);return;}
-  askAdminPass();
+function admDoor(){            /* набрали //admin: перемкнути режим автора (без пароля — рішення 06.11.2026) */
+  setAdmin(!ADMIN);
 }
 function askAdminPass(){
   if(document.getElementById('adm-dlg'))return;
