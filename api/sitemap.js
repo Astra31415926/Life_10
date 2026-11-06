@@ -4,7 +4,7 @@
    Відповідає за адресою /sitemap.xml (правило у vercel.json). */
 const SUPA_URL = 'https://iieahzklwngqugkovhrs.supabase.co';
 const SUPA_KEY = 'sb_publishable_FHtRNaLBvDgDTSLa_8eQnQ_oPMWCIxF';
-const SITE = 'https://taina-ten.vercel.app';
+const SITE = 'https://www.ornamentcode.com';
 
 module.exports = async (req, res) => {
   const rows = [];
