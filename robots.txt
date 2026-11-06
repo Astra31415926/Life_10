@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://taina-ten.vercel.app/sitemap.xml
+Sitemap: https://www.ornamentcode.com/sitemap.xml

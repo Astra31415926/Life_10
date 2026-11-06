@@ -5,19 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>taina · лабораторія байткоду</title>
 <meta name="description" content="taina — генератор, що перетворює будь-який текст на симетричний орнамент-байткод, який можна відсканувати та прочитати назад.">
-<link rel="canonical" href="https://taina-ten.vercel.app/">
+<link rel="canonical" href="https://www.ornamentcode.com/">
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta property="og:type" content="website">
 <meta property="og:title" content="taina · лабораторія байткоду">
 <meta property="og:description" content="Текст, що стає симетричним орнаментом і читається назад.">
-<meta property="og:image" content="https://taina-ten.vercel.app/og-image.png">
-<meta property="og:url" content="https://taina-ten.vercel.app/">
+<meta property="og:image" content="https://www.ornamentcode.com/og-image.png">
+<meta property="og:url" content="https://www.ornamentcode.com/">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="taina · лабораторія байткоду">
 <meta name="twitter:description" content="Текст, що стає симетричним орнаментом і читається назад.">
-<meta name="twitter:image" content="https://taina-ten.vercel.app/og-image.png">
+<meta name="twitter:image" content="https://www.ornamentcode.com/og-image.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -1678,7 +1678,7 @@ const SCH_T={
             'Залиште навколо рамки щонайменше 2 порожні клітинки тканини.',
             'Перед скануванням випрасуйте роботу й зніміть її з п’яльця.',
             'Скануйте при рівному денному світлі, без відблисків і тіней, тримаючи телефон рівно над роботою.'],
-      scan:'Сканер: taina-ten.vercel.app',
+      scan:'Сканер: ornamentcode.com',
       copy:'© Михайло Кашкаров. Тільки для особистого використання. Не перепродавайте й не поширюйте цей файл.',
       skNote:'Кількість мотків — орієнтовно для Аїди 14 у 2 нитки, із запасом 20 %.',
       notes:['Номери ниток — найближчі відтінки DMC; звірте їх зі справжньою карткою кольорів.',
@@ -1706,7 +1706,7 @@ const SCH_T={
             'Leave at least 2 empty squares of fabric around the frame.',
             'Iron the finished piece flat and take it out of the hoop before scanning.',
             'Scan in even daylight, without glare or shadows, holding the phone straight above the piece.'],
-      scan:'Scanner: taina-ten.vercel.app',
+      scan:'Scanner: ornamentcode.com',
       copy:'© Mykhailo Kashkarov. For personal use only. Do not resell or share this file.',
       skNote:'Skein count is an estimate for Aida 14 with 2 strands, including a 20% reserve.',
       notes:['Thread numbers are the nearest DMC shades; check them against a real colour card.',
@@ -3073,7 +3073,7 @@ document.addEventListener('keydown',e=>{
 (function(){
 'use strict';
 var $=function(id){return document.getElementById(id);};
-var PW=1000, SITE='taina-ten.vercel.app', RED=[214,22,27];
+var PW=1000, SITE='ornamentcode.com', RED=[214,22,27];
 /* ФОН АРКУША = ПОЛЕ ДОВКОЛА КОДУ, а не окремий колір.
    Сканер шукає код по контрасту рамки з її власним полем; якщо поле
    замінити (скажімо, сірим), темне поле зникає — і читається сміття.

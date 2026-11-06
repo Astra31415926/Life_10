@@ -4,8 +4,8 @@
 
 taina turns any text into a decorative, mirror-symmetric pattern (bytecode ornament). The ornament is not just an image — it contains the original message and can be decoded by scanning it with a phone camera.
 
-🔗 **Live app:** [taina-2.vercel.app](https://taina-2.vercel.app)
-🖼 **Gallery:** [taina-2.vercel.app/gallery.html](https://taina-2.vercel.app/gallery.html)
+🔗 **Live app:** [ornamentcode.com](https://www.ornamentcode.com)
+🖼 **Gallery:** [ornamentcode.com/gallery.html](https://www.ornamentcode.com/gallery.html)
 
 ## How it works
 
