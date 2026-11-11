@@ -62,7 +62,7 @@ var M = {
       '<h2>Контакти</h2><ul class="clist">' +
       '<li><span class="k">Email</span><a href="mailto:bakminsterfuler@gmail.com">bakminsterfuler@gmail.com</a></li>' +
       '<li><span class="k">Телефон</span><a href="tel:' + PHONE_TEL + '">+380 68 275 28 59</a></li>' +
-      '<li><span class="k">Instagram</span><a href="https://instagram.com/mixailkashkarov" target="_blank" rel="noopener">@mixailkashkarov</a></li>' +
+      '<li><span class="k">Instagram</span><a href="https://instagram.com/mykhailo_kashkarov" target="_blank" rel="noopener">@mykhailo_kashkarov</a></li>' +
       '<li><span class="k">OpenSea</span><a href="https://opensea.io/MihailKashkarov" target="_blank" rel="noopener">MihailKashkarov</a></li>' +
       '</ul>',
     copied: 'Номер картки скопійовано', copyFail: 'Не вдалося скопіювати'
@@ -84,7 +84,7 @@ var M = {
       '<h2>Contacts</h2><ul class="clist">' +
       '<li><span class="k">Email</span><a href="mailto:bakminsterfuler@gmail.com">bakminsterfuler@gmail.com</a></li>' +
       '<li><span class="k">Phone</span><a href="tel:' + PHONE_TEL + '">+380 68 275 28 59</a></li>' +
-      '<li><span class="k">Instagram</span><a href="https://instagram.com/mixailkashkarov" target="_blank" rel="noopener">@mixailkashkarov</a></li>' +
+      '<li><span class="k">Instagram</span><a href="https://instagram.com/mykhailo_kashkarov" target="_blank" rel="noopener">@mykhailo_kashkarov</a></li>' +
       '<li><span class="k">OpenSea</span><a href="https://opensea.io/MihailKashkarov" target="_blank" rel="noopener">MihailKashkarov</a></li>' +
       '</ul>',
     copied: 'Card number copied', copyFail: 'Could not copy'

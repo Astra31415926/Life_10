@@ -807,8 +807,7 @@ body.light-mode #adm-dlg .hint{color:#8a4e00}
 <input type="file" id="file" accept="image/*" hidden>
 <div class="flash" id="flash"></div>
 
-<script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
-<script src="decoder.js?v=32"></script>
+<script src="decoder.js?v=33"></script>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -828,6 +827,7 @@ const DICT={
      mbSave:'⤓ Зберегти',mbScan:'⌖ Сканувати',shTitle:'Сканувати код',shCam:'📷 Камера',
      shFile:'🖼 Завантажити з галереї',shCancel:'Скасувати',
      noCode:'Код не прочитано',
+     cvLoad:'Завантажую сканер…',cvFailT:'Сканер не завантажився',cvFail:'Перевір інтернет і спробуй ще раз.',
      tipFar:'Коду не видно в кадрі. Зніми ближче, щоб код займав майже весь кадр — разом зі світлим полем навколо нього.',
      tipFrame:'Схоже на відблиск або обрізаний край. Знімай без спалаху, збоку від лампи, і лиши в кадрі всю рамку коду.',
      tipBlur:'Знімок замалий або нечіткий. Візьми більший (від 600 px) і дай камері навестися на різкість.',
@@ -842,6 +842,7 @@ const DICT={
      mbSave:'⤓ Save',mbScan:'⌖ Scan',shTitle:'Scan a code',shCam:'📷 Camera',
      shFile:'🖼 Pick from gallery',shCancel:'Cancel',
      noCode:'Code not read',
+     cvLoad:'Loading the scanner…',cvFailT:'The scanner did not load',cvFail:'Check your connection and try again.',
      tipFar:'No code visible in the frame. Move closer so the code fills most of it — together with the light margin around it.',
      tipFrame:'Looks like glare or a cropped edge. Shoot without flash, at an angle to the lamp, and keep the whole frame of the code in shot.',
      tipBlur:'The shot is too small or blurry. Use a larger image (600 px or more) and let the camera focus.',
@@ -1993,8 +1994,26 @@ let camKeep=null, camKeepTO=0;
 function releaseCam(){clearTimeout(camKeepTO);if(camKeep){camKeep.getTracks().forEach(t=>t.stop());camKeep=null;}}
 document.addEventListener('visibilitychange',()=>{if(document.hidden){if(camStream)stopCam();releaseCam();}});
 addEventListener('pagehide',()=>{if(camStream)stopCam();releaseCam();});
+/* СКАНЕР НА ВИМОГУ. Бібліотека сканера (opencv.js) лежить на своєму сайті
+   й вантажиться лише тоді, коли людина натиснула «Сканувати» або вибрала
+   картинку. Поки вантажиться — напис «Завантажую сканер…»; не вийшло —
+   повідомлення з порадою спробувати ще раз (наступна спроба вантажить знову). */
+function cvReadyNow(){return !!(window.TainaDecoder&&TainaDecoder.cvReady&&TainaDecoder.cvReady());}
+function cvKick(){try{if(window.TainaDecoder&&TainaDecoder.loadCV)TainaDecoder.loadCV();}catch(e){}}
+async function cvWait(){
+  if(cvReadyNow())return true;
+  if(!(window.TainaDecoder&&TainaDecoder.loadCV))return false;
+  $('rt').innerHTML='<span class="w">'+t('cvLoad')+'</span>';
+  let ok=false;try{ok=await TainaDecoder.loadCV();}catch(e){}
+  return !!ok;
+}
+function showCvFail(){
+  const ti=$('veil-title'), tp=$('veil-tip');
+  if(ti)ti.textContent=t('cvFailT');
+  if(tp)tp.textContent=t('cvFail');
+}
 async function startCam(){
-  tourStop();
+  tourStop();cvKick();
   const {v,vf,btn}=camEls();if(camStream){stopCam();}
   try{
     /* КАМЕРА ПЕРШОЮ, модуль — потім. Запит дозволу йде одразу, поки
@@ -2016,7 +2035,12 @@ async function startCam(){
     $('stage').classList.add('scanning');btn.textContent='⏹ Зупинити';
     $('rt').innerHTML='<span class="w">наведи на код…</span>';
     camLastText=null; camTimer=0; camBusy=false;startScanSound();
-    if(window.TainaDecoder&&TainaDecoder.ready){try{await TainaDecoder.ready;}catch(e){}}
+    if(!cvReadyNow()){
+      const cvOk=await cvWait();
+      if(!camStream)return;        /* встигли зупинити, поки вантажився модуль */
+      if(!cvOk){stopCam();$('rt').innerHTML='';showCvFail();const st=$('stage');st.classList.add('failed');setTimeout(function(){st.classList.remove('failed');},6000);return;}
+      $('rt').innerHTML='<span class="w">наведи на код…</span>';
+    }
     if(!camStream)return;          /* встигли зупинити, поки вантажився модуль */
     camLoop();
     clearTimeout(window._camTO);clearInterval(window._camTick);
@@ -2094,11 +2118,11 @@ async function showCamResult(found,shotURL){
 function drawScanned(url){return new Promise(res=>{const im=new Image();im.onload=()=>{OFF.width=OFF.height=512;OCTX.imageSmoothingEnabled=false;OCTX.drawImage(im,0,0,512,512);blit();res()};im.onerror=()=>res();im.src=url;});}
 
 $('file').onchange=e=>{
-  const f=e.target.files[0];if(!f)return;tourStop();   /* скан — завжди дія людини: показ геть */
+  const f=e.target.files[0];if(!f)return;tourStop();cvKick();   /* скан — завжди дія людини: показ геть */
   const url=URL.createObjectURL(f),im=new Image();
   im.onload=async()=>{
     URL.revokeObjectURL(url);busy=true;
-    if(window.TainaDecoder&&TainaDecoder.ready){try{await TainaDecoder.ready;}catch(e){}}
+    const cvOk=await cvWait();     /* напис «Завантажую сканер…», якщо бібліотека ще в дорозі */
     const shot=document.createElement('canvas');shot.width=shot.height=512;const sx=shot.getContext('2d');sx.imageSmoothingEnabled=false;const mn=Math.min(im.naturalWidth,im.naturalHeight);sx.drawImage(im,(im.naturalWidth-mn)/2,(im.naturalHeight-mn)/2,mn,mn,0,0,512,512);
     const shotURL=shot.toDataURL('image/png');const st=$('stage');st.classList.remove('failed');await drawScanned(shotURL);st.classList.add('scanning');startScanSound();$('rt').innerHTML='<span class="w">сканування…</span>';
     const [found]=await Promise.all([
@@ -2109,7 +2133,7 @@ $('file').onchange=e=>{
 
     /* Невдача: підказка лягає прямо на поле орнамента і тримається довше,
        ніж раніше, — щоб її встигли прочитати. Дотик прибирає її одразу. */
-    if(!found || !found.length){showNoCode();st.classList.add('failed');sadSound();$('rt').innerHTML='';showFail();$('report').textContent='—';await sleep(5000);st.classList.remove('failed');clearStage();busy=false;e.target.value='';return;}
+    if(!found || !found.length){if(!cvOk&&!cvReadyNow())showCvFail();else showNoCode();st.classList.add('failed');sadSound();$('rt').innerHTML='';showFail();$('report').textContent='—';await sleep(5000);st.classList.remove('failed');clearStage();busy=false;e.target.value='';return;}
 
     flash();const best=found[0];scannedImg=shotURL;showConf(best);
     await applyScan(best);
@@ -2825,7 +2849,7 @@ dbgIdle(); setInterval(()=>{ if(!busy && !camStream) dbgIdle(); },2000);
   if(typeof syncMain==='function'){const _sm=syncMain;window.syncMain=function(){_sm.apply(this,arguments);syncMobSave();};}
   setInterval(syncMobSave,500);
   $('mb-save').onclick=()=>{if(!hasImage||isDemo)return;var n=prompt('Назва файлу:',defaultName());if(n===null)return;n=n.trim().replace(/[\\/:*?"<>|]/g,'_')||'taina';savePNG(n);};
-  $('mb-scan').onclick=()=>openSheet();
+  $('mb-scan').onclick=()=>{cvKick();openSheet();};
   const sheet=document.createElement('div');sheet.id='sheet';
   sheet.innerHTML='<div class="veil2"></div><div class="card"><div class="sh-t">Сканувати код</div><button class="sh-b" id="sh-cam">📷 Камера</button><button class="sh-b" id="sh-file">🖼 Завантажити з галереї</button><button class="sh-b sh-cancel" id="sh-x">Скасувати</button></div>';
   document.body.appendChild(sheet);

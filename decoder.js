@@ -77,36 +77,53 @@ function labReadFlag() {
 }
 labReadFlag();
 
-/* ── АВТОЗАГРУЗКА OpenCV.js ───────────────────────────────────────────────
-   OpenCV нужен для поиска контуров. Декодер подтягивает его сам, чтобы
-   оставаться drop-in: подключил decoder.js — и всё работает.
-   Если на странице уже есть свой <script> с opencv.js, повторно не грузим. */
-const OPENCV_URL = 'https://docs.opencv.org/4.8.0/opencv.js';
+/* ── OpenCV.js ПО ТРЕБОВАНИЮ ──────────────────────────────────────────────
+   OpenCV нужен для поиска контуров. Файл opencv.js лежит на своём сайте,
+   рядом с decoder.js, и НЕ грузится при открытии страницы: загрузка
+   стартует только при первом вызове ensureOpenCV() — то есть когда
+   человек нажал «Сканувати» или выбрал картинку.
+   Если загрузка сорвалась, следующая попытка начинает её заново. */
+const OPENCV_URL = (function () {
+  try {
+    const cs = document.currentScript;
+    if (cs && cs.src) return new URL('opencv.js', cs.src).href;
+  } catch (e) {}
+  return 'opencv.js';
+})();
+const OPENCV_WAIT_MS = 60000;
 let _cvPromise = null;
 function ensureOpenCV() {
   if (_cvPromise) return _cvPromise;
-  _cvPromise = new Promise(resolve => {
+  const p = new Promise(resolve => {
     if (window.cv && window.cv.Mat) return resolve(true);
     let doc;
     try { doc = document; } catch (e) { return resolve(false); }
     if (!doc || !doc.head) return resolve(false);
+    let s = null, failed = false;
     try {
       if (!doc.querySelector('script[data-taina-opencv]') &&
           !doc.querySelector('script[src*="opencv.js"]')) {
-        const s = doc.createElement('script');
+        s = doc.createElement('script');
         s.src = OPENCV_URL; s.async = true;
         s.setAttribute('data-taina-opencv', '1');
+        s.onerror = function () { failed = true; };
         doc.head.appendChild(s);
       }
     } catch (e) { return resolve(false); }
     const t0 = Date.now();
     (function poll() {
       if (window.cv && window.cv.Mat) return resolve(true);
-      if (Date.now() - t0 > 25000) return resolve(false);
+      if (failed || Date.now() - t0 > OPENCV_WAIT_MS) {
+        try { if (s && s.parentNode) s.parentNode.removeChild(s); } catch (e) {}
+        return resolve(false);
+      }
       setTimeout(poll, 120);
     })();
   });
-  return _cvPromise;
+  _cvPromise = p;
+  /* не вышло — забываем попытку, чтобы следующий вызов попробовал снова */
+  p.then(ok => { if (!ok && _cvPromise === p) _cvPromise = null; });
+  return p;
 }
 
 /* ТІЛЬКИ ×8 (октант). Симетрії ×4 і ×2 з формату вилучені.
@@ -1972,8 +1989,11 @@ window.TainaDecoder = {
   scanVideo,
   /* Промис: резолвится, когда OpenCV готов (true) или не дождались (false).
      Камеру и разбор файла имеет смысл запускать после него — без OpenCV
-     декодер видит только весь кадр целиком и на фото с камеры не сработает. */
-  ready: ensureOpenCV(),
+     декодер видит только весь кадр целиком и на фото с камеры не сработает.
+     Загрузка стартует при ПЕРВОМ обращении (loadCV() или .ready),
+     а не при открытии страницы. */
+  loadCV: ensureOpenCV,
+  get ready() { return ensureOpenCV(); },
   last: null,               // результат останнього розбору, разом із діагностикою
   cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
