@@ -91,14 +91,20 @@ var M = {
   }
 };
 
-/* Знак TAINA — піксельний, 30×4 модулі: з того ж «матеріалу», що й орнамент.
-   Вектор (не картинка): різкий на будь-якому екрані й сам бере колір теми.
-   crispEdges — щоб краї модулів не розмивались. */
-/* Крапка над «i» — єдина червона клітинка знака; решта бере колір теми. */
+/* Знак ORNAMENTCODE — піксельний, 70×4 модулі: з того ж «матеріалу», що й орнамент.
+   Вектор (не картинка): різкий на будь-якому екрані.
+   ORNAMENT бере колір теми (темний у світлій, світлий у темній), CODE — завжди червоний.
+   Розмір задаємо тут же: знак довший за колишній, тож модуль менший
+   (широкий екран — 4px, до 1500px завширшки й телефон — 3px), інакше не вміститься в шапку. */
 var LOGO_SVG =
-  '<svg viewBox="0 0 30 4" shape-rendering="crispEdges">' +
-  '<path fill="currentColor" d="M0 0h5v1h-5zM8 0h1v1h-1zM16 0h2v1h-2zM21 0h1v1h-1zM26 0h1v1h-1zM2 1h1v1h-1zM7 1h1v1h-1zM9 1h1v1h-1zM16 1h1v1h-1zM18 1h1v1h-1zM21 1h1v1h-1zM25 1h1v1h-1zM27 1h1v1h-1zM2 2h1v1h-1zM6 2h1v1h-1zM8 2h1v1h-1zM10 2h1v1h-1zM13 2h1v1h-1zM16 2h1v1h-1zM19 2h1v1h-1zM21 2h1v1h-1zM24 2h1v1h-1zM26 2h1v1h-1zM28 2h1v1h-1zM2 3h1v1h-1zM5 3h1v1h-1zM11 3h1v1h-1zM13 3h1v1h-1zM16 3h1v1h-1zM20 3h2v1h-2zM23 3h1v1h-1zM29 3h1v1h-1z"/>' +
-  '<rect x="13" y="0" width="1" height="1" fill="#e4120f"/></svg>';
+  '<svg viewBox="0 0 70 4" shape-rendering="crispEdges"><path fill="currentColor" d="M1 0h2v1h-2zM5 0h3v1h-3zM10 0h2v1h-2zM15 0h1v1h-1zM20 0h1v1h-1zM25 0h2v1h-2zM30 0h2v1h-2zM33 0h4v1h-4zM38 0h2v1h-2zM43 0h1v1h-1zM45 0h5v1h-5zM0 1h1v1h-1zM3 1h1v1h-1zM5 1h1v1h-1zM8 1h1v1h-1zM10 1h1v1h-1zM12 1h1v1h-1zM15 1h1v1h-1zM19 1h1v1h-1zM21 1h1v1h-1zM25 1h1v1h-1zM27 1h1v1h-1zM29 1h1v1h-1zM31 1h1v1h-1zM33 1h1v1h-1zM38 1h1v1h-1zM40 1h1v1h-1zM43 1h1v1h-1zM47 1h1v1h-1zM0 2h1v1h-1zM3 2h1v1h-1zM5 2h3v1h-3zM10 2h1v1h-1zM13 2h1v1h-1zM15 2h1v1h-1zM18 2h1v1h-1zM20 2h1v1h-1zM22 2h1v1h-1zM25 2h1v1h-1zM28 2h1v1h-1zM31 2h1v1h-1zM33 2h2v1h-2zM38 2h1v1h-1zM41 2h1v1h-1zM43 2h1v1h-1zM47 2h1v1h-1zM1 3h2v1h-2zM5 3h1v1h-1zM8 3h1v1h-1zM10 3h1v1h-1zM14 3h2v1h-2zM17 3h1v1h-1zM23 3h1v1h-1zM25 3h1v1h-1zM31 3h1v1h-1zM33 3h4v1h-4zM38 3h1v1h-1zM42 3h2v1h-2zM47 3h1v1h-1z"/><path fill="#e4120f" d="M52 0h3v1h-3zM57 0h2v1h-2zM61 0h3v1h-3zM66 0h4v1h-4zM51 1h1v1h-1zM56 1h1v1h-1zM59 1h1v1h-1zM61 1h1v1h-1zM64 1h1v1h-1zM66 1h1v1h-1zM51 2h1v1h-1zM56 2h1v1h-1zM59 2h1v1h-1zM61 2h1v1h-1zM64 2h1v1h-1zM66 2h2v1h-2zM52 3h3v1h-3zM57 3h2v1h-2zM61 3h3v1h-3zM66 3h4v1h-4z"/></svg>';
+(function () {
+  try {
+    var st = document.createElement('style');
+    st.textContent = '.mark.logo svg{height:16px}@media(max-width:1500px){.mark.logo svg{height:12px}}';
+    document.head.appendChild(st);
+  } catch (e) {}
+})();
 
 var PHONE_SVG =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
@@ -121,7 +127,7 @@ function buildHeader() {
   var html =
     '<header><div class="nav">' +
       '<div class="nav-l">' + tabs + '</div>' +
-      '<div class="nav-c"><a href="index.html" class="mark logo" aria-label="TAINA">' + LOGO_SVG + '</a></div>' +
+      '<div class="nav-c"><a href="index.html" class="mark logo" aria-label="Ornament Code">' + LOGO_SVG + '</a></div>' +
       '<div class="nav-r">' +
         '<button class="nb contacts" type="button" data-modal="contacts" title="' + L.contacts + '">' + L.contacts + '</button>' +
         '<a class="phone-num" href="tel:' + PHONE_TEL + '">' + PHONE_TEXT + '</a>' +
