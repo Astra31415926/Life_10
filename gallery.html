@@ -3,19 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Галерея орнаментів · taina</title>
-<meta name="description" content="Галерея орнаментів taina — симетричні візерунки, які можна відсканувати та прочитати. Кожен орнамент кодує слово у вигляді байткоду.">
+<title>Галерея орнаментів · Ornament Code</title>
+<meta name="description" content="Галерея орнаментів Ornament Code — симетричні візерунки, які можна відсканувати та прочитати. Кожен орнамент — це слово, записане орнаментальним кодом.">
 <link rel="canonical" href="https://www.ornamentcode.com/gallery.html">
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Галерея орнаментів · taina">
+<meta property="og:title" content="Галерея орнаментів · Ornament Code">
 <meta property="og:description" content="Орнаменти, які можна відсканувати та прочитати.">
 <meta property="og:image" content="https://www.ornamentcode.com/og-image.png">
 <meta property="og:url" content="https://www.ornamentcode.com/gallery.html">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Галерея орнаментів · taina">
+<meta name="twitter:title" content="Галерея орнаментів · Ornament Code">
 <meta name="twitter:description" content="Орнаменти, які можна відсканувати та прочитати.">
 <meta name="twitter:image" content="https://www.ornamentcode.com/og-image.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -96,7 +96,7 @@ footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;font
 </div>
 <div class="bar"><div class="count" id="count">Завантаження…</div></div>
 <div id="content"><div class="loading"><div class="spin"></div>Читаємо галерею…</div></div>
-<footer>taina · читабельний орнамент-байткод<br>натхнено українською традицією · кожен візерунок можна декодувати</footer>
+<footer>Ornament Code · читабельний орнаментальний код<br>натхнено українською традицією · кожен візерунок можна декодувати</footer>
 
 <div class="gmodal" id="gmodal">
   <div class="gmodal-box">
@@ -342,13 +342,13 @@ function openWork(rec){
   /* свій адрес для цієї роботи */
   if(rec.id!==undefined){
     history.replaceState(null,'',`?id=${rec.id}`);
-    document.title=`«${rec.title||rec.word}» — читабельний орнамент · taina`;
+    document.title=`«${rec.title||rec.word}» — читабельний орнамент · Ornament Code`;
   }
 }
 function closeWork(){
   $('gmodal').classList.remove('show');
   history.replaceState(null,'',location.pathname);
-  document.title='Галерея орнаментів · taina';
+  document.title='Галерея орнаментів · Ornament Code';
 }
 $('gmodal-close').onclick=closeWork;
 $('gmodal').onclick=e=>{if(e.target===$('gmodal'))closeWork();};
@@ -377,8 +377,8 @@ async function copyLinkFallback(){
 }
 $('share-link').onclick=copyLinkFallback;
 $('share-btn').onclick=async()=>{
-  const word=curRec?(curRec.title||curRec.word):'taina';
-  const shareData={title:'taina',text:`Орнамент, що містить текст — ${word}. Створено на taina.`,url:itemUrl()};
+  const word=curRec?(curRec.title||curRec.word):'Ornament Code';
+  const shareData={title:'Ornament Code',text:`Орнамент, що містить текст — ${word}. Створено на ornamentcode.com.`,url:itemUrl()};
   if(navigator.share){
     try{await navigator.share(shareData);}
     catch(err){if(err&&err.name!=='AbortError')await copyLinkFallback();}

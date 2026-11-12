@@ -48,7 +48,7 @@ var M = {
   uk: {
     project:
       '<h2>Проєкт</h2>' +
-      '<p>TAINA — це сканований 2D-код. Дані кодуються двійковою послідовністю, потоком байтів: ' +
+      '<p>Ornament Code — це сканований 2D-код. Дані кодуються двійковою послідовністю, потоком байтів: ' +
       'темний модуль — одиниця, світлий — нуль. Симетрична структура піксельних модулів робить ' +
       'його схожим на український орнамент.</p>' +
       '<p>Детальний опис методу: <a href="https://zenodo.org/records/21709832" target="_blank" rel="noopener">стаття на Zenodo</a>.</p>',
@@ -70,7 +70,7 @@ var M = {
   en: {
     project:
       '<h2>Project</h2>' +
-      '<p>TAINA is a scannable 2D code. Data is encoded as a binary sequence, a stream of bytes: ' +
+      '<p>Ornament Code is a scannable 2D code. Data is encoded as a binary sequence, a stream of bytes: ' +
       'a dark module is a one, a light module is a zero. The symmetric structure of the pixel modules ' +
       'makes it resemble a Ukrainian ornament.</p>' +
       '<p>Full description of the method: <a href="https://zenodo.org/records/21709832" target="_blank" rel="noopener">article on Zenodo</a>.</p>',
