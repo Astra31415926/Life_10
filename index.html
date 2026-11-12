@@ -664,6 +664,20 @@ body.light-mode .linkpill{box-shadow:0 8px 22px rgba(60,45,25,.28)}
    ВЕРСІЯ 4
    Вхід власника з паролем · публікація з ім'ям і посиланням (лише адмін).
    ═══════════════════════════════════════════════════════════════════ */
+/* рядок «Замовити» у вікні збереження (ПК і телефон) */
+.ord-line{margin:10px 2px 2px;font-family:var(--sans);font-size:13px;line-height:1.4;color:var(--parchment)}
+.ord-line a{color:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
+/* запасне вікно збереження: картинка, яку можна затиснути пальцем (вбудовані браузери Instagram, TikTok…) */
+#hold-save{position:fixed;inset:0;z-index:9800;background:rgba(12,10,8,.97);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;padding:56px 18px 22px;overflow:auto}
+#hold-save img{width:min(78vw,52vh);height:auto;border-radius:8px;background:#fff;
+  -webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto}
+#hold-save .hs-t{margin:0;max-width:420px;text-align:center;font-family:var(--sans);font-size:18px;line-height:1.35;font-weight:700;color:#fff}
+#hold-save .hs-s{margin:0;max-width:420px;text-align:center;font-family:var(--sans);font-size:14px;line-height:1.4;color:#e6e0d4}
+#hold-save .hs-b{display:inline-block;padding:11px 18px;border-radius:12px;background:#fff;color:#111;
+  font-family:var(--sans);font-size:15px;font-weight:700;text-decoration:none}
+#hold-save .hs-x{position:absolute;right:12px;top:12px;width:44px;height:44px;border-radius:12px;border:1px solid rgba(255,255,255,.5);
+  background:transparent;color:#fff;font-size:24px;line-height:1;cursor:pointer;padding:0}
 #adm-dlg{position:fixed;inset:0;z-index:9600;display:flex;align-items:center;justify-content:center;
   padding:16px;background:rgba(0,0,0,.58)}
 #adm-dlg form{width:100%;max-width:340px;display:flex;flex-direction:column;gap:11px;padding:16px;
@@ -827,7 +841,7 @@ const DICT={
      mbSave:'⤓ Зберегти',mbScan:'⌖ Сканувати',shTitle:'Сканувати код',shCam:'📷 Камера',
      shFile:'🖼 Завантажити з галереї',shCancel:'Скасувати',
      noCode:'Код не прочитано',
-     phM:"Напиши слово або ім'я",diceM:'Навмання',diceW:'Випадкове слово',introM:'Генератор і сканер орнаментального коду. Це код, як QR, але у вигляді симетричного орнаменту. Напиши текст — отримаєш код, який можна вишити, надрукувати й прочитати сканером.',
+     phM:"Напиши слово або ім'я",diceM:'Навмання',diceW:'Випадкове слово',saveImg:'Зберегти зображення',toGal:'В галерею',toGalS:'побачать усі відвідувачі',ordQ:'Потрібно для друку у високій якості?',ordA:'Замовити',holdIos:'Натисни на картинку й утримуй → «Зберегти в Фото»',holdAnd:'Натисни на картинку й утримуй → «Завантажити зображення»',holdApp:'Не виходить? Відкрий сайт у звичайному браузері: меню ⋯ угорі → «Відкрити в браузері».',holdChr:'Відкрити в Chrome',holdX:'Закрити',introM:'Генератор і сканер орнаментального коду. Це код, як QR, але у вигляді симетричного орнаменту. Напиши текст — отримаєш код, який можна вишити, надрукувати й прочитати сканером.',
      cvLoad:'Завантажую сканер…',cvFailT:'Сканер не завантажився',cvFail:'Перевір інтернет і спробуй ще раз.',
      tipFar:'Коду не видно в кадрі. Зніми ближче, щоб код займав майже весь кадр — разом зі світлим полем навколо нього.',
      tipFrame:'Схоже на відблиск або обрізаний край. Знімай без спалаху, збоку від лампи, і лиши в кадрі всю рамку коду.',
@@ -843,7 +857,7 @@ const DICT={
      mbSave:'⤓ Save',mbScan:'⌖ Scan',shTitle:'Scan a code',shCam:'📷 Camera',
      shFile:'🖼 Pick from gallery',shCancel:'Cancel',
      noCode:'Code not read',
-     phM:'Type a word or a name',diceM:'Random',diceW:'Random word',introM:'A generator and scanner of ornament codes. It is a code like QR, but shaped as a symmetric ornament. Type some text — get a code you can embroider, print and read with the scanner.',
+     phM:'Type a word or a name',diceM:'Random',diceW:'Random word',saveImg:'Save image',toGal:'To the gallery',toGalS:'visible to all visitors',ordQ:'Need it for high-quality print?',ordA:'Order',holdIos:'Press and hold the picture → “Save to Photos”',holdAnd:'Press and hold the picture → “Download image”',holdApp:'Does not work? Open the site in a regular browser: menu ⋯ at the top → “Open in browser”.',holdChr:'Open in Chrome',holdX:'Close',introM:'A generator and scanner of ornament codes. It is a code like QR, but shaped as a symmetric ornament. Type some text — get a code you can embroider, print and read with the scanner.',
      cvLoad:'Loading the scanner…',cvFailT:'The scanner did not load',cvFail:'Check your connection and try again.',
      tipFar:'No code visible in the frame. Move closer so the code fills most of it — together with the light margin around it.',
      tipFrame:'Looks like glare or a cropped edge. Shoot without flash, at an angle to the lamp, and keep the whole frame of the code in shot.',
@@ -2224,7 +2238,7 @@ function openMenu(){
       $('do-save-print').onclick=e=>goSave('print',e.currentTarget);$('do-publish').onclick=e=>{e.stopPropagation();openPublish()};$('do-scan').onclick=()=>{closeMenu();$('file').click()};setTimeout(()=>{const f=$('fname');if(f){f.focus();f.select()}},40);
     }else{
       const nm=()=>sug.trim().replace(/[\\/:*?"<>|]/g,'_')||'taina';
-      m.innerHTML=`<div class="row"><button class="b gold" id="do-save">⤓ ${t('save')}</button></div><div class="row"><button class="b" id="do-publish">✦ Опублікувати в галерею</button></div>`;
+      m.innerHTML=`<div class="row"><button class="b gold" id="do-save">⤓ ${t('save')}</button></div><div class="row"><button class="b" id="do-publish">✦ Опублікувати в галерею</button></div><p class="ord-line">${t('ordQ')} <a href="https://t.me/+hmCY-X-wZjgzZmMy" target="_blank" rel="noopener">${t('ordA')}</a></p>`;
       $('do-save').onclick=()=>{savePNG(nm());closeMenu()};
       $('do-publish').onclick=e=>{e.stopPropagation();openPublish()};
     }
@@ -3701,6 +3715,10 @@ sync();
     font-family:var(--mono);font-size:13.5px;font-weight:600;color:var(--parchment);
     text-decoration:none;margin-bottom:8px;min-height:0}
   .m-act.pri{background:var(--acc);border-color:var(--acc);color:var(--on-acc)}
+  /* відвідувач у «Зберегти» бачить лише: зберегти, в галерею, рядок «Замовити» */
+  .m-pane.vis .adm-act,.m-pane.vis .schbtn,.m-pane.vis #scheme-btn{display:none!important}
+  .m-pane .ord-line{display:none}
+  .m-pane.vis .ord-line{display:block;margin:6px 4px 4px;font-size:14px}
   .m-act svg{width:20px;height:20px;flex:0 0 auto}
   .m-act small{display:block;font-weight:400;font-size:11px;opacity:.72;margin-top:2px;
     font-family:var(--sans);letter-spacing:0}
@@ -3807,12 +3825,56 @@ var mkAct=function(cls,ic,t,s){
 
 function askName(){var n=prompt('Назва файлу:',defaultName());if(n===null)return null;
   return n.trim().replace(/[\\/:*?"<>|]/g,'_')||'taina';}
+/* ── ВІДВІДУВАЧ: збереження в один дотик ─────────────────────────
+   Картинка «для соцмереж», ім'я файлу — саме слово, без запитань.
+   iPhone: системне вікно «Поділитися» (там є «Зберегти зображення» → у Фото).
+   Android у звичайному браузері: звичайне завантаження.
+   Вбудовані браузери (Instagram, TikTok, Facebook…): завантаження там мовчки не працює,
+   тому завжди показуємо картинку на весь екран з підказкою «натисни й утримуй»,
+   а якщо «Поділитися» доступне — ще й відкриваємо його.
+   Картинку готуємо ОДРАЗУ (без відкладених кроків), інакше браузер не дозволить «Поділитися». */
+var VISITOR=!window.TAINA_ADMIN;
+function holdSave(url,ios,inapp){
+  var o=$('hold-save');if(o)o.remove();
+  o=document.createElement('div');o.id='hold-save';
+  var chr='';
+  if(!ios&&inapp)chr='<a class="hs-b" href="intent://'+location.host+location.pathname+'#Intent;scheme=https;package=com.android.chrome;end">'+t('holdChr')+'</a>';
+  o.innerHTML='<button type="button" class="hs-x" aria-label="'+t('holdX')+'">×</button>'+
+    '<p class="hs-t">'+t(ios?'holdIos':'holdAnd')+'</p><img alt="" src="'+url+'">'+
+    (inapp?'<p class="hs-s">'+t('holdApp')+'</p>'+chr:'');
+  o.querySelector('.hs-x').onclick=function(){o.remove();};
+  o.onclick=function(e){if(e.target===o)o.remove();};
+  document.body.appendChild(o);
+}
+function visitorSave(){
+  if(!hasImage||isDemo){toast('Спершу напиши щось');return false;}
+  var name=(defaultName().replace(/[\\/:*?"<>|]/g,'_')||'ornament')+'.png';
+  var url=OFF.toDataURL('image/png'), bin=atob(url.split(',')[1]), n=bin.length, u8=new Uint8Array(n);
+  while(n--)u8[n]=bin.charCodeAt(n);
+  var blob=new Blob([u8],{type:'image/png'}), file=null, can=false;
+  try{file=new File([blob],name,{type:'image/png'});
+      can=!!(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]}));}catch(e){}
+  var ua=navigator.userAgent||'';
+  var ios=/iPhone|iPad|iPod/.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  var inapp=/Instagram|FBAN|FBAV|FB_IAB|musical_ly|Bytedance|TikTok|trill|Snapchat|Pinterest|Line\/|Twitter|MicroMessenger/i.test(ua);
+  var ok=function(){if(typeof tone==='function')tone(660,.09,.07);};
+  if(inapp)holdSave(url,ios,true);
+  if((ios||inapp)&&can){
+    navigator.share({files:[file]}).then(ok).catch(function(e){
+      if(e&&e.name==='AbortError')return;            /* людина сама закрила вікно */
+      if(!$('hold-save'))holdSave(url,ios,inapp);});
+  }else if(ios&&!inapp){holdSave(url,true,false);}
+  else if(!inapp){dlBlob(blob,name);ok();}
+  return true;
+}
+window.TainaVisitorSave=visitorSave;
 var bSave=mkAct('pri',I.dl,'Для соцмереж','звичайний розмір, з адресою сайту');
 bSave.onclick=function(){
+  if(VISITOR){visitorSave();return;}
   if(!hasImage||isDemo){toast('Спершу напиши щось');return;}
   var n=askName();if(n===null)return;saveImage(n,'web');closeSheet();};
 pv.appendChild(bSave);
-var bPrint=mkAct('',I.dl,'Для друку','висока роздільність, без адреси');
+var bPrint=mkAct('adm-act',I.dl,'Для друку','висока роздільність, без адреси');
 bPrint.onclick=function(){
   if(!hasImage||isDemo){toast('Спершу напиши щось');return;}
   var n=askName();if(n===null)return;saveImage(n,'print');closeSheet();};
@@ -3828,7 +3890,20 @@ pv.appendChild(bPub);
 
 var aMerch=document.createElement('a');aMerch.className='m-act';aMerch.href='services.html';
 aMerch.innerHTML=I.sh+'<span>Приміряти на мерч<small>футболка, торба, листівка</small></span>';
+aMerch.classList.add('adm-act');
 pv.appendChild(aMerch);
+/* рядок «Замовити» — лише відвідувачу */
+var pOrd=document.createElement('p');pOrd.className='ord-line';
+pOrd.innerHTML='<span></span> <a href="https://t.me/+hmCY-X-wZjgzZmMy" target="_blank" rel="noopener"></a>';
+pv.appendChild(pOrd);
+if(VISITOR)pv.classList.add('vis');
+function saveTxt(){
+  pOrd.firstChild.textContent=t('ordQ');pOrd.lastChild.textContent=t('ordA');
+  if(!VISITOR)return;
+  bSave.querySelector('span').textContent=t('saveImg');
+  bPub.querySelector('span').innerHTML=t('toGal')+'<small>'+t('toGalS')+'</small>';
+}
+saveTxt();
 /* «Підпис» — у самому низу шухляди «Зберегти» */
 if(window.TainaSig&&window.TAINA_ADMIN){pv.appendChild(TainaSig.panel);TainaSig.panel.hidden=false;}
 
@@ -3890,6 +3965,11 @@ BAR.forEach(function(r){
   b.onclick=(r[0]==='dice')?diceCycle:function(){toggle(r[1]);};
   bar.appendChild(b);});
 document.body.appendChild(bar);
+if(VISITOR){
+  bar.querySelector('button[data-p="save"]').onclick=function(){
+    if(!visitorSave())return;
+    if(cur!=='save')openPane('save');};
+}
 /* рядок «цей код читається» переїжджає під орнамент, окремим рядком */
 var rtl=$('rt');
 if(rtl)document.body.insertBefore(rtl,bar);   /* висота стала — перераховувати орнамент не треба */
@@ -4017,7 +4097,7 @@ buildSwatches();syncPalRows();
    Він підсвічував кнопки лівої й правої колонок, а їх тут немає:
    прожектор стрибав би в порожнечу. Замість нього — підказка в полі. */
 tourDead=true;
-function ph(){$('txt').placeholder=t('phM');var mi=$('m-intro');if(mi)mi.textContent=t('introM');var ds=document.querySelector('.m-bar button span');if(ds)ds.textContent=t('diceM');var db=$('in-dice');if(db){db.title=t('diceW');db.setAttribute('aria-label',t('diceW'));}}
+function ph(){$('txt').placeholder=t('phM');saveTxt();var mi=$('m-intro');if(mi)mi.textContent=t('introM');var ds=document.querySelector('.m-bar button span');if(ds)ds.textContent=t('diceM');var db=$('in-dice');if(db){db.title=t('diceW');db.setAttribute('aria-label',t('diceW'));}}
 var _al=window.applyLang;
 window.applyLang=function(){_al();ph();};
 ph();
