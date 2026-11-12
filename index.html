@@ -760,7 +760,7 @@ body.light-mode #adm-dlg .hint{color:#8a4e00}
       <div class="stagebox">
         <div class="stage" id="stage">
           <canvas id="cv" width="512" height="512"></canvas>
-          <div class="stage-cta" id="stage-cta"><button type="button" id="cta-scan"><span class="eye"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M1.8 12s3.8-7 10.2-7 10.2 7 10.2 7-3.8 7-10.2 7S1.8 12 1.8 12z"/><circle cx="12" cy="12" r="3.3"/></svg></span><span>Сканувати орнамент</span></button><p id="cta-hint">або напиши слово вище</p></div>
+          <div class="stage-cta" id="stage-cta"><button type="button" id="cta-scan"><span class="eye"><svg viewBox="0 0 17 17" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M.5 4.5v-3a1 1 0 0 1 1-1h3M12.5.5h3a1 1 0 0 1 1 1v3M16.5 12.5v3a1 1 0 0 1-1 1h-3M4.5 16.5h-3a1 1 0 0 1-1-1v-3"/><path d="M2.5 8.5c2.1-2.9 3.9-4 6-4s3.9 1.1 6 4c-2.1 2.9-3.9 4-6 4s-3.9-1.1-6-4z"/><circle cx="8.5" cy="8.5" r="2.1"/><circle cx="8.5" cy="8.5" r=".65" fill="currentColor" stroke="none"/></svg></span><span>Сканувати орнамент</span></button><p id="cta-hint">або напиши слово вище</p></div>
           <video id="cam-video" playsinline muted class="cam-live hide"></video>
           <div class="vf hide" id="vf"><span></span><span></span><span></span><span></span></div>
           <button type="button" class="cam-gal hide" id="cam-gal" title="Завантажити з галереї" aria-label="Завантажити з галереї">🖼</button>
@@ -3537,20 +3537,31 @@ sync();
      Одразу під орнаментом — пояснення; смуга кнопок схована. */
   .stage-cta .cta-ghost{position:absolute;left:7%;top:7%;width:86%;height:86%;
     color:var(--parchment);opacity:.13;pointer-events:none}
-  .stage-cta button{position:relative;z-index:1}
+  /* Значок сканера: око в чотирьох кутиках. Рамка — 17 модулів фонового орнаменту
+     (86% × 17/35 ширини поля), лінія — рівно 1 модуль. Стоїть точно по центру поля. */
+  .stage-cta button{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1;
+    width:41.77%;aspect-ratio:1/1;padding:0!important;gap:0!important;display:block!important;
+    color:var(--parchment);font-family:var(--sans)!important;font-size:clamp(17px,5.6vw,22px)!important;
+    font-weight:800!important;letter-spacing:0!important}
+  .stage-cta .eye{position:absolute;inset:0;width:auto!important;height:auto!important;border-radius:0!important;
+    background:none!important;color:inherit!important;display:block!important}
+  .stage-cta .eye svg{width:100%!important;height:100%!important;display:block;overflow:visible}
+  .stage-cta button>span:last-child{position:absolute;left:50%;top:100%;transform:translateX(-50%);
+    margin-top:.55em;white-space:nowrap;line-height:1.15}
+  /* Пояснення: лежить ПІД орнаментом окремим шаром і місця в розкладці не займає —
+     тож поле орнамента на стартовому екрані стоїть там само й того ж розміру, що й після генерації.
+     Смуга кнопок на старті невидима, але місце за нею лишається (з тієї ж причини). */
   .m-intro{display:none}
-  body.m-start .m-bar{display:none}
-  body.m-start .m-slot{flex-direction:column;align-items:center}
-  body.m-start .m-intro{display:block;width:100%;max-width:420px;margin:14px 0 0;padding:0 2px;
-    text-align:center;font-family:var(--sans);font-size:17px;line-height:1.45;font-weight:500;color:var(--parchment)}
-  @media (max-height:600px){body.m-start .m-intro{font-size:15.5px;line-height:1.4;margin-top:10px}}
+  body.m-start .m-bar{visibility:hidden;pointer-events:none}
+  body.m-start .m-intro{display:block;position:absolute;left:14px;right:14px;margin:0;z-index:2;
+    text-align:center;font-family:var(--sans);font-size:17px;line-height:1.42;font-weight:500;color:var(--parchment)}
   /* кубик у полі вводу: нове випадкове слово й новий вигляд */
   .inbox-dice{position:absolute;left:6px;top:50%;transform:translateY(-50%);
     width:36px;height:36px;border-radius:10px;border:0;padding:0;cursor:pointer;z-index:3;
     display:none;align-items:center;justify-content:center;
-    background:var(--acc);color:var(--on-acc)}
+    background:none;color:var(--parchment)}
   .inbox-dice.on{display:flex}
-  .inbox-dice svg{width:23px;height:23px}
+  .inbox-dice svg{width:28px;height:28px}
   .inbox-dice:active{transform:translateY(-50%) scale(.92)}
   body.m-start .inbox-dice svg{animation:mDiceRock 3.4s ease-in-out infinite}
   @keyframes mDiceRock{0%,72%,100%{transform:rotate(0)}78%{transform:rotate(-16deg)}86%{transform:rotate(14deg)}93%{transform:rotate(-6deg)}}
@@ -3936,12 +3947,26 @@ function closeSheet(){
 }
 
 /* ── 9. РОЗМІР ОРНАМЕНТА: ніколи не ховається за шухлядою ──────── */
+/* Орнамент не рухається й не меншає, коли відкрито клавіатуру: рахуємо від НАЙБІЛЬШОЇ
+   висоти екрана, яку бачили за цієї ширини (клавіатура висоту лише зменшує).
+   Пояснення стартового екрана кладемо під орнамент окремим шаром; якщо не влазить —
+   зменшуємо шрифт (до 13px), і лише на зовсім низьких екранах трохи меншає сам орнамент. */
+var baseW=0, baseH=0;
 function layout(){
   var sh=cur?sheet.offsetHeight:0;
   slot.style.bottom=(sh+6)+'px';
-  var mi=$('m-intro'), ih=(mi&&mi.offsetParent!==null)?mi.offsetHeight+16:0;   /* пояснення під орнаментом */
-  var h=wrap.clientHeight-sh-6-ih, w=slot.clientWidth;
-  var s=Math.max(110,Math.min(w,h));
+  var w=slot.clientWidth, ch=wrap.clientHeight;
+  if(innerWidth!==baseW){baseW=innerWidth;baseH=0;}
+  if(ch>baseH)baseH=ch;
+  var s=Math.max(110,Math.min(w,baseH-sh-6));
+  var mi=$('m-intro');
+  if(mi&&mi.offsetParent!==null){
+    var room=baseH+bar.offsetHeight-12-8, f=17;      /* місце під орнаментом аж до низу екрана */
+    mi.style.fontSize=f+'px';
+    while(mi.offsetHeight>room-s&&f>13){f-=.5;mi.style.fontSize=f+'px';}
+    if(mi.offsetHeight>room-s)s=Math.max(110,room-mi.offsetHeight);
+    mi.style.top=(s+12)+'px';
+  }
   box.style.width=s+'px';box.style.height=s+'px';
 }
 addEventListener('resize',function(){
@@ -4042,7 +4067,7 @@ buildDeck();
   var cta=$('stage-cta'), el=$('txt');
   if(cta&&!cta.querySelector('.cta-ghost')){
     cta.insertAdjacentHTML('afterbegin','<svg class="cta-ghost" viewBox="0 0 35 35" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M0 0h35v1h-35zM0 1h1v1h-1zM34 1h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM4 2h1v1h-1zM6 2h1v1h-1zM8 2h1v1h-1zM10 2h1v1h-1zM12 2h1v1h-1zM14 2h1v1h-1zM16 2h1v1h-1zM18 2h1v1h-1zM20 2h1v1h-1zM22 2h1v1h-1zM24 2h1v1h-1zM26 2h1v1h-1zM28 2h1v1h-1zM30 2h1v1h-1zM32 2h1v1h-1zM34 2h1v1h-1zM0 3h1v1h-1zM3 3h12v1h-12zM17 3h1v1h-1zM20 3h12v1h-12zM34 3h1v1h-1zM0 4h1v1h-1zM2 4h2v1h-2zM5 4h4v1h-4zM10 4h1v1h-1zM14 4h1v1h-1zM20 4h1v1h-1zM24 4h1v1h-1zM26 4h4v1h-4zM31 4h2v1h-2zM34 4h1v1h-1zM0 5h1v1h-1zM3 5h2v1h-2zM6 5h1v1h-1zM8 5h4v1h-4zM13 5h1v1h-1zM21 5h1v1h-1zM23 5h4v1h-4zM28 5h1v1h-1zM30 5h2v1h-2zM34 5h1v1h-1zM0 6h1v1h-1zM2 6h4v1h-4zM7 6h1v1h-1zM9 6h2v1h-2zM13 6h3v1h-3zM17 6h1v1h-1zM19 6h3v1h-3zM24 6h2v1h-2zM27 6h1v1h-1zM29 6h4v1h-4zM34 6h1v1h-1zM0 7h1v1h-1zM3 7h2v1h-2zM6 7h1v1h-1zM9 7h4v1h-4zM15 7h1v1h-1zM17 7h1v1h-1zM19 7h1v1h-1zM22 7h4v1h-4zM28 7h1v1h-1zM30 7h2v1h-2zM34 7h1v1h-1zM0 8h1v1h-1zM2 8h4v1h-4zM8 8h3v1h-3zM12 8h1v1h-1zM15 8h5v1h-5zM22 8h1v1h-1zM24 8h3v1h-3zM29 8h4v1h-4zM34 8h1v1h-1zM0 9h1v1h-1zM3 9h1v1h-1zM5 9h8v1h-8zM15 9h5v1h-5zM22 9h8v1h-8zM31 9h1v1h-1zM34 9h1v1h-1zM0 10h1v1h-1zM2 10h8v1h-8zM11 10h1v1h-1zM14 10h1v1h-1zM16 10h1v1h-1zM18 10h1v1h-1zM20 10h1v1h-1zM23 10h1v1h-1zM25 10h8v1h-8zM34 10h1v1h-1zM0 11h1v1h-1zM3 11h1v1h-1zM5 11h1v1h-1zM7 11h1v1h-1zM9 11h2v1h-2zM13 11h1v1h-1zM15 11h5v1h-5zM21 11h1v1h-1zM24 11h2v1h-2zM27 11h1v1h-1zM29 11h1v1h-1zM31 11h1v1h-1zM34 11h1v1h-1zM0 12h1v1h-1zM2 12h2v1h-2zM7 12h3v1h-3zM12 12h1v1h-1zM14 12h1v1h-1zM20 12h1v1h-1zM22 12h1v1h-1zM25 12h3v1h-3zM31 12h2v1h-2zM34 12h1v1h-1zM0 13h1v1h-1zM3 13h1v1h-1zM5 13h2v1h-2zM11 13h1v1h-1zM14 13h3v1h-3zM18 13h3v1h-3zM23 13h1v1h-1zM28 13h2v1h-2zM31 13h1v1h-1zM34 13h1v1h-1zM0 14h1v1h-1zM2 14h3v1h-3zM6 14h1v1h-1zM10 14h1v1h-1zM12 14h3v1h-3zM16 14h3v1h-3zM20 14h3v1h-3zM24 14h1v1h-1zM28 14h1v1h-1zM30 14h3v1h-3zM34 14h1v1h-1zM0 15h1v1h-1zM6 15h4v1h-4zM11 15h1v1h-1zM13 15h1v1h-1zM15 15h2v1h-2zM18 15h2v1h-2zM21 15h1v1h-1zM23 15h1v1h-1zM25 15h4v1h-4zM34 15h1v1h-1zM0 16h1v1h-1zM2 16h1v1h-1zM8 16h4v1h-4zM13 16h4v1h-4zM18 16h4v1h-4zM23 16h4v1h-4zM32 16h1v1h-1zM34 16h1v1h-1zM0 17h1v1h-1zM3 17h1v1h-1zM6 17h4v1h-4zM11 17h1v1h-1zM14 17h1v1h-1zM20 17h1v1h-1zM23 17h1v1h-1zM25 17h4v1h-4zM31 17h1v1h-1zM34 17h1v1h-1zM0 18h1v1h-1zM2 18h1v1h-1zM8 18h4v1h-4zM13 18h4v1h-4zM18 18h4v1h-4zM23 18h4v1h-4zM32 18h1v1h-1zM34 18h1v1h-1zM0 19h1v1h-1zM6 19h4v1h-4zM11 19h1v1h-1zM13 19h1v1h-1zM15 19h2v1h-2zM18 19h2v1h-2zM21 19h1v1h-1zM23 19h1v1h-1zM25 19h4v1h-4zM34 19h1v1h-1zM0 20h1v1h-1zM2 20h3v1h-3zM6 20h1v1h-1zM10 20h1v1h-1zM12 20h3v1h-3zM16 20h3v1h-3zM20 20h3v1h-3zM24 20h1v1h-1zM28 20h1v1h-1zM30 20h3v1h-3zM34 20h1v1h-1zM0 21h1v1h-1zM3 21h1v1h-1zM5 21h2v1h-2zM11 21h1v1h-1zM14 21h3v1h-3zM18 21h3v1h-3zM23 21h1v1h-1zM28 21h2v1h-2zM31 21h1v1h-1zM34 21h1v1h-1zM0 22h1v1h-1zM2 22h2v1h-2zM7 22h3v1h-3zM12 22h1v1h-1zM14 22h1v1h-1zM20 22h1v1h-1zM22 22h1v1h-1zM25 22h3v1h-3zM31 22h2v1h-2zM34 22h1v1h-1zM0 23h1v1h-1zM3 23h1v1h-1zM5 23h1v1h-1zM7 23h1v1h-1zM9 23h2v1h-2zM13 23h1v1h-1zM15 23h5v1h-5zM21 23h1v1h-1zM24 23h2v1h-2zM27 23h1v1h-1zM29 23h1v1h-1zM31 23h1v1h-1zM34 23h1v1h-1zM0 24h1v1h-1zM2 24h8v1h-8zM11 24h1v1h-1zM14 24h1v1h-1zM16 24h1v1h-1zM18 24h1v1h-1zM20 24h1v1h-1zM23 24h1v1h-1zM25 24h8v1h-8zM34 24h1v1h-1zM0 25h1v1h-1zM3 25h1v1h-1zM5 25h8v1h-8zM15 25h5v1h-5zM22 25h8v1h-8zM31 25h1v1h-1zM34 25h1v1h-1zM0 26h1v1h-1zM2 26h4v1h-4zM8 26h3v1h-3zM12 26h1v1h-1zM15 26h5v1h-5zM22 26h1v1h-1zM24 26h3v1h-3zM29 26h4v1h-4zM34 26h1v1h-1zM0 27h1v1h-1zM3 27h2v1h-2zM6 27h1v1h-1zM9 27h4v1h-4zM15 27h1v1h-1zM17 27h1v1h-1zM19 27h1v1h-1zM22 27h4v1h-4zM28 27h1v1h-1zM30 27h2v1h-2zM34 27h1v1h-1zM0 28h1v1h-1zM2 28h4v1h-4zM7 28h1v1h-1zM9 28h2v1h-2zM13 28h3v1h-3zM17 28h1v1h-1zM19 28h3v1h-3zM24 28h2v1h-2zM27 28h1v1h-1zM29 28h4v1h-4zM34 28h1v1h-1zM0 29h1v1h-1zM3 29h2v1h-2zM6 29h1v1h-1zM8 29h4v1h-4zM13 29h1v1h-1zM21 29h1v1h-1zM23 29h4v1h-4zM28 29h1v1h-1zM30 29h2v1h-2zM34 29h1v1h-1zM0 30h1v1h-1zM2 30h2v1h-2zM5 30h4v1h-4zM10 30h1v1h-1zM14 30h1v1h-1zM20 30h1v1h-1zM24 30h1v1h-1zM26 30h4v1h-4zM31 30h2v1h-2zM34 30h1v1h-1zM0 31h1v1h-1zM3 31h12v1h-12zM17 31h1v1h-1zM20 31h12v1h-12zM34 31h1v1h-1zM0 32h1v1h-1zM2 32h1v1h-1zM4 32h1v1h-1zM6 32h1v1h-1zM8 32h1v1h-1zM10 32h1v1h-1zM12 32h1v1h-1zM14 32h1v1h-1zM16 32h1v1h-1zM18 32h1v1h-1zM20 32h1v1h-1zM22 32h1v1h-1zM24 32h1v1h-1zM26 32h1v1h-1zM28 32h1v1h-1zM30 32h1v1h-1zM32 32h1v1h-1zM34 32h1v1h-1zM0 33h1v1h-1zM34 33h1v1h-1zM0 34h35v1h-35z"/></svg>');}
-  var intro=document.createElement('p');intro.className='m-intro';intro.id='m-intro';slot.appendChild(intro);
+  var intro=document.createElement('p');intro.className='m-intro';intro.id='m-intro';wrap.appendChild(intro);
   var dice=document.createElement('button');dice.type='button';dice.className='inbox-dice';dice.id='in-dice';
   dice.innerHTML=SV(BAR[0][3],1.8);
   document.querySelector('.inbox').appendChild(dice);
