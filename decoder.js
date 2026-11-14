@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   decoder.js — TAINA Decoder v2.9 (з лабораторією: адреса сайту + #lab)
+   decoder.js — TAINA Decoder v3.0 (з лабораторією: адреса сайту + #lab)
    Новый декодер, написанный с нуля под камеру мобильного телефона.
 
    НОТАЦИЯ РАЗМЕРА (стандарт проекта):
@@ -51,6 +51,19 @@ const CFG = {
                            // з помилками по всьому полю — і виходило «ІВАМ», «ІВИؼ;».
   BLOB_MAX_AREA:   0.30,   // пляма не більша за 30% поля
   BLOB_MAX_BBOX:   0.40,   // габарит плями не більший за 40% поля
+  /* (з 3.0) ЧАСТКОВЕ ЧИТАННЯ. Скільки бітів тексту мусить лишитися без
+     жодної перевірки (пляма чи відблиск накрили всі їхні дзеркала), щоб
+     результат вважався «прочитаним частково». */
+  DOUBT_MIN:       2,
+  /* (з 3.0) Прицільна спроба негативу, коли рамка сама показала, що код
+     перевернутий: скільки таких спроб на кадр і скільки часу на кожну. */
+  NEG_PROBES:      2,
+  NEG_PROBE_MS:    600,
+  /* (з 3.0) Два квадрати — це ОДНА рамка, якщо їхні кути розходяться не
+     більше ніж на стільки модулів. Гіпотези однієї рамки розходяться до
+     півтора модуля; найближча «чужа» рамка (шматок усередині коду) —
+     щонайменше на п'ять. */
+  SAME_FRAME:      1.6,
   T_MIN:           9,      // T = 9 → n = 5
   T_MAX:          201,
   MIN_CONTRAST:    50,     // минимальный контраст строки для анализа зебры
@@ -154,6 +167,26 @@ function payloadBytes(x) {
   const ps = (x && x.parts && x.parts.length) ? x.parts : [x && x.text || ''];
   let n = 0; for (const t of ps) if (t) n += _enc.encode(t).length; return n;
 }
+
+/**
+ * (з 3.0) Наскільки різні два тексти — частка бітів UTF-8, що не збігаються
+ * (0 — однакові, близько 0.5 — нічого спільного). Потрібно, щоб відрізнити
+ * ІНШИЙ текст (сусідня третина кольорового коду) від ТОГО САМОГО тексту з
+ * одним-двома побитими бітами (шум мотиву чи стібка в сусідньому каналі).
+ */
+function textGap(a, b) {
+  const x = _enc.encode(a || ''), y = _enc.encode(b || '');
+  const L = Math.max(x.length, y.length);
+  if (!L) return 0;
+  let d = 0;
+  for (let i = 0; i < L; i++) {
+    let v = (i < x.length ? x[i] : 0) ^ (i < y.length ? y[i] : 0);
+    while (v) { d += v & 1; v >>= 1; }
+  }
+  return d / (L * 8);
+}
+/* поріг «це інший текст», у частках бітів */
+const TEXT_FAR = 0.15;
 
 /* ═════════════════════ ЧАСТЬ 1. ЯДРО ФОРМАТА TAINA ═════════════════════
    Перенесено из рабочего декодера проекта без изменения логики.
@@ -271,6 +304,53 @@ function mismatchShape(masks, n) {
     if (y < y0) y0 = y; if (y > y1) y1 = y;
   }
   return { frac: total / N, bbox: ((x1 - x0 + 1) * (y1 - y0 + 1)) / N };
+}
+
+/**
+ * ПЛЯМА НА СЕРЕДИНІ (з 3.0).
+ * Симетрія ×8 рятує біт, поки ціле хоч одне його дзеркало. Але в бітів біля
+ * центру всі дзеркала лежать поруч: пляма чи відблиск посередині накриває
+ * їх усі разом, голосувати нема кому, і зворотна звірка цього не бачить —
+ * перебудований орнамент збігається із зіпсованим. Так код із плямою
+ * посередині читався «впевнено», але з чужими першими літерами.
+ *
+ * Де пляма, видно з розбіжностей: вони лежать по її краях, там, де частина
+ * дзеркал уціліла. Якщо їхній габарит — компактний і накриває центр, то
+ * всі клітинки в межах найбільшого квадрата навколо центру, що вміщається
+ * в габарит, перевірити нічим. Із них сумнівні лише ті, що прочиталися
+ * кольором самої плями: клітинку іншого кольору пляма дати не могла.
+ *
+ * @param used скільки перших бітів (клітинок базового сектора) несуть текст
+ * @returns {{bits:number, fab:boolean}} bits — скільки бітів тексту лишилося
+ *          без перевірки; fab — «текст із плями»: всі одиниці каналу лежать
+ *          під плямою, тобто сам канал, найімовірніше, порожній
+ */
+function centerDoubt(g, chk, n, used) {
+  const N = n * n, c = (n - 1) / 2, none = { bits: 0, fab: false };
+  let x0 = n, y0 = n, x1 = -1, y1 = -1, cnt = 0, ones = 0;
+  for (let i = 0; i < N; i++) {
+    if ((chk[i] ? 1 : 0) === g[i]) continue;
+    const x = i % n, y = (i / n) | 0;
+    cnt++; if (g[i]) ones++;
+    if (x < x0) x0 = x; if (x > x1) x1 = x;
+    if (y < y0) y0 = y; if (y > y1) y1 = y;
+  }
+  if (!cnt) return none;
+  if (((x1 - x0 + 1) * (y1 - y0 + 1)) / N > CFG.BLOB_MAX_BBOX) return none;   // розсип, а не пляма
+  const rho = Math.min(c - x0, x1 - c, c - y0, y1 - c);
+  if (rho < 0) return none;                                                    // середина не накрита
+  const lim = Math.min(used, (rho + 1) * (rho + 2) / 2);
+  const bc = baseCells('oct', n);
+  const mixed = Math.max(ones, cnt - ones) / cnt < 0.9;     // пляма строката: сумнівне все під нею
+  const v = ones * 2 >= cnt ? 1 : 0;
+  let bits = 0, lastOne = -1;
+  for (let k = 0; k < used && k < bc.length; k++) {
+    const [x, y] = bc[k];
+    const b = chk[y * n + x] ? 1 : 0;
+    if (b) lastOne = k;
+    if (k < lim && (mixed || b === v)) bits++;
+  }
+  return { bits, fab: !mixed && v === 1 && lastOne >= 0 && lastOne < lim };
 }
 
 /* декод с голосованием по зеркалам — избыточность орнамента как error correction */
@@ -473,6 +553,10 @@ function monoReadAny(cells, L, n) {
       if (k[i] < bk[i] - 1e-9) break;
     }
   }
+  /* (з 3.0) скільки джерел дали саме цей текст і що прочитали інші канали —
+     щоб відрізнити одноколірний код від третини кольорового (див. decodeCells) */
+  best.cnt = cnt(best.text);
+  best.reads = reads;
   return best;
 }
 
@@ -510,12 +594,30 @@ function decodeCells(cells, Tz) {
   const medSat = sorted[N >> 1];
   const isColored = medSat > 25 || coloredCnt >= Math.max(3, n * 0.15);
 
+  /* (з 3.0) ДОВІДКА ДЛЯ ПЕРЕВІРОК «ТРЕТИНА ЗАМІСТЬ ЦІЛОГО» І «ЧАСТКОВО».
+     single — канал, якщо одноколірний текст прочитав ЛИШЕ він один (ні
+     яскравість, ні інші канали його не підтвердили). chanTexts — які тексти
+     дали окремі канали (впевнено, від 3 байтів). doubt — скільки бітів
+     лишилося без перевірки через пляму на середині. */
+  const blen = t => _enc.encode(t).length;
+  const monoInfo = (best, pk) => {
+    const texts = [];
+    for (const r of best.reads || [])
+      if (r.chan !== 'L' && r.agree >= CFG.AGREE_MIN && blen(r.text) >= 3) texts.push({ c: r.chan, t: r.text });
+    if (pk) pk.bst.res.forEach((r, c) => {
+      if (r && r.a >= CFG.AGREE_MIN && blen(r.t) >= 3) texts.push({ c: 'RGB'[c], t: r.t });
+    });
+    return { single: (best.chan !== 'L' && best.cnt === 1) ? best.chan : null,
+             chanTexts: texts,
+             doubt: centerDoubt(best.grid, best.chk, n, blen(best.text) * 8).bits };
+  };
+
   if (!isColored) {
     const best = monoReadAny(cells, L, n);
     if (!best) return { kind: 'mono', text: null, agree: 0, n, colored: false };
-    return { kind: 'mono', text: best.text, parts: [best.text], agree: best.agree,
+    return Object.assign({ kind: 'mono', text: best.text, parts: [best.text], agree: best.agree,
              mode: best.mode, n, colored: false, palette: null, shape: best.shape,
-             dataFlip: best.flip };
+             dataFlip: best.flip }, monoInfo(best, null));
   }
 
   const clsOtsu = classifyOtsu(cells, n);
@@ -527,6 +629,7 @@ function decodeCells(cells, Tz) {
      блакитний = G+B. Канали при цьому несуть ОДИН І ТОЙ САМИЙ візерунок,
      а не три різні тексти. Читати такий код поканально не можна —
      вийде подвоєний або побитий текст. Читаємо по яскравості. */
+  let identical = false, tintedBest = null;
   {
     const chans = [cls.cr, cls.cg, cls.cb].filter(ch => {
       let ones = 0; for (let i = 0; i < N; i++) ones += ch[i];
@@ -538,7 +641,7 @@ function decodeCells(cells, Tz) {
        у кольоровий розбір, синій канал не читався — і весь код відкидало
        як «втрачений канал». Тепер збіг прямий АБО повний зворотний
        означає той самий візерунок, тобто підфарбований монохром. */
-    let identical = chans.length > 0;
+    identical = chans.length > 0;
     for (let k = 1; k < chans.length && identical; k++) {
       let same = 0;
       for (let i = 0; i < N; i++) if (chans[k][i] === chans[0][i]) same++;
@@ -548,14 +651,7 @@ function decodeCells(cells, Tz) {
       const f = same / N;
       if (f < 0.97 && f > 0.03) identical = false;
     }
-    if (identical) {
-      const best = monoReadAny(cells, L, n);
-      if (best) {
-        return { kind: 'mono', text: best.text, parts: [best.text], agree: best.agree,
-                 mode: best.mode, n, colored: false, tinted: true,
-                 palette: cls.name, shape: best.shape, dataFlip: best.flip };
-      }
-    }
+    if (identical) tintedBest = monoReadAny(cells, L, n);
   }
   const cR = new Float64Array(N), cG = new Float64Array(N), cB = new Float64Array(N);
   for (let i = 0; i < N; i++) {
@@ -596,19 +692,34 @@ function decodeCells(cells, Tz) {
           if (!res[c] || a > res[c].a) res[c] = { t, g, p, a, mk, chk };
         }
       }
+      /* (з 3.0) КАНАЛ «ІЗ ПЛЯМИ». Відблиск на порожньому каналі дає кілька
+         світлих клітинок біля центру, і вони інколи складаються в «літеру»
+         (так до справжнього тексту чіплялося зайве «Ѐ · »). Якщо всі одиниці
+         каналу лежать під плямою, каналу не вірю: вважаю непрочитаним. */
+      let fab = false;
+      for (let c = 0; c < 3; c++) {
+        const r = res[c]; if (!r) continue;
+        r.doubt = centerDoubt(r.g, r.chk, n, blen(r.t) * 8 + (r.mk ? 1 : 0));
+        if (r.doubt.fab) { res[c] = null; fab = true; }
+      }
       const nn = res.filter(r => r);
       if (!nn.length) continue;
       const sc = nn.length * 1000 + nn.reduce((x, r) => x + r.t.length, 0);
       if (!bst || sc > bst.sc)
         bst = { vr: res[0] ? res[0].t : null, vg: res[1] ? res[1].t : null, vb: res[2] ? res[2].t : null,
-                sc, m, rmark: res[0] ? res[0].mk : markCell(chArr[0], n, m), res,
+                sc, m, rmark: res[0] ? res[0].mk : markCell(chArr[0], n, m), res, fab,
                 pol: res.map(r => r ? r.p : -1) };
     }
     if (!bst) return null;
     /* ВТРАЧЕНИЙ КАНАЛ: не прочитався, хоча не порожній. Порожній канал
        після інверсії стає суцільним — це теж «порожній». */
+    /* (з 3.0) …і так само без мітки, якщо прочитані канали несуть РІЗНІ
+       тексти: це три окремі тексти, і непрочитаний канал — втрачений текст.
+       (Однаковий текст у каналах — підфарбований монохром, там інші канали
+       можуть бути мотивом, їх не рахуємо.) */
     let lost = 0;
-    if (bst.rmark) {
+    const distinct = new Set(bst.res.filter(r => r).map(r => r.t)).size;
+    if (bst.rmark || distinct >= 2) {
       for (let c = 0; c < 3; c++) {
         if (bst.res[c]) continue;
         let ones = 0;
@@ -655,7 +766,33 @@ function decodeCells(cells, Tz) {
      Нічия завжди лишається кольоровому. Мітку rmark тут за ознаку брати
      не можна: це одна центральна клітинка червоного каналу, і в
      декоративному коді вона буває одиницею випадково. */
-  const monoAlt = monoReadAny(cells, L, n);
+  /* (з 3.0) КОЛЬОРОВИЙ КОД З ОДНИМ ЗАЙНЯТИМ КАНАЛОМ.
+     Одна літера в кольоровому режимі: текст ділиться на третини, і зайнятий
+     лишається тільки канал R (мітка + літера). Перевірка «однакових каналів»
+     приймала такий код за підфарбований монохром і читала БЕЗ зсуву на
+     мітку: «A» перетворювалась на «_» або не читалась зовсім. Те саме з
+     двома знаками, чиї візерунки випадково майже збігаються («b1», «d2»).
+     Тепер порівнюю обидва читання: кольорове з міткою перемагає, лише коли
+     воно складається в третини, нічого не втратило і зійшлося зворотною
+     звіркою СТРОГО краще. Нічия — як і раніше, монохрому: справжній
+     підфарбований код із міткою не читається, бо зсув на біт ламає UTF-8. */
+  if (identical && tintedBest) {
+    let rgbOne = false;
+    if (pick && pick.bst.res[0] && pick.bst.res[0].mk === 1 && !pick.lost &&
+        pick.agree > tintedBest.agree + 1e-9) {
+      const ps = [pick.bst.vr, pick.bst.vg, pick.bst.vb];
+      const ch = [...ps.map(t => t || '').join('')], k = Math.ceil(ch.length / 3);
+      const want = [ch.slice(0, k).join(''), ch.slice(k, 2 * k).join(''), ch.slice(2 * k).join('')];
+      rgbOne = ps.every((t, i) => (t || '') === want[i]);
+    }
+    if (!rgbOne) {
+      return Object.assign({ kind: 'mono', text: tintedBest.text, parts: [tintedBest.text], agree: tintedBest.agree,
+               mode: tintedBest.mode, n, colored: false, tinted: true,
+               palette: cls.name, shape: tintedBest.shape, dataFlip: tintedBest.flip },
+               monoInfo(tintedBest, pick));
+    }
+  }
+  const monoAlt = (identical && tintedBest) ? null : monoReadAny(cells, L, n);
   /* ПЕРЕВІРКА «ОДИН ТЕКСТ У ТРЬОХ КАНАЛАХ».
      Генератор ділить текст на три послідовні третини (по символах). Якщо
      прочитані канали так не складаються — це не RGB-код, а одноколірний
@@ -669,7 +806,31 @@ function decodeCells(cells, Tz) {
     const want = [ch.slice(0, k).join(''), ch.slice(k, 2 * k).join(''), ch.slice(2 * k).join('')];
     monolithBad = ps.some((t, i) => (t || '') !== want[i]);
   }
-  const monoWins = monoAlt && monoAlt.agree >= CFG.AGREE_MIN &&
+  /* (з 3.0) ТРЕТИНА ЗАМІСТЬ ЦІЛОГО.
+     Одноколірний код, навіть підфарбований чи з мотивом, несе ОДИН текст:
+     його читає яскравість або кілька каналів одразу. Якщо ж текст дав лише
+     ОДИН канал, а інший канал упевнено несе ІНШИЙ текст — це кольоровий код
+     (три третини одного тексту або три окремі тексти), і видавати одну його
+     частину за цілий одноколірний код не можна. Так пошкоджений кольоровий
+     код повертав «ще нам, браття моло» замість усього рядка, а старі коди
+     з трьома текстами читалися одним словом. Такий код розбираємо як
+     кольоровий: якщо всі канали на місці — прочитається цілком, якщо ні —
+     спрацює перевірка «втрачено канал». */
+  let split = false;
+  if (monoAlt && monoAlt.chan !== 'L' && monoAlt.cnt === 1) {
+    const sure = [];
+    for (const r of monoAlt.reads || [])
+      if (r.chan !== 'L' && r.chan !== monoAlt.chan && r.agree >= CFG.AGREE_MIN && blen(r.text) >= 3) sure.push(r.text);
+    if (pick) pick.bst.res.forEach((r, c) => {
+      if (r && 'RGB'[c] !== monoAlt.chan && r.a >= CFG.AGREE_MIN && blen(r.t) >= 3) sure.push(r.t);
+    });
+    split = sure.some(t => textGap(t, monoAlt.text) > TEXT_FAR);
+  }
+  /* інший текст є, а кольоровий розбір дав не більше одного каналу —
+     читати нема що: це шматок, а не код */
+  if (split && (!pick || pick.chans < 2))
+    return { kind: 'color', text: null, agree: 0, n, colored: true, palette: cls.name };
+  const monoWins = !split && monoAlt && monoAlt.agree >= CFG.AGREE_MIN &&
                    (!pick || monolithBad ||
                     (monoAlt.agree > pick.agree + 1e-9 && pick.chans < 3 &&
                      /* канал-одиночка не перебиває справжній RGB-моноліт:
@@ -687,10 +848,10 @@ function decodeCells(cells, Tz) {
                     (!pick.bst.rmark &&
                      [pick.bst.vr, pick.bst.vg, pick.bst.vb].some(t => t === monoAlt.text)));
   if (monoWins) {
-    return { kind: 'mono', text: monoAlt.text, parts: [monoAlt.text],
+    return Object.assign({ kind: 'mono', text: monoAlt.text, parts: [monoAlt.text],
              agree: monoAlt.agree, mode: monoAlt.mode, n, colored: false,
              tinted: true, decorative: true, palette: cls.name,
-             shape: monoAlt.shape, dataFlip: monoAlt.flip };
+             shape: monoAlt.shape, dataFlip: monoAlt.flip }, monoInfo(monoAlt, pick));
   }
 
   if (!pick) return { kind: 'color', text: null, agree: 0, n, colored: true, palette: cls.name };
@@ -714,8 +875,18 @@ function decodeCells(cells, Tz) {
     ? parts.join('')
     : parts.join(' · ');
 
+  /* (з 3.0) сумнів — найбільший серед прочитаних каналів */
+  let doubt = 0;
+  for (const r of best.res) if (r && r.doubt && r.doubt.bits > doubt) doubt = r.doubt.bits;
+  /* (з 3.0) без мітки лишився один канал, бо інший відкинуто як «текст із
+     плями», — це одноколірний код, а не «три тексти» */
+  if (!best.rmark && parts.length === 1 && best.fab) {
+    return { kind: 'mono', text: parts[0], parts: [parts[0]], agree, shape, lostChannels: 0, doubt,
+             mode: best.m, n, colored: false, tinted: true, palette: useCls.name,
+             single: 'RGB'[best.res.findIndex(r => r)], chanTexts: [] };
+  }
   return { kind: best.rmark ? 'monolith' : 'three', text, parts, agree, shape,
-           lostChannels,
+           lostChannels, doubt,
            mode: best.m, n, colored: true, palette: useCls.name, rmark: best.rmark,
            channels: [best.vr, best.vg, best.vb],
            /* інверсія каналу відносно стандарту сайту (біт = канал «з'їдено»):
@@ -1013,7 +1184,7 @@ function zebraRing(gray, S, Tz) {
  * Подделать это вырезкой невозможно.
  * Снимаем ПРЯМО ИЗ ОРИГИНАЛЬНОГО кадра.
  */
-function outerFrameScore(px, W, H0, pts, Tz, ch) {
+function outerFrameScore(px, W, H0, pts, Tz, ch, neg) {
   /* Кількість точок на сторону — не менше двох на модуль.
      Було жорстко 20: при Tz=43 крок між точками виходив рівно 2 модулі,
      усі точки падали на клітинки ОДНОГО кольору зебри, і перевірка
@@ -1021,8 +1192,15 @@ function outerFrameScore(px, W, H0, pts, Tz, ch) {
      Так не читалися коди з полем 41×41. Два відліки на модуль гарантують,
      що обидва кольори зебри потрапляють у вибірку на будь-якому розмірі. */
   const NS = Math.max(20, Math.ceil(Tz * 2.2));
+  /* neg (з 3.0): та сама перевірка для ПЕРЕВЕРНУТОГО кадру, але без самого
+     перевертання — значення пікселя береться рівно таким, яким воно було б
+     у перевернутому буфері (255 − канал; яскравість — від перевернутих R,G,B).
+     Так полярність коду видно за рамкою ще до розбору. */
   const lumAt = (x, y) => {
     const q = (y * W + x) * 4;
+    if (neg) return (ch == null || ch < 0)
+      ? (65280 - (px[q] * 77 + px[q+1] * 150 + px[q+2] * 29)) >> 8
+      : 255 - px[q + ch];
     return (ch == null || ch < 0)
       ? (px[q] * 77 + px[q+1] * 150 + px[q+2] * 29) >> 8
       : px[q + ch];
@@ -1260,6 +1438,29 @@ function downscaleCanvas(canvas, maxSide) {
   return { canvas: c, scale: s };
 }
 
+const UNIT_SQ = [[0, 0], [1, 0], [1, 1], [0, 1]];
+
+/** (з 3.0) Найбільша відстань між відповідними кутами двох квадратів, у модулях. */
+function cornerGap(a, b, Tz) {
+  const mod = meanSide(a) / Tz;
+  let d = 0;
+  for (let i = 0; i < 4; i++) d = Math.max(d, Math.hypot(a[i][0] - b[i][0], a[i][1] - b[i][1]));
+  return d / mod;
+}
+
+/** (з 3.0) Чи належить контур q тій самій рамці, що й квадрат зебри h:
+ *  лежить у межах коду з його тихою зоною і не менший за саму зебру. */
+function nearSquare(q, h, Tz) {
+  const Hm = computeH(h, UNIT_SQ);
+  if (!Hm) return false;
+  const m = 4.6 / Tz;
+  for (const p of q) {
+    const [u, v] = applyH(Hm, p[0], p[1]);
+    if (u < -m || v < -m || u > 1 + m || v > 1 + m) return false;
+  }
+  return meanSide(q) >= meanSide(h) * (1 - 1.2 / Tz);
+}
+
 /**
  * Главная функция декодирования.
  *
@@ -1329,16 +1530,23 @@ function decode(source, opts) {
                   true — тільки негатив; false — тільки звичайний.
      Камера чергує true/false по кадрах, щоб не подвоювати час кадру. */
   const inv = opts.invert === undefined ? 'auto' : opts.invert;
-  const runPass = (neg) => {
-    let buf = px;
-    if (neg) {
-      buf = new Uint8ClampedArray(px.length);
+  let _negBuf = null;
+  const negBuf = () => {
+    if (!_negBuf) {
+      _negBuf = new Uint8ClampedArray(px.length);
       for (let i = 0; i < px.length; i += 4) {
-        buf[i] = 255 - px[i]; buf[i+1] = 255 - px[i+1]; buf[i+2] = 255 - px[i+2]; buf[i+3] = px[i+3];
+        _negBuf[i] = 255 - px[i]; _negBuf[i+1] = 255 - px[i+1]; _negBuf[i+2] = 255 - px[i+2]; _negBuf[i+3] = px[i+3];
       }
     }
-    const d = neg ? { stages: [], candidates: [], rejected: [] } : diag;
-    const res = decodePixels(buf, W, H, quads, opts, d, mark, neg ? performance.now() : t0);
+    return _negBuf;
+  };
+  /* qs — лише ці контури (з 3.0); ctl — стеження за рамкою (див. decodePixels);
+     fresh — свій відлік часу і свій журнал, як у перевернутого проходу */
+  const runPass = (neg, qs, ctl, fresh) => {
+    const buf = neg ? negBuf() : px;
+    const own = neg || fresh;
+    const d = own ? { stages: [], candidates: [], rejected: [] } : diag;
+    const res = decodePixels(buf, W, H, qs || quads, opts, d, mark, own ? performance.now() : t0, ctl);
     if (res.ok && neg) res.negative = true;
     if (LAB.on) { res._diag = d; res._neg = neg; }
     return res;
@@ -1352,20 +1560,76 @@ function decode(source, opts) {
      маленький код не страждає: якщо другий прохід нічого не знайшов,
      лишається перший. */
   const weak = (x) => x && x.ok && x.n <= 11;
-  const order = inv === true ? [true, false] : [false, true];
-  let best = runPass(order[0]);
   /* НЕПІДТВЕРДЖЕНИЙ РЕЗУЛЬТАТ (з 2.4). Якщо перший прохід дав лише
      одне читання без повної згоди, на файлі перевіряємо й другу
      полярність: у негативі звичайний прохід інколи приймає дрібний
      шматок усередині коду, а цілий код читається перевернутим. */
   const shaky = (x) => x && x.ok && opts.mode !== 'camera' &&
                  !(x.confidence.votes >= 2 && x.confidence.agree >= 0.999);
-  const needSecond = (inv === 'auto' && (!best.ok || shaky(best))) || weak(best);
-  if (needSecond) {
-    const sec = runPass(order[1]);
-    const bl = payloadBytes;
-    if (sec.ok && (!best.ok || bl(sec) > bl(best) || (bl(sec) === bl(best) && sec.T > best.T))) best = sec;
-    if (LAB.on && !best.ok) best._diag2 = sec._diag;
+  const bl = payloadBytes;
+  let best;
+  if (inv !== 'auto') {
+    /* Полярність задано ззовні (камера сайту чергує кадри) — усе як було. */
+    const order = inv === true ? [true, false] : [false, true];
+    best = runPass(order[0]);
+    if (weak(best)) {
+      const sec = runPass(order[1]);
+      if (sec.ok && (!best.ok || bl(sec) > bl(best) || (bl(sec) === bl(best) && sec.T > best.T))) best = sec;
+      if (LAB.on && !best.ok) best._diag2 = sec._diag;
+    }
+  } else {
+    /* ПОЛЯРНІСТЬ ЗА РАМКОЮ (з 3.0).
+       Раніше негатив шукали так: звичайний прохід до кінця (2,5 с марно),
+       і лише тоді — перевернутий. А найкоротші коди навпаки: прочитавши
+       їх за 0,2 с, ще 2,5 с перевіряли перевернутий кадр «про всяк випадок».
+       Тепер:
+       1) Звичайний прохід для гіпотези, де рамка не зійшлася, а зебра
+          чергується і кути в неї світлі, дешево перевіряє ТУ САМУ рамку в
+          перевернутому вигляді. Зійшлася (і ще нічого не прочитано) — схоже
+          на негатив: одразу читаємо негатив, і лише на контурах цієї рамки.
+          Вийшло «чисте» читання — це й є відповідь, звичайний прохід далі
+          не потрібен. Не вийшло — усе йде рівно як раніше.
+       2) «Слабкий» результат (поле до 11×11) і далі перевіряємо перевернутим
+          кадром — крім випадку, коли він «чистий».
+       «ЧИСТЕ» читання: той самий текст дали щонайменше дві незалежні
+       гіпотези, зворотна звірка повна, рамка бездоганна, а зебра чергується
+       без жодного збою і має темні кути. Хибні шматки, заради яких потрібна
+       друга перевірка, такими не бувають: їхня «зебра» — випадкові клітинки
+       чужого візерунка (на тестовому наборі чергування 0,25–0,65).
+       Усе, що не «чисте», перевіряється рівно так, як і раніше. */
+    const clean = (x) => x && x.ok && x.confidence.votes >= 2 && x.confidence.agree >= 0.999 &&
+                         x.confidence.frame >= 0.999 && x.confidence.alternation >= 0.999 &&
+                         x.confidence.cornersDark === 1;
+    const pre = opts.mode === 'camera' ? CFG.CAMERA : CFG.IMAGE;
+    const mq = opts.maxQuads != null ? opts.maxQuads : pre.maxQuads;
+    const eff = quads.slice(0, mq);
+    { const fb = quads.find(q => q.fallback); if (fb && eff.indexOf(fb) < 0) eff.push(fb); }
+    let fast = null;
+    const ctl = { left: CFG.NEG_PROBES, watch: (hit) => {
+      const near = eff.filter(q => q === hit.quad || nearSquare(q.pts, hit.pts, hit.Tz));
+      if (!near.length) return false;
+      const o2 = Object.assign({}, opts, { timeBudgetMs: Math.min(
+        opts.timeBudgetMs != null ? opts.timeBudgetMs : pre.timeBudgetMs, CFG.NEG_PROBE_MS) });
+      const d2 = { stages: [], candidates: [], rejected: [] };
+      const r = decodePixels(negBuf(), W, H, near, o2, d2, mark, performance.now());
+      if (!clean(r)) return false;
+      r.negative = true;
+      if (LAB.on) { r._diag = d2; r._neg = true; }
+      fast = r;
+      return true;
+    } };
+    best = runPass(false, null, ctl);
+    const probes = CFG.NEG_PROBES - ctl.left;
+    if (fast) {
+      best = fast;
+    } else if (!best.ok || shaky(best) || (weak(best) && !clean(best))) {
+      const sec = runPass(true);
+      if (sec.ok && (!best.ok || bl(sec) > bl(best) || (bl(sec) === bl(best) && sec.T > best.T))) best = sec;
+      if (LAB.on && !best.ok) best._diag2 = sec._diag;
+    }
+    /* для звітів і тестів: скільки було прицільних спроб негативу і чи
+       відповідь знайдено саме так */
+    best.negProbes = probes; best.byFrame = !!fast;
   }
   if (LAB.on) {
     try { labRecord(full, best, quads, opts, cvUsed); } catch (e) { console.warn('lab', e); }
@@ -1378,7 +1642,7 @@ function decode(source, opts) {
  * Ядро конвейера: работает с уже готовым буфером оригинала и списком кандидатов.
  * Вынесено отдельно, чтобы его можно было прогонять автотестами без DOM.
  */
-function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
+function decodePixels(px, W, H, quads, opts, diag, mark, t0, ctl) {
   opts = opts || {};
   t0 = t0 != null ? t0 : performance.now();
   diag = diag || { stages: [], candidates: [], rejected: [] };
@@ -1397,6 +1661,10 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
   }
 
   const accepted = [];
+  /* (з 3.0) що прочитали окремі канали в гіпотезах цієї рамки — для
+     перевірки «третина замість цілого» */
+  const rivals = [];
+  let aborted = false;
   let evaluated = 0;
   const SCs = pickStructureChannels(px, W, H);
   if (SCs.length > 1) diag.structureChannels = SCs;
@@ -1406,6 +1674,7 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
      камери. Глибокий (з 1.9: проба росте за кандидатом, точні модульні
      гіпотези під кожен знайдений розмір) запускається ЛИШЕ коли швидкий
      нічого не знайшов — він потрібен великим кодам і коштує вдвічі дорожче. */
+  stages:
   for (const deep of [false, true]) {
   /* Глибокий етап — лише для файлу. На камері великі коди однаково не
      читаються (замало пікселів на модуль), а кадр мусить бути швидким. */
@@ -1486,6 +1755,22 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
       if (LAB.on && (!diag.bestTry || frame.score > diag.bestTry.frame))
         diag.bestTry = { pts: pts.map(p => p.slice()), Tz, frame: frame.score, k: h.label, q: qi };
       if (frame.score < CFG.FRAME_MIN) {
+        /* (з 3.0) ПОЛЯРНІСТЬ ЗА РАМКОЮ. Зебра чергується, кути в неї світлі,
+           а рамка «не та» — схоже на негатив. Перевіряю ту саму рамку в
+           перевернутому вигляді (дешево, з того ж кадру). Зійшлася — кличу
+           прицільний розбір негативу; вдався — цей прохід більше не потрібен.
+           Не вдався — іду далі, ніби нічого не було: час спроби в бюджет
+           проходу не рахується. */
+        if (ctl && ctl.watch && ctl.left > 0 && !accepted.length &&
+            ring.alt >= 0.85 && ring.cornersDark <= 0.25 &&
+            outerFrameScore(px, W, H, pts, Tz, SC, true).score >= CFG.FRAME_MIN) {
+          ctl.left--;
+          diag.negProbes = (diag.negProbes || 0) + 1;
+          const tp = performance.now();
+          const hitOk = ctl.watch({ pts, Tz, SC, quad: q });
+          t0 += performance.now() - tp;
+          if (hitOk) { aborted = true; break stages; }
+        }
         diag.rejected.push({ q: qi, k: h.label, T, why: 'структура рамки',
                              frame: +frame.score.toFixed(2),
                              wOk: +frame.wOk.toFixed(2), bOk: +frame.bOk.toFixed(2) });
@@ -1542,6 +1827,22 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
                              text: dec.text.slice(0, 20) });
         continue;
       }
+      /* ПЕРЕВІРКА 2в (з 3.0): ТРЕТИНА ЗАМІСТЬ ЦІЛОГО.
+         У пошкодженого кольорового коду інколи читається один-єдиний канал —
+         і його третина тексту видавалась за цілий одноколірний код (без
+         жодного попередження: «ще нам, браття моло» замість усього рядка).
+         Одноколірний код, навіть підфарбований чи з мотивом, несе ОДИН текст.
+         Якщо ж цей текст дав лише один канал, а інший канал тієї самої рамки
+         впевнено несе ІНШИЙ текст — це кольоровий код, що втратив канали. */
+      if (dec.chanTexts && dec.chanTexts.length)
+        for (const r of dec.chanTexts) rivals.push({ T, pts, c: r.c, t: r.t });
+      if (dec.single && dec.chanTexts &&
+          dec.chanTexts.some(r => r.c !== dec.single && textGap(r.t, dec.text) > TEXT_FAR)) {
+        diag.rejected.push({ q: qi, k: h.label, T, why: 'втрачено канал',
+                             lost: 1, agree: +dec.agree.toFixed(3),
+                             text: dec.text.slice(0, 20) });
+        continue;
+      }
 
       /* ПЕРЕВІРКА 3: мінімальність поля.
          Генератор обирає найменше поле під обсяг даних. Якщо знятий текст
@@ -1571,7 +1872,8 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
         shape: dec.shape, tinted: !!dec.tinted, rmark: !!dec.rmark,
         alt: ring.alt, cornersDark: ring.cornersDark,
         corners: pts, quad: qi, inset: h.label, warpSize: S,
-        channels: dec.channels || null, chanInv: dec.chanInv || null
+        channels: dec.channels || null, chanInv: dec.chanInv || null,
+        single: dec.single || null, doubt: dec.doubt || 0
       });
       diag.candidates.push({ q: qi, k: h.label, T, agree: +dec.agree.toFixed(3),
                              frame: +frame.score.toFixed(2), text: dec.text.slice(0, 40) });
@@ -1594,6 +1896,61 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
       accepted.some(c => c.agree >= 0.999 && c.frame >= 0.999))) break;
   }
   } /* кінець етапів */
+
+  if (aborted) {
+    /* негатив уже прочитано за рамкою (див. decode) — цей прохід зупинено */
+    const r = fail('ABORT', diag, t0);
+    r.aborted = true;
+    return r;
+  }
+
+  /* (з 3.0) ТРЕТИНА ЗАМІСТЬ ЦІЛОГО — те саме між гіпотезами однієї рамки:
+     «чужий» текст іншого каналу міг знайтися не в цій гіпотезі, а в сусідній. */
+  if (rivals.length) {
+    for (let i = accepted.length - 1; i >= 0; i--) {
+      const c = accepted[i];
+      if (!c.single) continue;
+      const rv = rivals.find(r => r.c !== c.single && textGap(r.t, c.text) > TEXT_FAR &&
+                                  cornerGap(c.corners, r.pts, c.Tz) <= 1.5);
+      if (!rv) continue;
+      accepted.splice(i, 1);
+      diag.rejected.push({ q: c.quad, k: c.inset, T: c.T, why: 'втрачено канал', lost: 1,
+                           agree: +c.agree.toFixed(3), text: c.text.slice(0, 20) });
+    }
+  }
+
+  /* (з 3.0) ОДНА РАМКА — ОДНА СІТКА.
+     Рамка перевіряється з допуском, тож ту саму рамку інколи «впізнають»
+     гіпотези з РІЗНОЮ кількістю клітинок (підрахунок смужок зебри дає два-три
+     варіанти розміру). Сітка з двома зайвими клітинками розтягнута: вона
+     читає справжній візерунок, а зовнішнім кільцем чіпляє зебру. Зрідка це
+     зайве кільце складається в дозволений байт — «перенос рядка» чи «*», —
+     текст стає на байт довшим і за правилом «більший обсяг» перемагає
+     справжній. Так «Съ» читалося як «Ст», а «Мама» в деяких палітрах — як
+     «Мама*».
+     Вірною може бути лише одна сітка, і зебра сама показує яка: на вірній
+     вона чергується без жодного збою і має темні кути, а звірка повна. На
+     хибній так не буває ніколи — зайві клітинки або збивають чергування,
+     або виносять кути на світле кільце. Тож якщо на рамці є таке
+     БЕЗДОГАННЕ читання, усі небездоганні читання тієї самої рамки з іншою
+     кількістю клітинок відкидаю. Якщо бездоганного нема (знімок, шум) —
+     нічого не міняю. */
+  {
+    const exact = c => c.agree >= 0.999 && c.alt >= 0.999 && c.cornersDark === 1;
+    const sure = accepted.filter(exact);
+    if (sure.length && sure.length < accepted.length) {
+      for (let i = accepted.length - 1; i >= 0; i--) {
+        const c = accepted[i];
+        if (exact(c)) continue;
+        if (!sure.some(x => x.Tz !== c.Tz &&
+                            cornerGap(x.corners, c.corners, Math.max(x.Tz, c.Tz)) <= CFG.SAME_FRAME)) continue;
+        accepted.splice(i, 1);
+        diag.gridFix = true;
+        diag.rejected.push({ q: c.quad, k: c.inset, T: c.T, why: 'інша сітка тієї ж рамки',
+                             agree: +c.agree.toFixed(3), text: c.text.slice(0, 20) });
+      }
+    }
+  }
 
   mark('DECODE', { evaluated, accepted: accepted.length });
 
@@ -1651,6 +2008,11 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0) {
       blobBox: best.shape ? +best.shape.bbox.toFixed(2) : 0
     },
     tinted: best.tinted,          // підфарбований монохром
+    /* (з 3.0) прочитано частково: пляма чи відблиск накрили середину коду,
+       і кілька перших бітів тексту перевірити нічим — текст може містити
+       помилку. Інтерфейс показує це попередженням. */
+    partial: (best.doubt || 0) >= CFG.DOUBT_MIN,
+    doubtBits: best.doubt || 0,
     rmark: best.rmark,            // 1 = один текст, розкладений по каналах
     corners: best.corners,
     ms: +(performance.now() - t0).toFixed(1),
@@ -1997,7 +2359,7 @@ window.TainaDecoder = {
   last: null,               // результат останнього розбору, разом із діагностикою
   cvReady: () => !!(window.cv && window.cv.Mat),
   config: CFG,
-  version: '2.9',
+  version: '3.0',
   /* внутренности — для decoder-lab.html и автотестов */
   /* лабораторія: TainaDecoder.lab.show() — відкрити, .on — чи ввімкнена */
   lab: { get on() { return LAB.on; }, show() { labUI.open = true; labShow(); }, records: LAB.recs, text: () => LAB.recs.length ? labText(LAB.recs[LAB.idx]) : '' },
@@ -2028,7 +2390,8 @@ window.runDecodeAttempts = function (img, opts) {
   return [{ kind, mode: r.mode, n: r.n, pad: 2, res, T: r.T,
             confidence: r.confidence, parts: r.parts, channels: r.channels,
             rmark: r.rmark, colored: r.colored, tinted: r.tinted, text: r.text,
-            negative: !!r.negative, chanInv: r.chanInv || null }];
+            negative: !!r.negative, chanInv: r.chanInv || null,
+            partial: !!r.partial }];
 };
 
 })();

@@ -835,7 +835,7 @@ body.light-mode #adm-dlg .hint{color:#8a4e00}
 <input type="file" id="file" accept="image/*" hidden>
 <div class="flash" id="flash"></div>
 
-<script src="decoder.js?v=33"></script>
+<script src="decoder.js?v=34"></script>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -855,6 +855,7 @@ const DICT={
      mbSave:'⤓ Зберегти',mbScan:'⌖ Сканувати',shTitle:'Сканувати код',shCam:'📷 Камера',
      shFile:'🖼 Завантажити з галереї',shCancel:'Скасувати',
      noCode:'Код не прочитано',
+     partRead:'Прочитано частково — перевір текст',
      phM:"Напиши слово або ім'я",diceM:'Навмання',diceW:'Випадкове слово',saveImg:'Зберегти зображення',toGal:'В галерею',toGalS:'побачать усі відвідувачі',ordQ:'Потрібно для друку у високій якості?',ordA:'Замовити',holdIos:'Натисни на картинку й утримуй → «Зберегти в Фото»',holdAnd:'Натисни на картинку й утримуй → «Завантажити зображення»',holdApp:'Не виходить? Відкрий сайт у звичайному браузері: меню ⋯ угорі → «Відкрити в браузері».',holdChr:'Відкрити в Chrome',holdX:'Закрити',introM:'Генератор і сканер орнаментального коду. Це код, як QR, але у вигляді симетричного орнаменту. Напиши текст — отримаєш код, який можна вишити, надрукувати й прочитати сканером.',
      cvLoad:'Завантажую сканер…',cvFailT:'Сканер не завантажився',cvFail:'Перевір інтернет і спробуй ще раз.',
      tipFar:'Коду не видно в кадрі. Зніми ближче, щоб код займав майже весь кадр — разом зі світлим полем навколо нього.',
@@ -879,6 +880,7 @@ const DICT={
      mbSave:'⤓ Save',mbScan:'⌖ Scan',shTitle:'Scan a code',shCam:'📷 Camera',
      shFile:'🖼 Pick from gallery',shCancel:'Cancel',
      noCode:'Code not read',
+     partRead:'Partially read — check the text',
      phM:'Type a word or a name',diceM:'Random',diceW:'Random word',saveImg:'Save image',toGal:'To the gallery',toGalS:'visible to all visitors',ordQ:'Need it for high-quality print?',ordA:'Order',holdIos:'Press and hold the picture → “Save to Photos”',holdAnd:'Press and hold the picture → “Download image”',holdApp:'Does not work? Open the site in a regular browser: menu ⋯ at the top → “Open in browser”.',holdChr:'Open in Chrome',holdX:'Close',introM:'A generator and scanner of ornament codes. It is a code like QR, but shaped as a symmetric ornament. Type some text — get a code you can embroider, print and read with the scanner.',
      cvLoad:'Loading the scanner…',cvFailT:'The scanner did not load',cvFail:'Check your connection and try again.',
      tipFar:'No code visible in the frame. Move closer so the code fills most of it — together with the light margin around it.',
@@ -1483,7 +1485,10 @@ async function applyScan(best){
   $('txt').scrollTop=0;
   /* Успіх нічого не підписуємо: розшифрований текст сам з'явився в полі —
      це і є повідомлення. Лишається тільки «Відкрити», якщо це посилання. */
-  showResult('', txt);
+  /* (з декодера 3.0) ПРОЧИТАНО ЧАСТКОВО: пляма чи відблиск накрили середину коду, і перші
+     літери могли прочитатися з помилкою. Текст показуємо, але з попередженням; воно зникає,
+     щойно людина сама починає правити текст. */
+  showResult(best.partial?('⚠ '+t('partRead')):'', txt, best.partial?'r rs-part':'');
   updateBytes();
 }
 
@@ -2252,7 +2257,7 @@ function modeName(m){return {oct:'×8',quad:'×4',half:'×2',row:'×1'}[m]||m}
 
 function findURL(t){if(!t)return null;const m=t.match(/((https?:\/\/|www\.)[^\s]+)|([a-z0-9-]+\.[a-z]{2,}(\/[^\s]*)?)/i);if(!m)return null;let u=m[0];if(!/^https?:\/\//i.test(u))u='https://'+u;try{new URL(u);return u}catch(e){return null}}
 function escAttr(x){return String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function showResult(msg,text){const url=findURL(text);let html=msg?('<span class="g">'+msg+'</span>'):'';if(url)html+=`<a class="linkbtn" href="${escAttr(url)}" target="_blank" rel="noopener">🔗 Відкрити</a>`;$('rt').innerHTML=html;}
+function showResult(msg,text,cls){const url=findURL(text);let html=msg?('<span class="'+(cls||'g')+'">'+msg+'</span>'):'';if(url)html+=`<a class="linkbtn" href="${escAttr(url)}" target="_blank" rel="noopener">🔗 Відкрити</a>`;$('rt').innerHTML=html;}
 
 /* ═══ ЧОМУ НЕ ПРОЧИТАЛОСЯ ═══
    Декодер лишає в TainaDecoder.last.diagnostic перелік відхилених гіпотез
@@ -2512,6 +2517,8 @@ function readStatus(flash){
 }
 /* На ПК зелений напис лишається — поки не почне налазити на орнамент. */
 addEventListener('input',e=>{if(e.target&&e.target.id==='txt'&&$('rt').querySelector('.rs-ok')&&rsOverlaps())rsHideLater();});
+/* попередження «прочитано частково» знімаємо, коли людина сама править текст */
+addEventListener('input',e=>{if(e.target&&e.target.id==='txt'){const s=$('rt').querySelector('.rs-part');if(s)s.remove();}});
 
 /* КУБИК: навмання ВСЕ — фон, позитив/негатив, основна фарба, друга фарба,
    мотив і крок мотиву, разом з яскравістю кожного кольору. Видає лише
