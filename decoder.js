@@ -158,8 +158,20 @@ function minimalOctN(bits) {
   return CFG.T_MAX;
 }
 
-const _enc = new TextEncoder();
-const _dec = new TextDecoder('utf-8', { fatal: true });
+/* ДВА СПОСОБИ ЗАПИСУ (загальна версія, 15.11.2026).
+   UTF8 — звичайний, як на основному сайті. OC8 — компактний (1 символ = 8 клітин
+   + контрольний байт). Сканер СПЕРШУ читає звичайним способом — рівно як раніше;
+   компактний пробує лише тоді, коли звичайний нічого не дав. Генератор ніколи
+   не видає компактний код, який звичайний спосіб прочитав би інакше. */
+const UTF8C = (function () {
+  const te = new TextEncoder(), td = new TextDecoder('utf-8', { fatal: true });
+  return { name: 'utf8', encode: s => te.encode(s), decode: b => td.decode(b),
+           withCheck: b => b, stripCheck: b => b, CHK_BITS: 0 };
+})();
+const OC8C = { name: 'oc8', encode: s => OC8.encode(s), decode: b => OC8.decode(b),
+               withCheck: b => OC8.withCheck(b), stripCheck: b => OC8.stripCheck(b), CHK_BITS: 8 };
+let CODEC = UTF8C, _enc = UTF8C, _dec = UTF8C;
+function useCodec(c) { CODEC = c; _enc = c; _dec = c; }
 /* Обсяг корисних даних результату: сума байтів частин, без роздільників
    « · ». Саме ним порівнюємо кандидатів: роздільники не повинні робити
    три шматочки мусору «довшими» за справжній текст. */
@@ -205,6 +217,8 @@ function bytesToText(by) {
   by = by.slice();
   while (by.length && by[by.length - 1] === 0) by.pop();
   if (!by.length) return null;
+  by = CODEC.stripCheck(by);          /* компактний спосіб: звірка контрольного байта */
+  if (!by || !by.length) return null;
   try {
     const t = _dec.decode(new Uint8Array(by));
     return isClean(t) ? t : null;
@@ -212,7 +226,7 @@ function bytesToText(by) {
 }
 
 function textBits(t) {
-  const d = _enc.encode(t), b = new Uint8Array(d.length * 8);
+  const d = CODEC.withCheck(_enc.encode(t)), b = new Uint8Array(d.length * 8);
   for (let i = 0; i < d.length; i++)
     for (let k = 0; k < 8; k++) b[i * 8 + k] = (d[i] >> (7 - k)) & 1;
   return b;
@@ -1643,6 +1657,14 @@ function decode(source, opts) {
  * Вынесено отдельно, чтобы его можно было прогонять автотестами без DOM.
  */
 function decodePixels(px, W, H, quads, opts, diag, mark, t0, ctl) {
+  useCodec(UTF8C);
+  try {
+    const r = decodePixelsCore(px, W, H, quads, opts, diag, mark, t0, ctl);
+    if (r && r.ok && !r.format) r.format = CODEC.name;
+    return r;
+  } finally { useCodec(UTF8C); }
+}
+function decodePixelsCore(px, W, H, quads, opts, diag, mark, t0, ctl) {
   opts = opts || {};
   t0 = t0 != null ? t0 : performance.now();
   diag = diag || { stages: [], candidates: [], rejected: [] };
@@ -1666,6 +1688,134 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0, ctl) {
   const rivals = [];
   let aborted = false;
   let evaluated = 0;
+  /* перевірки прочитаного (винесено, щоб повторити для компактного способу) */
+  const acceptDec = (dec, cx) => {
+      const { qi, h, T, n, Tz, frame, z, ring, pts, S } = cx;
+      /* ПРОВЕРКА 2: обратная сверка — текст обратно в орнамент и сравнение */
+      /* Розбіжності допустимі, якщо це ОДНА компактна пляма: перекритий
+         кутик, блік, палець. Симетрія ×8 дублює кожен біт 4–8 разів, тож
+         голосування відновлює текст навіть коли октант закритий цілком.
+         Розсипані розбіжності — навпаки, ознака випадкового збігу. */
+      const sh = dec.shape || { frac: 1, bbox: 1 };
+      const blobOk = dec.agree >= CFG.AGREE_BLOB &&
+                     sh.frac <= CFG.BLOB_MAX_AREA &&
+                     sh.bbox <= CFG.BLOB_MAX_BBOX;
+      /* (з 2.8) розбіжності, розкидані по всьому полю, а не одною плямою,
+         прощаємо лише коли їх майже немає: інакше це зсунута сітка */
+      if (!blobOk && dec.agree >= CFG.AGREE_MIN && dec.agree < CFG.AGREE_SCATTER) {
+        diag.rejected.push({ q: qi, k: h.label, T, why: 'розсипані розбіжності',
+                             agree: +dec.agree.toFixed(3),
+                             plama: +sh.frac.toFixed(2), gabarit: +sh.bbox.toFixed(2),
+                             text: dec.text.slice(0, 20) });
+        return false;
+      }
+      if (dec.agree < CFG.AGREE_MIN && !blobOk) {
+        diag.rejected.push({ q: qi, k: h.label, T, why: 'обратная сверка',
+                             agree: +dec.agree.toFixed(3),
+                             plama: +sh.frac.toFixed(2), gabarit: +sh.bbox.toFixed(2),
+                             text: dec.text.slice(0, 20) });
+        return false;
+      }
+
+      /* ПЕРЕВІРКА 2б: цілісність каналів. Обрізаний текст гірший за
+         відмову: його не видно на око, і людина розносить його далі. */
+      if (dec.lostChannels) {
+        diag.rejected.push({ q: qi, k: h.label, T, why: 'втрачено канал',
+                             lost: dec.lostChannels, agree: +dec.agree.toFixed(3),
+                             text: dec.text.slice(0, 20) });
+        return false;
+      }
+      /* ПЕРЕВІРКА 2в (з 3.0): ТРЕТИНА ЗАМІСТЬ ЦІЛОГО.
+         У пошкодженого кольорового коду інколи читається один-єдиний канал —
+         і його третина тексту видавалась за цілий одноколірний код (без
+         жодного попередження: «ще нам, браття моло» замість усього рядка).
+         Одноколірний код, навіть підфарбований чи з мотивом, несе ОДИН текст.
+         Якщо ж цей текст дав лише один канал, а інший канал тієї самої рамки
+         впевнено несе ІНШИЙ текст — це кольоровий код, що втратив канали. */
+      if (dec.chanTexts && dec.chanTexts.length)
+        for (const r of dec.chanTexts) rivals.push({ T, pts, c: r.c, t: r.t });
+      if (dec.single && dec.chanTexts &&
+          dec.chanTexts.some(r => r.c !== dec.single && textGap(r.t, dec.text) > TEXT_FAR)) {
+        diag.rejected.push({ q: qi, k: h.label, T, why: 'втрачено канал',
+                             lost: 1, agree: +dec.agree.toFixed(3),
+                             text: dec.text.slice(0, 20) });
+        return false;
+      }
+
+      /* ПЕРЕВІРКА 3: мінімальність поля.
+         Генератор обирає найменше поле під обсяг даних. Якщо знятий текст
+         влазить у менше поле — сітку зсунуто або це випадковий збіг. */
+      {
+        const ps = dec.parts || [dec.text];
+        let bits = 0;
+        for (const t of ps) if (t) bits = Math.max(bits, _enc.encode(t).length * 8 + CODEC.CHK_BITS);
+        if (dec.rmark) bits += 1;
+        const want = minimalOctN(bits);
+        /* Запас у два кроки. Точну рівність вимагати НЕ можна: старі коди
+           з галереї зроблені попередніми версіями генератора, де розкладка
+           тексту по каналах була іншою, і в них n на крок більше за нинішню
+           формулу. А от текст, що влазить у поле на два кроки менше, —
+           це вже не варіація генератора, це зсунута сітка. */
+        if (want <= n - 4) {
+          diag.rejected.push({ q: qi, k: h.label, T, why: 'поле завелике для даних',
+                               n, expected: want, text: dec.text.slice(0, 20) });
+          return false;
+        }
+      }
+
+      accepted.push({
+        text: dec.text, parts: dec.parts || [dec.text], T, n, Tz,
+        mode: dec.mode, kind: dec.kind, colored: dec.colored, palette: dec.palette,
+        agree: dec.agree, frame: frame.score, zebraConf: z.conf,
+        shape: dec.shape, tinted: !!dec.tinted, rmark: !!dec.rmark,
+        alt: ring.alt, cornersDark: ring.cornersDark,
+        corners: pts, quad: qi, inset: h.label, warpSize: S,
+        channels: dec.channels || null, chanInv: dec.chanInv || null,
+        single: dec.single || null, doubt: dec.doubt || 0, fmt: CODEC.name
+      });
+      diag.candidates.push({ q: qi, k: h.label, T, agree: +dec.agree.toFixed(3),
+                             frame: +frame.score.toFixed(2), text: dec.text.slice(0, 40) });
+
+      /* Ранний выход — только по подтверждённому консенсусу. Одиночное идеальное
+         совпадение может оказаться сдвинутой сеткой, прочитавшей самосогласованный
+         кусок настоящего кода. */
+      const sameText = accepted.filter(c => c.text === dec.text).length;
+      if (dec.agree >= 0.999 && frame.score >= 0.999 && sameText >= 2) return 'early';
+      return true;
+  };
+  const deferred = [];
+  /* КОМПАКТНИЙ СПОСІБ. Ті самі вибірки клітинок (геометрію не повторюємо)
+     читаємо компактною таблицею — але лише коли звичайний спосіб:
+     а) нічого не прочитав; або
+     б) прочитав тільки «нечисте» (не бездоганна рамка) і при цьому є
+        бездоганна рамка, яку звичайний спосіб прочитати не зміг; або
+     в) прочитав тільки «нечистий» уламок у 1–2 байти.
+     Чистий старий код завжди читається звичайним способом бездоганно —
+     тож для нього компактний спосіб не запускається взагалі. */
+  const exactGeo = cx => cx.ring.alt >= 0.999 && cx.ring.cornersDark === 1 && cx.frame.score >= 0.999;
+  const exactAcc = c => c.agree >= 0.999 && c.alt >= 0.999 && c.cornersDark === 1 && c.frame >= 0.999;
+  let compactTried = 0;
+  const tryCompact = () => {
+    if (!deferred.length || CODEC !== UTF8C || !window.OC8) return false;
+    const tiny = accepted.length && Math.max(...accepted.map(c => payloadBytes(c))) <= 2;
+    const need = !accepted.length ||
+                 (!accepted.some(exactAcc) && (deferred.some(d => exactGeo(d.cx)) || tiny));
+    if (!need) { deferred.length = 0; return false; }
+    const before = accepted.length;
+    useCodec(OC8C);
+    rivals.length = 0;
+    compactTried += deferred.length;
+    for (const d of deferred) {
+      const dec = decodeCells(d.cells, d.cx.Tz);
+      if (!dec || dec.text === null) continue;
+      if (acceptDec(dec, d.cx) === 'early') { diag.earlyExit = true; break; }
+    }
+    deferred.length = 0;
+    diag.compactPass = { tried: compactTried, accepted: accepted.length - before };
+    if (accepted.length > before) return true;
+    useCodec(UTF8C);
+    return false;
+  };
   const SCs = pickStructureChannels(px, W, H);
   if (SCs.length > 1) diag.structureChannels = SCs;
 
@@ -1676,6 +1826,9 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0, ctl) {
      нічого не знайшов — він потрібен великим кодам і коштує вдвічі дорожче. */
   stages:
   for (const deep of [false, true]) {
+  /* перед глибоким етапом — спершу компактний спосіб на вже знятих вибірках:
+     це дешево, а глибокий етап для компактного коду зайвий */
+  if (deep && tryCompact()) break;
   /* Глибокий етап — лише для файлу. На камері великі коди однаково не
      читаються (замало пікселів на модуль), а кадр мусить бути швидким. */
   if (deep && (accepted.length || opts.mode === 'camera' || performance.now() - t0 > timeBudgetMs)) break;
@@ -1786,104 +1939,27 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0, ctl) {
       const cells = sampleCells(rgb, S, Tz);
 
       /* DECODE */
+      const cx = { qi, h, T, n, Tz, frame, z, ring, pts, S };
       const dec = decodeCells(cells, Tz);
+      let okd = false;
       if (!dec || dec.text === null) {
         diag.rejected.push({ q: qi, k: h.label, T, why: 'декод пустой',
                              frame: +frame.score.toFixed(2) });
-        continue;
-      }
-
-      /* ПРОВЕРКА 2: обратная сверка — текст обратно в орнамент и сравнение */
-      /* Розбіжності допустимі, якщо це ОДНА компактна пляма: перекритий
-         кутик, блік, палець. Симетрія ×8 дублює кожен біт 4–8 разів, тож
-         голосування відновлює текст навіть коли октант закритий цілком.
-         Розсипані розбіжності — навпаки, ознака випадкового збігу. */
-      const sh = dec.shape || { frac: 1, bbox: 1 };
-      const blobOk = dec.agree >= CFG.AGREE_BLOB &&
-                     sh.frac <= CFG.BLOB_MAX_AREA &&
-                     sh.bbox <= CFG.BLOB_MAX_BBOX;
-      /* (з 2.8) розбіжності, розкидані по всьому полю, а не одною плямою,
-         прощаємо лише коли їх майже немає: інакше це зсунута сітка */
-      if (!blobOk && dec.agree >= CFG.AGREE_MIN && dec.agree < CFG.AGREE_SCATTER) {
-        diag.rejected.push({ q: qi, k: h.label, T, why: 'розсипані розбіжності',
-                             agree: +dec.agree.toFixed(3),
-                             plama: +sh.frac.toFixed(2), gabarit: +sh.bbox.toFixed(2),
-                             text: dec.text.slice(0, 20) });
-        continue;
-      }
-      if (dec.agree < CFG.AGREE_MIN && !blobOk) {
-        diag.rejected.push({ q: qi, k: h.label, T, why: 'обратная сверка',
-                             agree: +dec.agree.toFixed(3),
-                             plama: +sh.frac.toFixed(2), gabarit: +sh.bbox.toFixed(2),
-                             text: dec.text.slice(0, 20) });
-        continue;
-      }
-
-      /* ПЕРЕВІРКА 2б: цілісність каналів. Обрізаний текст гірший за
-         відмову: його не видно на око, і людина розносить його далі. */
-      if (dec.lostChannels) {
-        diag.rejected.push({ q: qi, k: h.label, T, why: 'втрачено канал',
-                             lost: dec.lostChannels, agree: +dec.agree.toFixed(3),
-                             text: dec.text.slice(0, 20) });
-        continue;
-      }
-      /* ПЕРЕВІРКА 2в (з 3.0): ТРЕТИНА ЗАМІСТЬ ЦІЛОГО.
-         У пошкодженого кольорового коду інколи читається один-єдиний канал —
-         і його третина тексту видавалась за цілий одноколірний код (без
-         жодного попередження: «ще нам, браття моло» замість усього рядка).
-         Одноколірний код, навіть підфарбований чи з мотивом, несе ОДИН текст.
-         Якщо ж цей текст дав лише один канал, а інший канал тієї самої рамки
-         впевнено несе ІНШИЙ текст — це кольоровий код, що втратив канали. */
-      if (dec.chanTexts && dec.chanTexts.length)
-        for (const r of dec.chanTexts) rivals.push({ T, pts, c: r.c, t: r.t });
-      if (dec.single && dec.chanTexts &&
-          dec.chanTexts.some(r => r.c !== dec.single && textGap(r.t, dec.text) > TEXT_FAR)) {
-        diag.rejected.push({ q: qi, k: h.label, T, why: 'втрачено канал',
-                             lost: 1, agree: +dec.agree.toFixed(3),
-                             text: dec.text.slice(0, 20) });
-        continue;
-      }
-
-      /* ПЕРЕВІРКА 3: мінімальність поля.
-         Генератор обирає найменше поле під обсяг даних. Якщо знятий текст
-         влазить у менше поле — сітку зсунуто або це випадковий збіг. */
-      {
-        const ps = dec.parts || [dec.text];
-        let bits = 0;
-        for (const t of ps) if (t) bits = Math.max(bits, _enc.encode(t).length * 8);
-        if (dec.rmark) bits += 1;
-        const want = minimalOctN(bits);
-        /* Запас у два кроки. Точну рівність вимагати НЕ можна: старі коди
-           з галереї зроблені попередніми версіями генератора, де розкладка
-           тексту по каналах була іншою, і в них n на крок більше за нинішню
-           формулу. А от текст, що влазить у поле на два кроки менше, —
-           це вже не варіація генератора, це зсунута сітка. */
-        if (want <= n - 4) {
-          diag.rejected.push({ q: qi, k: h.label, T, why: 'поле завелике для даних',
-                               n, expected: want, text: dec.text.slice(0, 20) });
-          continue;
+      } else okd = acceptDec(dec, cx);
+      if (okd === 'early') { diag.earlyExit = true; break outer; }
+      if (!okd && CODEC === UTF8C) {
+        /* Бездоганна рамка, яку звичайний спосіб не прочитав, — одразу
+           пробуємо компактний (у старого коду так не буває: його вірна сітка
+           читається звичайним способом). Інше — відкладаємо до tryCompact. */
+        if (window.OC8 && exactGeo(cx)) {
+          useCodec(OC8C);
+          let ok2 = false;
+          try { const d2 = decodeCells(cells, Tz); if (d2 && d2.text !== null) ok2 = acceptDec(d2, cx); }
+          finally { useCodec(UTF8C); }
+          if (ok2 === 'early') { diag.earlyExit = true; break outer; }
+          if (ok2) continue;
         }
-      }
-
-      accepted.push({
-        text: dec.text, parts: dec.parts || [dec.text], T, n, Tz,
-        mode: dec.mode, kind: dec.kind, colored: dec.colored, palette: dec.palette,
-        agree: dec.agree, frame: frame.score, zebraConf: z.conf,
-        shape: dec.shape, tinted: !!dec.tinted, rmark: !!dec.rmark,
-        alt: ring.alt, cornersDark: ring.cornersDark,
-        corners: pts, quad: qi, inset: h.label, warpSize: S,
-        channels: dec.channels || null, chanInv: dec.chanInv || null,
-        single: dec.single || null, doubt: dec.doubt || 0
-      });
-      diag.candidates.push({ q: qi, k: h.label, T, agree: +dec.agree.toFixed(3),
-                             frame: +frame.score.toFixed(2), text: dec.text.slice(0, 40) });
-
-      /* Ранний выход — только по подтверждённому консенсусу. Одиночное идеальное
-         совпадение может оказаться сдвинутой сеткой, прочитавшей самосогласованный
-         кусок настоящего кода. */
-      const sameText = accepted.filter(c => c.text === dec.text).length;
-      if (dec.agree >= 0.999 && frame.score >= 0.999 && sameText >= 2) {
-        diag.earlyExit = true; break outer;
+        if (deferred.length < 96) deferred.push({ cells, cx });
       }
       } /* кінець перебору кандидатів розміру */
     }
@@ -1896,6 +1972,8 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0, ctl) {
       accepted.some(c => c.agree >= 0.999 && c.frame >= 0.999))) break;
   }
   } /* кінець етапів */
+
+  if (!aborted) tryCompact();
 
   if (aborted) {
     /* негатив уже прочитано за рамкою (див. decode) — цей прохід зупинено */
@@ -2014,6 +2092,7 @@ function decodePixels(px, W, H, quads, opts, diag, mark, t0, ctl) {
     partial: (best.doubt || 0) >= CFG.DOUBT_MIN,
     doubtBits: best.doubt || 0,
     rmark: best.rmark,            // 1 = один текст, розкладений по каналах
+    format: best.fmt || 'utf8',   // яким способом прочитано: utf8 | oc8
     corners: best.corners,
     ms: +(performance.now() - t0).toFixed(1),
     diagnostic: opts.diagnostic ? diag : undefined
@@ -2391,7 +2470,7 @@ window.runDecodeAttempts = function (img, opts) {
             confidence: r.confidence, parts: r.parts, channels: r.channels,
             rmark: r.rmark, colored: r.colored, tinted: r.tinted, text: r.text,
             negative: !!r.negative, chanInv: r.chanInv || null,
-            partial: !!r.partial }];
+            partial: !!r.partial, format: r.format || 'utf8' }];
 };
 
 })();

@@ -29,6 +29,7 @@
 </script>
 <script defer src="/_vercel/insights/script.js"></script>
 <script defer src="shell.js"></script>
+<script src="slovnyk.js?v=1"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:var(--ink);color:var(--parchment);font-family:var(--sans);line-height:1.5;min-height:100vh;
@@ -135,7 +136,11 @@ function mirrors(m,n,x,y){const c=Rof(n),i=x-c,j=y-c;let p;
   const o=[];for(const [a,b] of p){const X=c+a,Y=c+b;if(X>=0&&Y>=0&&X<n&&Y<n)o.push([X,Y])}
   return o;}
 function pickN2(m,need){for(let n=MINN;n<=MAXN;n+=2)if(capacity(m,n)>=need)return n;return MAXN;}
-function textBits(t){const data=enc.encode(t);const bits=new Uint8Array(data.length*8);
+/* Спосіб запису роботи: settings.fmt === 'oc8' — компактний; старі роботи
+   поля fmt не мають — для них, як і раніше, звичайний (UTF-8). */
+let REC_OC8=false;
+function encFmt(t){return REC_OC8?OC8.withCheck(OC8.encode(t)):enc.encode(t);}
+function textBits(t){const data=encFmt(t);const bits=new Uint8Array(data.length*8);
   for(let i=0;i<data.length;i++)for(let b=0;b<8;b++)bits[i*8+b]=(data[i]>>(7-b))&1;return bits;}
 function rowBuild(text,maxB){const chars=[...text],w=maxB*8,h=Math.max(chars.length,1);
   const g=new Uint8Array(w*h);
@@ -155,6 +160,7 @@ function fillChannel(t,n,m,markBit){
 const RGB_SOFT={r:[220,50,60],g:[65,195,65],b:[60,70,215]};
 function renderBytecode(cv,rec){
   const s=rec.settings||{};
+  REC_OC8=(s.fmt==='oc8')&&!!window.OC8;
   const mode=rec.mode||'oct';
   const layers=rec.layers||1;
   /* Негатив: у монохромі одиниця й нуль міняються кольорами, тиха зона
@@ -177,7 +183,7 @@ function renderBytecode(cv,rec){
       grid[k]=g;dmask[k]=dm;});
   }else{
     const extraR=(layers===3&&monoMark===1)?1:0;
-    let maxBits=0;words.forEach(t=>{if(t)maxBits=Math.max(maxBits,enc.encode(t).length*8)});
+    let maxBits=0;words.forEach(t=>{if(t)maxBits=Math.max(maxBits,encFmt(t).length*8)});
     const n=pickN2(mode,maxBits+extraR);W=H=n;
     ['r','g','b'].forEach((k,i)=>{
       let markBit=null;if(layers===3&&monoMark===1&&i===0)markBit=1;
