@@ -729,6 +729,9 @@ body.light-mode #adm-dlg .hint{color:#8a4e00}
   <div class="sm-row" data-for="langBtn"><span id="sm-lang-l">Мова</span>
     <button class="cornbtn" id="langBtn" type="button" title="Мова / Language">UA</button>
   </div>
+  <div class="sm-row"><span id="sm-snd-l">Звук</span>
+    <div class="snd-seg" id="snd-seg"><button type="button" data-v="0"></button><button type="button" data-v="1"></button><button type="button" data-v="2"></button></div>
+  </div>
   <div class="sm-row sm-adm own-only"><span id="sm-adm-l">Режим адміністратора</span><button type="button" class="b" id="sm-adm-off">вимкнути</button></div>
 </div>
 
@@ -1429,7 +1432,9 @@ function lastThumb(){
 
 let AC=null;
 function ac(){try{if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();return AC}catch(e){return null}}
-function tone(f,d=.15,v=.08,t='sine'){const c=ac();if(!c)return;const o=c.createOscillator(),g=c.createGain();o.type=t;o.frequency.value=f;o.connect(g);g.connect(c.destination);g.gain.setValueAtTime(v,c.currentTime);g.gain.exponentialRampToValueAtTime(.00001,c.currentTime+d);o.start();o.stop(c.currentTime+d);}
+/* ЗВУК САЙТУ: 0 — вимкнено, 1 — тихо (за замовчуванням), 2 — гучно. Перемикач — у меню. */
+let SND=1;try{const s=localStorage.getItem('taina_snd');if(s==='0'||s==='1'||s==='2')SND=+s;}catch(e){}
+function tone(f,d=.15,v=.08,t='sine'){if(!SND)return;v*=(SND===2?2.5:1);const c=ac();if(!c)return;const o=c.createOscillator(),g=c.createGain();o.type=t;o.frequency.value=f;o.connect(g);g.connect(c.destination);g.gain.setValueAtTime(v,c.currentTime);g.gain.exponentialRampToValueAtTime(.00001,c.currentTime+d);o.start();o.stop(c.currentTime+d);}
 function keyClick(){tone(1750+Math.random()*260,.014,.03,'square')}
 function typeClick(){tone(1400+Math.random()*400,.016,.04,'triangle')}
 function okChime(){tone(587,.09,.08);setTimeout(()=>tone(784,.1,.08),85);setTimeout(()=>tone(1047,.11,.08),175);setTimeout(()=>tone(1568,.32,.06),290)}
@@ -1679,7 +1684,7 @@ function paint(ctx,cell,pad,qz){
    іноді дають однаковий модуль, і холст трохи дихає: 1110–1200 px.
    Цього розміру вистачає для друку, тому при збереженні картинка більше
    не множиться — іде як є. */
-function render(){const QZ=2;const pad=(frameW>=2?3:frameW),tw=W+pad*2,th=H+pad*2;const side=Math.max(tw+QZ*2,th+QZ*2);const cell=Math.max(3,2*Math.floor(1161/side/2)+1);OFF.width=(tw+QZ*2)*cell;OFF.height=(th+QZ*2)*cell;OCTX.imageSmoothingEnabled=false;paint(OCTX,cell,pad,QZ);
+function render(){const QZ=2;const pad=(frameW>=2?3:frameW),tw=W+pad*2,th=H+pad*2;const side=Math.max(tw+QZ*2,th+QZ*2);window.OC_QZ=QZ/side;   /* частка тихої зони — для рамки «Перевірити» */const cell=Math.max(3,2*Math.floor(1161/side/2)+1);OFF.width=(tw+QZ*2)*cell;OFF.height=(th+QZ*2)*cell;OCTX.imageSmoothingEnabled=false;paint(OCTX,cell,pad,QZ);
   /* RGB-негатив: повна інверсія пікселів */
   if(rgbMask()===7){const d=OCTX.getImageData(0,0,OFF.width,OFF.height),a=d.data;for(let i=0;i<a.length;i+=4){a[i]=255-a[i];a[i+1]=255-a[i+1];a[i+2]=255-a[i+2];}OCTX.putImageData(d,0,0);}
   if(STITCH_LIST.length)drawStitches(OCTX,cell,rgbMask()===7);
@@ -3676,7 +3681,7 @@ sync();
 <style>
 @media(max-width:820px){
   /* ── гасимо стару розкладку ── */
-  #hdr,#mobabar,.app>.cell,.rightcol,.inscan{display:none!important}
+  #hdr,#mobabar,.app>.cell,.rightcol{display:none!important}
   .a-center .action,.a-center .btn-main{display:none!important}
   .app{display:flex!important;flex-direction:column;padding-bottom:0!important;
        grid-template-areas:none!important}
@@ -3739,6 +3744,41 @@ sync();
   .inbox-dice svg{width:28px;height:28px}
   .inbox-dice:active{transform:translateY(-50%) scale(.92)}
   body.m-start .inbox-dice svg{animation:mDiceRock 3.4s ease-in-out infinite}
+  /* ПОЛЕ ВВОДУ (18.11.2026): сканер завжди зліва й нікуди не переїжджає,
+     кубик — справа; хрестик з'являється лише разом із текстом.
+     Поки кубик ще видно (слово від кубика), хрестик стоїть ліворуч від нього. */
+  .inbox .inscan{display:flex!important;position:absolute;left:6px;right:auto;top:50%;transform:translateY(-50%);
+    width:36px;height:36px;border-radius:10px;border:0;padding:0;background:none!important;
+    color:var(--parchment)!important;z-index:3;align-items:center;justify-content:center;cursor:pointer}
+  .inbox .inscan svg{width:28px;height:28px}
+  .inbox .inscan:active{transform:translateY(-50%) scale(.92)}
+  .inbox-dice{left:auto!important;right:6px}
+  body.m-start .inbox-x{display:none!important}
+  .inbox.dice-on .inbox-x{right:44px}
+  .inbox.dice-on textarea.inp.big{padding-left:84px!important;padding-right:84px!important}
+  /* СТАРТ: замість блідого орнамента з оком — справжній код «Вишиванка» хрестиками */
+  .stage-cta .cta-ghost,.stage-cta #cta-scan{display:none!important}
+  .stage-cta .start-orn{position:absolute;inset:0;width:100%;height:100%;display:block;
+    image-rendering:pixelated;pointer-events:none}
+  /* «Перевірити» — під орнаментом, окремим шаром (орнамент не зсувається) */
+  .m-check{display:none;position:absolute;left:12px;right:12px;z-index:2;flex-direction:column;
+    align-items:center;gap:6px;text-align:center;font-family:var(--sans)}
+  .m-check.on{display:flex}
+  .mc-btn{display:flex;align-items:center;gap:10px;padding:10px 22px;border:2px solid var(--parchment);
+    border-radius:14px;background:transparent;color:var(--parchment);font-family:var(--sans);
+    font-size:19px;font-weight:700;cursor:pointer}
+  .mc-btn svg{width:26px;height:26px}
+  .mc-btn:active{transform:scale(.96)}
+  .mc-msg{font-size:21px;font-weight:700;line-height:1.25;color:var(--parchment);max-width:100%;
+    overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+  .mc-sub{font-size:14px;line-height:1.3;color:var(--parchment);opacity:.75}
+  .m-check[data-s="idle"] .mc-msg{display:none}
+  .m-check:not([data-s="idle"]) .mc-btn{display:none}
+  .m-check[data-s="scan"] .mc-msg{font-family:var(--mono);color:#1d7a3e}
+  .m-check .ok-c{color:#1d7a3e}
+  .m-check .bad-c{color:#b3261e}
+  body:not(.light-mode) .m-check[data-s="scan"] .mc-msg,body:not(.light-mode) .m-check .ok-c{color:#5fd38a}
+  body:not(.light-mode) .m-check .bad-c{color:#ff8a80}
   @keyframes mDiceRock{0%,72%,100%{transform:rotate(0)}78%{transform:rotate(-16deg)}86%{transform:rotate(14deg)}93%{transform:rotate(-6deg)}}
   @media (prefers-reduced-motion:reduce){body.m-start .inbox-dice svg{animation:none}}
 
@@ -4100,6 +4140,10 @@ var pm=pane('menu');
 pm.insertAdjacentHTML('beforeend','<div class="lbl">мова</div>');
 var lw=document.createElement('div');lw.className='m-lang';
 lw.appendChild($('langBtn'));pm.appendChild(lw);
+/* звук: вимкнути / тихо / гучно */
+pm.insertAdjacentHTML('beforeend','<div class="lbl" id="m-snd-l">звук</div>');
+var sw=document.createElement('div');sw.className='m-lang';
+sw.appendChild($('snd-seg'));pm.appendChild(sw);
 /* власнику — рядок режиму адміністратора (відвідувач його не бачить) */
 if(window.TAINA_OWNER){
   pm.insertAdjacentHTML('beforeend','<div class="lbl">адміністратор</div>');
@@ -4212,6 +4256,7 @@ function layout(){
     if(mi.offsetHeight>room-s)s=Math.max(110,room-mi.offsetHeight);
     mi.style.top=(s+12)+'px';
   }
+  var mc=$('m-check');if(mc)mc.style.top=(s+16)+'px';   /* «Перевірити» — одразу під орнаментом */
   box.style.width=s+'px';box.style.height=s+'px';
 }
 addEventListener('resize',function(){
@@ -4327,6 +4372,7 @@ buildDeck();
   function sync(){
     var e=empty();
     dice.classList.toggle('on',e||(!!last&&el.value===last));
+    dice.parentNode.classList.toggle('dice-on',!e&&dice.classList.contains('on'));
     if(e===on)return; on=e;
     document.body.classList.toggle('m-start',e);
     if(e&&cur)closeSheet();
@@ -4348,6 +4394,200 @@ buildDeck();
   sync();
 })();
 
+/* ── 14. СТАРТОВИЙ ОРНАМЕНТ І «ПЕРЕВІРИТИ» (18.11.2026) ───────────
+   Старт: справжній код слова «Вишиванка» — режим «Для вишивки»,
+   біла канва, чорна + червона нитка. Малюється один раз тим самим генератором,
+   налаштування людини після цього повертаються як були.
+   Після генерації під орнаментом — «Перевірити»: сканер сайту справді
+   читає орнамент з полотна і показує, що прочитав. */
+(function(){
+  var EYE='<svg viewBox="0 0 17 17" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M.5 4.5v-3a1 1 0 0 1 1-1h3M12.5.5h3a1 1 0 0 1 1 1v3M16.5 12.5v3a1 1 0 0 1-1 1h-3M4.5 16.5h-3a1 1 0 0 1-1-1v-3"/><path d="M2.5 8.5c2.1-2.9 3.9-4 6-4s3.9 1.1 6 4c-2.1 2.9-3.9 4-6 4s-3.9-1.1-6-4z"/><circle cx="8.5" cy="8.5" r="2.1"/><circle cx="8.5" cy="8.5" r=".65" fill="currentColor" stroke="none"/></svg>';
+  var sc=$('in-scan');if(sc)sc.innerHTML=EYE;
+
+  /* — стартовий орнамент — */
+  var cta=$('stage-cta'),img=null,shotKey='';
+  function ensureShot(){
+    if(!cta||isDemo||busy||camStream)return;
+    if(D.single&&D.single.length)return;                 /* лише коли поле порожнє */
+    var key=stageBg()+'|'+CV.width;
+    if(img&&shotKey===key)return;
+    var sv={t:D.single,pu:purpose,si:spI,sh:shape,inv:invert,mo:motif,mk:motifK,ly:layers,sl:scrLook},url='';
+    try{
+      isDemo=true;layers=1;purpose='stitch';spI=1;motif='none';stitchSync();
+      D.single='Вишиванка';build();url=CV.toDataURL('image/png');
+    }catch(e){}
+    D.single=sv.t;purpose=sv.pu;spI=sv.si;shape=sv.sh;invert=sv.inv;motif=sv.mo;motifK=sv.mk;layers=sv.ly;scrLook=sv.sl;
+    isDemo=false;try{syncSeg('shape','s',shape);}catch(e){}
+    build();
+    if(!url)return;
+    if(!img){img=document.createElement('img');img.className='start-orn';img.alt='';cta.insertBefore(img,cta.firstChild);}
+    img.src=url;shotKey=key;
+  }
+  setTimeout(ensureShot,30);
+  setInterval(function(){if(document.body.classList.contains('m-start'))ensureShot();},400);
+
+  /* — «Перевірити» під орнаментом — */
+  var mc=document.createElement('div');mc.id='m-check';mc.className='m-check';mc.setAttribute('data-s','idle');
+  mc.innerHTML='<button type="button" class="mc-btn">'+EYE+'<span></span></button>'+
+    '<div class="mc-msg"></div><div class="mc-sub"></div>';
+  wrap.appendChild(mc);
+  var mBtn=mc.querySelector('.mc-btn'),mMsg=mc.querySelector('.mc-msg'),mSub=mc.querySelector('.mc-sub'),dotT=0;
+  function L(k){return (window.OC_T&&OC_T(k))||'';}
+  function ui(s,txt){
+    mc.setAttribute('data-s',s);clearInterval(dotT);
+    mBtn.querySelector('span').textContent=L('btn');
+    if(s==='idle'){mMsg.textContent='';mSub.textContent=L('subIdle');}
+    else if(s==='scan'){var n=0;mSub.textContent='';
+      var f=function(){mMsg.textContent=L('scan')+'.'.repeat(n%4);n++;};f();dotT=setInterval(f,220);}
+    else if(s==='ok'){mMsg.innerHTML='<span class="ok-c">✓ '+L('ok')+'</span> <b></b>';
+      mMsg.querySelector('b').textContent='«'+txt+'»';mSub.textContent=L('subOk');}
+    else{mMsg.innerHTML='<span class="bad-c">✗ '+L('fail')+'</span>';mSub.textContent=L('subFail');}
+    setTimeout(layout,0);
+  }
+  window.OC_mUI=ui;
+  ui('idle');
+  mBtn.onclick=function(e){e.preventDefault();e.stopPropagation();if(window.ocCheck)ocCheck(ui);};
+  setInterval(function(){
+    var show=!document.body.classList.contains('m-start')&&hasImage&&!isDemo&&!cur&&!camStream&&!scannedImg;
+    mc.classList.toggle('on',show);},250);
+})();
+
+})();
+</script>
+
+<!-- ═══ ПЕРЕВІРИТИ · ЗВУК · ПІДКАЗКА В СКАНЕРІ (18.11.2026) ═══════════
+     Спільне для телефона й ПК. -->
+<style>
+/* ефект сканування поверх орнамента */
+.ck-ov{position:absolute;pointer-events:none;z-index:7}
+.ck-tint{position:absolute;left:0;right:0;top:0;height:0;background:rgba(40,200,100,.22)}
+.ck-line{position:absolute;left:-8px;right:-8px;top:0;height:4px;margin-top:-2px;background:#3ee07a;
+  box-shadow:0 0 12px 4px rgba(62,224,122,.85),0 0 30px 10px rgba(62,224,122,.35)}
+.ck-c{position:absolute;width:16%;height:16%;border:4px solid #1fa354;opacity:0;transform:scale(1.15);
+  transition:opacity .2s,transform .25s}
+.ck-ov.done .ck-c{opacity:1;transform:none}
+.ck-c.tl{left:-9px;top:-9px;border-right:0;border-bottom:0;border-radius:9px 0 0 0;transform-origin:0 0}
+.ck-c.tr{right:-9px;top:-9px;border-left:0;border-bottom:0;border-radius:0 9px 0 0;transform-origin:100% 0}
+.ck-c.bl{left:-9px;bottom:-9px;border-right:0;border-top:0;border-radius:0 0 0 9px;transform-origin:0 100%}
+.ck-c.br{right:-9px;bottom:-9px;border-left:0;border-top:0;border-radius:0 0 9px 0;transform-origin:100% 100%}
+/* ПК: напис-результат унизу полотна */
+.ck-pill{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:8;max-width:90%;
+  padding:8px 16px;border-radius:12px;background:rgba(10,8,6,.86);color:#fff;font-family:var(--sans);
+  font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;
+  transition:opacity .3s}
+.ck-pill.hide{opacity:0}
+.ck-pill .ok-c{color:#6fe39a}.ck-pill .bad-c{color:#ff8a80}
+#chk-btn svg{width:24px;height:24px}
+/* перемикач звуку */
+.snd-seg{display:flex;flex:0 0 auto;border:1px solid var(--line);border-radius:11px;overflow:hidden}
+.snd-seg button{border:0;background:transparent;color:var(--parchment);font-family:var(--mono);font-size:13px;
+  padding:10px 12px;cursor:pointer;min-width:52px}
+.snd-seg button+button{border-left:1px solid var(--line)}
+.snd-seg button.on{background:var(--acc);color:var(--on-acc)}
+/* підказка біля кнопки «з галереї» у сканері */
+.cam-tip{position:absolute;right:74px;bottom:25px;z-index:13;padding:7px 12px;border-radius:10px;
+  background:rgba(0,0,0,.75);color:#fff;font-family:var(--sans);font-size:14px;font-weight:600;
+  white-space:nowrap;pointer-events:none}
+.cam-gal.hide+.cam-tip{display:none}
+</style>
+<script>
+(function(){
+/* — тексти — */
+var TX={uk:{btn:'Перевірити',subIdle:'сканер прочитає орнамент назад у текст',scan:'Сканую',ok:'Прочитано:',
+            subOk:'так само читається з фото, скриншота чи вишивки',fail:'Не вдалося прочитати',
+            subFail:'спробуй інший колір або вигляд',snd:['Вимк','Тихо','Гучно'],sndL:'Звук',
+            camTip:'або вибери скриншот →',chkT:'Перевірити — прочитати сканером'},
+        en:{btn:'Check',subIdle:'the scanner will read the ornament back into text',scan:'Scanning',ok:'Read:',
+            subOk:'it reads the same way from a photo, screenshot or embroidery',fail:'Could not read',
+            subFail:'try another colour or look',snd:['Off','Quiet','Loud'],sndL:'Sound',
+            camTip:'or pick a screenshot →',chkT:'Check — read with the scanner'}};
+window.OC_T=function(k){return (TX[(typeof LANG!=='undefined'&&LANG==='en')?'en':'uk'])[k];};
+var T=OC_T;
+
+/* — перемикач звуку: у меню (☰), «Тихо» за замовчуванням — */
+var seg=$('snd-seg');
+function sndSync(){if(!seg)return;var n=T('snd');
+  [].forEach.call(seg.children,function(b,i){b.textContent=n[i];b.classList.toggle('on',+b.getAttribute('data-v')===SND);});
+  var l=$('sm-snd-l');if(l)l.textContent=T('sndL');}
+if(seg)seg.addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b)return;e.stopPropagation();
+  SND=+b.getAttribute('data-v');try{localStorage.setItem('taina_snd',String(SND));}catch(x){}
+  sndSync();tone(784,.12,.05);});
+sndSync();
+
+/* — ефект і справжнє зчитування — */
+var ckBusy=false,ckOv=null,ckRun=0;
+function ckNote(k){tone(523*Math.pow(2,Math.floor(k*2.4)/12),.13,.035);}
+function ckChord(){[1046,1318,1568].forEach(function(f){tone(f,1.1,.022);});}
+function ckClear(){if(ckOv){ckOv.remove();ckOv=null;}}
+var reset=[];   /* хто хоче знати, що орнамент змінився */
+function ckReset(){ckRun++;ckBusy=false;ckClear();reset.forEach(function(f){try{f();}catch(e){}});}
+window.ocCheck=function(ui){
+  if(ckBusy||!hasImage||isDemo||busy||camStream||scannedImg)return;
+  ckBusy=true;var run=++ckRun;
+  try{ac();}catch(e){}            /* звук дозволено лише з дотику — вмикаємо одразу */
+  ckClear();
+  var st=$('stage'),q=((window.OC_QZ||.06)*100).toFixed(3)+'%';
+  var ov=document.createElement('div');ov.className='ck-ov';
+  ov.style.left=ov.style.top=ov.style.right=ov.style.bottom=q;
+  ov.innerHTML='<div class="ck-tint"></div><div class="ck-line"></div><i class="ck-c tl"></i><i class="ck-c tr"></i><i class="ck-c bl"></i><i class="ck-c br"></i>';
+  st.appendChild(ov);ckOv=ov;
+  var tint=ov.firstChild,line=ov.children[1];
+  ui('scan');
+  var DUR=1600,t0=performance.now(),k=0;ckNote(k++);
+  function fr(now){
+    if(run!==ckRun)return;
+    var p=Math.min(1,(now-t0)/DUR);
+    tint.style.height=(p*100)+'%';line.style.top=(p*100)+'%';
+    while(k<16&&now-t0>=k*100)ckNote(k++);
+    if(p<1){requestAnimationFrame(fr);return;}
+    setTimeout(function(){
+      if(run!==ckRun)return;
+      var txt=null;
+      try{var f=runDecodeAttempts(CV);
+        if(f&&f.length)txt=(f[0].text!=null)?f[0].text:f[0].res.filter(function(x){return x;}).join('');}catch(e){}
+      if(run!==ckRun)return;
+      tint.remove();line.remove();ckBusy=false;
+      if(txt!==null){ov.classList.add('done');ckChord();ui('ok',txt);}
+      else{ckClear();if(typeof sadSound==='function')sadSound();ui('fail');}
+    },40);
+  }
+  requestAnimationFrame(fr);
+};
+/* будь-яка зміна орнамента — рамка зникає, кнопка повертається */
+var _render=render;
+render=function(){var r=_render.apply(this,arguments);ckReset();return r;};
+reset.push(function(){if(window.OC_mUI)OC_mUI('idle');});
+
+/* — ПК: кнопка в правій колонці, напис унизу полотна — */
+var mb=$('mainbtn');
+if(mb){
+  var cb=document.createElement('button');cb.type='button';cb.className='arrow';cb.id='chk-btn';
+  cb.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><path d="m8 12.5 2.8 2.8L16.5 9.5"/></svg>';
+  mb.insertAdjacentElement('afterend',cb);
+  var pill=document.createElement('div');pill.className='ck-pill hide';$('stage').appendChild(pill);var pT=0;
+  var dui=function(s,txt){
+    clearTimeout(pT);clearInterval(pill._d);
+    if(s==='idle'){pill.classList.add('hide');return;}
+    pill.classList.remove('hide');
+    if(s==='scan'){var n=0;var f=function(){pill.textContent=T('scan')+'.'.repeat(n%4);n++;};f();pill._d=setInterval(f,220);}
+    else if(s==='ok'){pill.innerHTML='<span class="ok-c">✓ '+T('ok')+'</span> <span></span>';pill.lastChild.textContent='«'+txt+'»';
+      pT=setTimeout(function(){pill.classList.add('hide');},6000);}
+    else{pill.innerHTML='<span class="bad-c">✗ '+T('fail')+'</span>';pT=setTimeout(function(){pill.classList.add('hide');},5000);}
+  };
+  cb.onclick=function(e){e.stopPropagation();ocCheck(dui);};
+  reset.push(function(){dui('idle');});
+  setInterval(function(){cb.disabled=!(hasImage&&!isDemo&&!camStream&&!scannedImg);cb.title=T('chkT');},400);
+}
+
+/* — підказка в сканері біля кнопки «з галереї» — */
+var cg=$('cam-gal');
+if(cg){var tip=document.createElement('div');tip.className='cam-tip';tip.id='cam-tip';cg.insertAdjacentElement('afterend',tip);}
+function txtSync(){var c=$('cam-tip');if(c)c.textContent=T('camTip');sndSync();
+  if(window.OC_mUI){var m=$('m-check');if(m&&m.getAttribute('data-s')==='idle')OC_mUI('idle');}}
+txtSync();
+var _al2=window.applyLang;
+window.applyLang=function(){var r=_al2.apply(this,arguments);txtSync();return r;};
 })();
 </script>
 
